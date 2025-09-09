@@ -1,11 +1,76 @@
-bin/
-obj/
+# Windows
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+*.lnk
+
+# Generic temp/log/backup
+*.log
+*.tlog
+*.orig
+*.bak
+*.tmp
+*.temp
+*.swp
+*.swo
+
+# VS cache & user state
 .vs/
 *.user
-*.suo
 *.userosscache
+*.suo
+*.rsuser
 *.sln.docstates
-*.DotSettings.user
-*.ide.*
-*.resharper
+
+# Build output (any project)
+**/bin/
+**/obj/
+**/out/
+**/artifacts/
+**/Debug/
+**/Release/
+
+# NuGet packages & artifacts
+*.nupkg
+*.snupkg
+
+# For legacy packages/ (not used with PackageReference)
+packages/
+!packages/build/
+!packages/build/**
+
+# MSBuild logs/caches
+*.cache
+*.cachefile
+*.msbuild.binlog
+
+# Publish / ClickOnce
+**/publish/
+**/app.publish/
+
+# Tests / coverage / benchmarking
+TestResults/
+**/TestResult*/
+*.trx
+*.coverage
+*.coveragexml
+coverage/
+coverage*/
+*.opencover.xml
+BenchmarkDotNet.Artifacts/
+
+# JetBrains Rider / ReSharper / DotCover
+.idea/
 _ReSharper*/
+*.[Rr]e[Ss]harper
+*.DotSettings.user
+
+# Visual Studio Code (ignore local state, allow shareable files)
+.vscode/*
+!.vscode/extensions.json
+!.vscode/settings.json
+!.vscode/tasks.json
+!.vscode/launch.json
+
+# StyleCop, analyzers
+StyleCopReport.xml

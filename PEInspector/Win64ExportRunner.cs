@@ -4,7 +4,7 @@ public static class Win64ExportRunner
 {
     static void Main(string[] args)
     {
-        var disasm = DisassembleExportToPseudo("ntdll.dll", "RtlAllocateHeap", 256 * 1024);
+        var disasm = DisassembleExportToPseudo("shell32.dll", "ShellExecuteExW", 256 * 1024);
         Console.WriteLine(disasm);
     }
     /// <summary>
