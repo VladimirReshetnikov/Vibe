@@ -1,7 +1,5 @@
 # Coding Guidelines
 
-The following guidelines summarize coding style preferences demonstrated in commit 7d7010adb360ae8926ebe54eb0e16bc23baae43f.
-
 ## General
 - Use `var` for local variables when the type is obvious from the right-hand side.
 - Prefer early returns and guard clauses over deeply nested conditionals.
