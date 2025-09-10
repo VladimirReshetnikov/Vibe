@@ -218,8 +218,16 @@ public sealed class PEReaderLite
 
             var module = new ImportModule { Name = moduleName };
 
+            int symbolCount = 0;
             while (true)
             {
+                if (symbolCount++ >= 10000)
+                    throw new BadImageFormatException("Too many import symbols in module.");
+
+                // Check bounds before reading thunk entry (8 bytes)
+                if (thunkOff + 8 > Data.Length)
+                    break;
+                    
                 ulong entry = U64(thunkOff);
                 if (entry == 0)
                     break;
