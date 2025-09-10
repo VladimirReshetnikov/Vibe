@@ -59,15 +59,30 @@ public static class Win32DocFetcher
                 if (!result.TryGetProperty("url", out var urlProp))
                     continue;
                 string resultUrl = urlProp.GetString() ?? string.Empty;
-                if (!resultUrl.Contains("learn.microsoft.com"))
+                if (!resultUrl.Contains("learn.microsoft.com", StringComparison.OrdinalIgnoreCase))
                     continue;
                 // Basic heuristic: ensure the URL contains the export name in lowercase.
-                if (!resultUrl.ToLowerInvariant().Contains(exportLower))
+                if (!resultUrl.Contains(exportLower, StringComparison.OrdinalIgnoreCase))
                     continue;
 
                 try
                 {
-                    return await _http.GetStringAsync(resultUrl, cancellationToken);
+                    // Use a HEAD request first to ensure the URL is valid and points to HTML content.
+                    using var headReq = new HttpRequestMessage(HttpMethod.Head, resultUrl);
+                    using var headResp = await _http.SendAsync(headReq, HttpCompletionOption.ResponseHeadersRead, cancellationToken);
+                    if (!headResp.IsSuccessStatusCode)
+                        continue;
+                    var mediaType = headResp.Content.Headers.ContentType?.MediaType;
+                    if (mediaType is null || !mediaType.Equals("text/html", StringComparison.OrdinalIgnoreCase))
+                        continue;
+
+                    string html = await _http.GetStringAsync(resultUrl, cancellationToken);
+
+                    // Ensure the page looks like Microsoft Learn documentation.
+                    if (!html.Contains("data-target=\"docs\"", StringComparison.OrdinalIgnoreCase))
+                        continue;
+
+                    return html;
                 }
                 catch (HttpRequestException)
                 {
