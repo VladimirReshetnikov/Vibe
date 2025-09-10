@@ -1,4 +1,4 @@
-﻿
+// SPDX-License-Identifier: MIT-0
 using System.Globalization;
 using System.Text;
 
