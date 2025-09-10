@@ -5,8 +5,13 @@ public sealed class PEReaderLite
     public readonly byte[] Data;
     public readonly ulong ImageBase;
     public readonly List<Section> Sections = new();
+    public readonly DataDirectory[] DataDirectories;
     public readonly uint ExportRva;
     public readonly uint ExportSize;
+    public readonly uint CliHeaderRva;
+    public readonly uint CliHeaderSize;
+    public bool HasDotNetMetadata => CliHeaderRva != 0;
+    public readonly List<ImportModule> Imports = new();
     public readonly uint SizeOfHeaders; // NEW: keep SizeOfHeaders for header-range RVA mapping
 
     public PEReaderLite(string path)
@@ -40,8 +45,28 @@ public sealed class PEReaderLite
         if (numberOfRvaAndSizes < 1)
             throw new BadImageFormatException("No data directories.");
 
-        ExportRva = U32(dataDirOff + 0 * 8 + 0);
-        ExportSize = U32(dataDirOff + 0 * 8 + 4);
+        int dirCount = (int)Math.Min(numberOfRvaAndSizes, 16);
+        DataDirectories = new DataDirectory[dirCount];
+        for (int i = 0; i < dirCount; i++)
+        {
+            uint rva = U32(dataDirOff + i * 8 + 0);
+            uint size = U32(dataDirOff + i * 8 + 4);
+            DataDirectories[i] = new DataDirectory { VirtualAddress = rva, Size = size };
+        }
+
+        if (dirCount > 0)
+        {
+            ExportRva = DataDirectories[0].VirtualAddress;
+            ExportSize = DataDirectories[0].Size;
+        }
+
+        uint importRva = dirCount > 1 ? DataDirectories[1].VirtualAddress : 0;
+
+        if (dirCount > 14)
+        {
+            CliHeaderRva = DataDirectories[14].VirtualAddress;
+            CliHeaderSize = DataDirectories[14].Size;
+        }
 
         // Sections
         int secOff = optOff + optHeaderSize;
@@ -63,6 +88,9 @@ public sealed class PEReaderLite
                 PointerToRawData = ptrToRawData
             });
         }
+
+        if (importRva != 0)
+            ParseImports(importRva);
     }
 
     public Section? GetSectionForRva(uint rva)
@@ -143,6 +171,55 @@ public sealed class PEReaderLite
         throw new EntryPointNotFoundException($"Export '{name}' not found in module.");
     }
 
+    private void ParseImports(uint importRva)
+    {
+        int descOff = RvaToOffsetChecked(importRva);
+        while (true)
+        {
+            uint originalFirstThunk = U32(descOff + 0);
+            uint timeDateStamp = U32(descOff + 4);
+            uint forwarderChain = U32(descOff + 8);
+            uint nameRva = U32(descOff + 12);
+            uint firstThunk = U32(descOff + 16);
+
+            if (originalFirstThunk == 0 && timeDateStamp == 0 &&
+                forwarderChain == 0 && nameRva == 0 && firstThunk == 0)
+                break;
+
+            string moduleName = ReadAsciiZ(RvaToOffsetChecked(nameRva));
+            uint thunkRva = originalFirstThunk != 0 ? originalFirstThunk : firstThunk;
+            int thunkOff = RvaToOffsetChecked(thunkRva);
+
+            var module = new ImportModule { Name = moduleName };
+
+            while (true)
+            {
+                ulong entry = U64(thunkOff);
+                if (entry == 0)
+                    break;
+
+                bool byOrdinal = (entry & 0x8000000000000000UL) != 0;
+                if (byOrdinal)
+                {
+                    ushort ord = (ushort)(entry & 0xFFFF);
+                    module.Symbols.Add(ImportSymbol.FromOrdinal(ord));
+                }
+                else
+                {
+                    uint hintNameRva = (uint)entry;
+                    int hnOff = RvaToOffsetChecked(hintNameRva);
+                    string funcName = ReadAsciiZ(hnOff + 2); // skip hint
+                    module.Symbols.Add(ImportSymbol.FromName(funcName));
+                }
+
+                thunkOff += 8;
+            }
+
+            Imports.Add(module);
+            descOff += 20;
+        }
+    }
+
     // ------------------ local data helpers ------------------
 
     private ushort U16(int off) =>
@@ -172,6 +249,12 @@ public sealed class PEReaderLite
         return Encoding.ASCII.GetString(Data, off, i - off);
     }
 
+    public readonly struct DataDirectory
+    {
+        public uint VirtualAddress { get; init; }
+        public uint Size { get; init; }
+    }
+
     public readonly struct Section
     {
         public string Name { get; init; }
@@ -179,6 +262,28 @@ public sealed class PEReaderLite
         public uint VirtualSize { get; init; }
         public uint SizeOfRawData { get; init; }
         public uint PointerToRawData { get; init; }
+    }
+
+    public sealed class ImportModule
+    {
+        public string Name { get; init; }
+        public List<ImportSymbol> Symbols { get; } = new();
+    }
+
+    public readonly struct ImportSymbol
+    {
+        public string? Name { get; }
+        public ushort Ordinal { get; }
+        public bool IsOrdinal => Name == null;
+
+        private ImportSymbol(string? name, ushort ord)
+        {
+            Name = name;
+            Ordinal = ord;
+        }
+
+        public static ImportSymbol FromName(string name) => new(name, 0);
+        public static ImportSymbol FromOrdinal(ushort ord) => new(null, ord);
     }
 
     public readonly struct ExportInfo
