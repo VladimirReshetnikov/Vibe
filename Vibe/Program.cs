@@ -32,7 +32,7 @@ public static class Program
             }
             finally
             {
-                (provider as IDisposable)?.Dispose();
+                provider?.Dispose();
             }
         }
     }
