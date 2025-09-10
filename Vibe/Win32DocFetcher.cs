@@ -41,10 +41,34 @@ public static class Win32DocFetcher
                      "search=" + Uri.EscapeDataString(query) +
                      "&scope=desktop&locale=en-us";
 
-        using var stream = await _http.GetStreamAsync(url, cancellationToken);
-        using var doc = await JsonDocument.ParseAsync(stream, cancellationToken: cancellationToken);
-        if (!doc.RootElement.TryGetProperty("results", out var results))
+        JsonElement results;
+        try
+        {
+            using var stream = await _http.GetStreamAsync(url, cancellationToken);
+            using var doc = await JsonDocument.ParseAsync(stream, cancellationToken: cancellationToken);
+            if (!doc.RootElement.TryGetProperty("results", out results))
+                return null;
+        }
+        catch (HttpRequestException)
+        {
+            // Search API request failed - return null to maintain "Try*" semantics
             return null;
+        }
+        catch (JsonException)
+        {
+            // Invalid JSON response - return null to maintain "Try*" semantics
+            return null;
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            // User requested cancellation - propagate immediately
+            throw;
+        }
+        catch (OperationCanceledException)
+        {
+            // Timeout occurred - return null to maintain "Try*" semantics
+            return null;
+        }
 
         string exportLower = exportName.ToLowerInvariant();
         foreach (var result in results.EnumerateArray())
@@ -66,9 +90,14 @@ public static class Win32DocFetcher
             {
                 // Skip and try next result.
             }
-            catch (TaskCanceledException)
+            catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
             {
-                // Handle timeout/cancellation - skip and try next result.
+                // User requested cancellation - propagate immediately
+                throw;
+            }
+            catch (OperationCanceledException)
+            {
+                // Timeout occurred - skip and try next result.
             }
         }
 
