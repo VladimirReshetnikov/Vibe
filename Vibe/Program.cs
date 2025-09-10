@@ -20,7 +20,17 @@ public static class Program
         {
             try
             {
-                using (provider as IDisposable)
+                if (provider is IDisposable disposable)
+                {
+                    using (disposable)
+                    {
+                        string refined = await provider.RefineAsync(disasm);
+                        Console.WriteLine();
+                        Console.WriteLine("// ---- Refined by LLM ----");
+                        Console.WriteLine(refined);
+                    }
+                }
+                else
                 {
                     string refined = await provider.RefineAsync(disasm);
                     Console.WriteLine();

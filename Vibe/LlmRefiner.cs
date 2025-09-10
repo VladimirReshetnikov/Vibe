@@ -84,8 +84,8 @@ public sealed class AnthropicLlmProvider : ILlmProvider, IDisposable
         };
 
         var json = JsonSerializer.Serialize(req);
-        using var content = new StringContent(json, Encoding.UTF8, "application/json");
-        using var resp = await _http.PostAsync("https://api.anthropic.com/v1/messages", content, cancellationToken);
+        using var reqContent = new StringContent(json, Encoding.UTF8, "application/json");
+        using var resp = await _http.PostAsync("https://api.anthropic.com/v1/messages", reqContent, cancellationToken);
         if (!resp.IsSuccessStatusCode)
         {
             var errorContent = await resp.Content.ReadAsStringAsync(cancellationToken);
