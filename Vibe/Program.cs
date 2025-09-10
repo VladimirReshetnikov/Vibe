@@ -182,7 +182,19 @@ public static class Program
 
             foreach (var cache in GetNuGetCacheDirectories())
             {
-                if (!Directory.Exists(cache)) continue;
+            if (!Directory.Exists(cache)) continue;
+            
+            // First try extracted packages (more common in global packages folder)
+            foreach (var packageDir in Directory.EnumerateDirectories(cache, "microsoft.windows.sdk.win32metadata*", SearchOption.TopDirectoryOnly))
+            {
+                foreach (var winmdFile in Directory.EnumerateFiles(packageDir, "Windows.Win32.winmd", SearchOption.AllDirectories))
+                {
+                    db.LoadWin32MetadataFromWinmd(winmdFile);
+                    return;
+                }
+            }
+            
+            // Fallback to .nupkg files (for HTTP cache locations)
                 foreach (var nupkg in Directory.EnumerateFiles(cache, "Microsoft.Windows.SDK.Win32Metadata*.nupkg", SearchOption.AllDirectories))
                 {
                     try
