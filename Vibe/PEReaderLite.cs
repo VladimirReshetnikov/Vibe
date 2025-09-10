@@ -185,6 +185,10 @@ public sealed class PEReaderLite
             if (descCount++ >= 1000)
                 throw new BadImageFormatException("Too many import descriptors.");
 
+            // Check bounds before reading import descriptor (20 bytes)
+            if (descOff + 20 > Data.Length)
+                break;
+
             uint originalFirstThunk = U32(descOff + 0);
             uint timeDateStamp = U32(descOff + 4);
             uint forwarderChain = U32(descOff + 8);
@@ -213,12 +217,19 @@ public sealed class PEReaderLite
             int thunkOff = RvaToOffsetChecked(thunkRva);
 
             var module = new ImportModule { Name = moduleName };
-
+            int symbolCount = 0;
             while (true)
             {
+                // Check bounds before reading thunk entry (8 bytes)
+                if (thunkOff + 8 > Data.Length)
+                    break;
+
                 ulong entry = U64(thunkOff);
                 if (entry == 0)
                     break;
+
+                if (symbolCount++ >= 10000)
+                    throw new BadImageFormatException("Too many import symbols in module.");
 
                 bool byOrdinal = (entry & 0x8000000000000000UL) != 0;
                 if (byOrdinal)
