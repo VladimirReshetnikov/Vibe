@@ -14,7 +14,7 @@ public partial class MainWindow : Window
         public required PEReaderLite Pe { get; init; }
         public required string Name { get; init; }
     }
-
+    
     public MainWindow()
     {
         InitializeComponent();

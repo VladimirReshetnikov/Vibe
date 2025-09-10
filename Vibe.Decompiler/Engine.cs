@@ -4,7 +4,7 @@ using System.Globalization;
 using System.Text;
 using Iced.Intel;
 using Decoder = Iced.Intel.Decoder;
-
+using Vibe.Decompiler.Transformations;
 
 namespace Vibe.Decompiler;
 
@@ -98,21 +98,22 @@ public sealed class Engine
         var fn = BuildFunctionIr(ctx);
 
         // --- Refinement passes (simple & safe) ---
-        Transformations.ReplaceParamRegsWithParams(fn);
+        LegacyTransformations.ReplaceParamRegsWithParams(fn);
 
-        Transformations.FrameObjectClusteringAndRspAlias(fn);              // Pass H
-        Transformations.DropRedundantBitTestPseudo(fn);                    // Pass E (cleanup)
+        LegacyTransformations.FrameObjectClusteringAndRspAlias(fn);              // Pass H
+        LegacyTransformations.DropRedundantBitTestPseudo(fn);                    // Pass E (cleanup)
 
         if (opt.ConstantProvider is not null && !string.IsNullOrWhiteSpace(opt.ReturnEnumTypeFullName))
         {
-            Transformations.MapNamedReturnConstants(fn, opt.ConstantProvider!, opt.ReturnEnumTypeFullName);
-            Transformations.MapNamedRetAssignConstants(fn, opt.ConstantProvider!, opt.ReturnEnumTypeFullName);
+            LegacyTransformations.MapNamedReturnConstants(fn, opt.ConstantProvider!, opt.ReturnEnumTypeFullName);
+            LegacyTransformations.MapNamedRetAssignConstants(fn, opt.ConstantProvider!, opt.ReturnEnumTypeFullName);
         }
 
-        Transformations.SimplifyRedundantAssign(fn);
-        Transformations.SimplifyArithmeticIdentities(fn);
-        Transformations.SimplifyBooleanTernary(fn);
-        Transformations.SimplifyLogicalNots(fn);
+        var passManager = DefaultPassPipeline.Create();
+        passManager.Run(fn);
+        LegacyTransformations.SimplifyArithmeticIdentities(fn);
+        LegacyTransformations.SimplifyBooleanTernary(fn);
+        LegacyTransformations.SimplifyLogicalNots(fn);
 
         // Pretty print IR
         var pp = new IR.PrettyPrinter(new IR.PrettyPrinter.Options

@@ -74,11 +74,6 @@ public static class DuckDuckGoDocFetcher
 
     private static readonly char[] WordBreakChars = [' ', '\n', '\r', '\t'];
 
-    static DuckDuckGoDocFetcher()
-    {
-        _http.DefaultRequestHeaders.UserAgent.TryParseAdd("Vibe-Decompiler/1.0");
-    }
-
     private const int FragmentSize = 4000;
 
     public static async Task<List<string>> FindDocumentationPagesAsync(

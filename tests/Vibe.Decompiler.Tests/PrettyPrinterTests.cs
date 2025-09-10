@@ -1,0 +1,49 @@
+using Vibe.Decompiler;
+using Xunit;
+using static Vibe.Decompiler.IR.X;
+
+namespace Vibe.Decompiler.Tests;
+
+public class PrettyPrinterTests
+{
+    [Fact]
+    public void PrintsSimpleFunction()
+    {
+        var fn = new IR.FunctionIR("add") { ReturnType = U32 };
+        fn.Parameters.Add(new IR.Parameter("a", U32, 0));
+        var tmp = new IR.LocalVar("tmp", U32);
+        fn.Locals.Add(tmp);
+        var bb = new IR.BasicBlock(Lbl(0));
+        bb.Statements.Add(new IR.AssignStmt(L(tmp.Name), Add(P("a", 0), C(1, 32))));
+        bb.Statements.Add(new IR.ReturnStmt(L(tmp.Name)));
+        fn.Blocks.Add(bb);
+
+        var pp = new IR.PrettyPrinter(new IR.PrettyPrinter.Options { EmitHeaderComment = false });
+        var text = pp.Print(fn).NormalizeLineEndings();
+
+        var expected = @"uint32_t add(uint32_t a) {
+
+    uint32_t tmp;
+
+    tmp = a + 1;
+    return tmp;
+}
+".NormalizeLineEndings();
+
+        Assert.Equal(expected, text);
+    }
+
+    [Fact]
+    public void RespectsExpressionPrecedence()
+    {
+        var fn = new IR.FunctionIR("calc") { ReturnType = U32 };
+        var bb = new IR.BasicBlock(Lbl(0));
+        bb.Statements.Add(new IR.ReturnStmt(Mul(Add(C(1, 32), C(2, 32)), C(3, 32))));
+        fn.Blocks.Add(bb);
+
+        var pp = new IR.PrettyPrinter(new IR.PrettyPrinter.Options { EmitHeaderComment = false });
+        var text = pp.Print(fn);
+
+        Assert.Contains("return (1 + 2) * 3;", text);
+    }
+}

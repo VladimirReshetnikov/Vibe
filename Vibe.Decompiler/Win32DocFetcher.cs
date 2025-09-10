@@ -11,11 +11,6 @@ public static class Win32DocFetcher
         Timeout = TimeSpan.FromSeconds(30)
     };
 
-    static Win32DocFetcher()
-    {
-        _http.DefaultRequestHeaders.UserAgent.TryParseAdd("Vibe-Decompiler/1.0");
-    }
-
     /// <summary>
     /// Attempts to download HTML documentation for a given Windows API export.
     /// Uses the learn.microsoft.com search API to locate a documentation page.
@@ -49,8 +44,11 @@ public static class Win32DocFetcher
         {
             await using var stream = await _http.GetStreamAsync(url, cancellationToken);
             using var doc = await JsonDocument.ParseAsync(stream, cancellationToken: cancellationToken);
-            if (!doc.RootElement.TryGetProperty("results", out results) || results.ValueKind != JsonValueKind.Array)
+            if (!doc.RootElement.TryGetProperty("results", out var resultsElement) || resultsElement.ValueKind != JsonValueKind.Array)
                 return null;
+
+            // Clone the results array so it survives after the JsonDocument is disposed
+            results = resultsElement.Clone();
         }
         catch (HttpRequestException)
         {

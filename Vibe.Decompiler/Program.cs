@@ -1,5 +1,7 @@
 // SPDX-License-Identifier: MIT-0
 
+using System.Collections.Generic;
+using System.IO;
 using System.IO.Compression;
 using System.Text;
 
@@ -9,17 +11,45 @@ public static class Program
 {
     static async Task Main(string[] args)
     {
-        var disasm = DisassembleExportToPseudo("C:\\Windows\\System32\\Microsoft-Edge-WebView\\msedge.dll", "CreateTestWebClientProxy", 256 * 1024);
-        Console.WriteLine(disasm);
+        bool webAccess = args.Any(a => a == "--web-access");
+        string dllPath = "C:\\Windows\\System32\\Microsoft-Edge-WebView\\msedge.dll";
+        string exportName = "CreateTestWebClientProxy";
 
+        var disasm = DisassembleExportToPseudo(dllPath, exportName, 256 * 1024);
+        Console.WriteLine(disasm);
+        var docs = new List<string>();
+        if(webAccess)
+        {
+            try
+            {
+                string? msDoc = await Win32DocFetcher.TryDownloadExportDocAsync(Path.GetFileName(dllPath), exportName);
+                if (msDoc is not null)
+                    docs.Add(msDoc);
+            }
+            catch { }
+        }
         ILlmProvider? provider = null;
         string? openAiKey = Environment.GetEnvironmentVariable("OPENAI_API_KEY");
         string? anthropicKey = Environment.GetEnvironmentVariable("ANTHROPIC_API_KEY");
 
         if (!string.IsNullOrWhiteSpace(openAiKey))
+        {
             provider = new OpenAiLlmProvider(openAiKey);
+            try
+            {
+                using var evaluator = new OpenAiDocPageEvaluator(openAiKey);
+                if (webAccess)
+                {
+                    var pages = await DuckDuckGoDocFetcher.FindDocumentationPagesAsync(exportName, 2, evaluator);
+                    docs.AddRange(pages);
+                }
+            }
+            catch { }
+        }
         else if (!string.IsNullOrWhiteSpace(anthropicKey))
+        {
             provider = new AnthropicLlmProvider(anthropicKey);
+        }
 
         if (provider is not null)
         {
@@ -29,7 +59,7 @@ public static class Program
                 {
                     using (disposable)
                     {
-                        string refined = await provider.RefineAsync(disasm);
+                        string refined = await provider.RefineAsync(disasm, docs);
                         Console.WriteLine();
                         Console.WriteLine("// ---- Refined by LLM ----");
                         Console.WriteLine(refined);
@@ -37,7 +67,7 @@ public static class Program
                 }
                 else
                 {
-                    string refined = await provider.RefineAsync(disasm);
+                    string refined = await provider.RefineAsync(disasm, docs);
                     Console.WriteLine();
                     Console.WriteLine("// ---- Refined by LLM ----");
                     Console.WriteLine(refined);
