@@ -71,7 +71,11 @@ public sealed class SimplifyArithmeticPass : IRRewriter, ITransformationPass
     {
         if (x is IR.Const c) return c.Value == -1;
         if (x is IR.UConst uc)
-            return uc.Bits >= 64 ? uc.Value == ulong.MaxValue : uc.Value == ((1UL << (int)uc.Bits) - 1);
+        {
+            if (uc.Bits >= 64) return uc.Value == ulong.MaxValue;
+            if (uc.Bits == 0) return false; // Edge case: avoid shift by 64
+            return uc.Value == ((1UL << (int)uc.Bits) - 1);
+        }
         return false;
     }
     private static bool ExpressionsEqual(IR.Expr a, IR.Expr b) => a.Equals(b);
