@@ -297,4 +297,240 @@
             v = 0; return false;
         }
     }
+
+    // ----------------------------------------------------------------
+    //  Simplify arithmetic identities and boolean patterns
+    // ----------------------------------------------------------------
+    public static void SimplifyArithmeticIdentities(IR.FunctionIR fn)
+    {
+        IR.Expr Rewriter(IR.Expr e)
+        {
+            switch (e)
+            {
+                case IR.BinOpExpr b:
+                {
+                    var L = RewriteExpr(b.Left, Rewriter);
+                    var R = RewriteExpr(b.Right, Rewriter);
+
+                    if (b.Op == IR.BinOp.Add)
+                    {
+                        if (IsZero(L)) return R;
+                        if (IsZero(R)) return L;
+                    }
+                    else if (b.Op == IR.BinOp.Sub)
+                    {
+                        if (IsZero(R)) return L;
+                        if (ExpressionsEqual(L, R)) return MakeZeroFrom(L, R);
+                    }
+                    else if (b.Op == IR.BinOp.Mul)
+                    {
+                        if (IsZero(L) || IsZero(R)) return MakeZeroFrom(L, R);
+                        if (IsOne(L)) return R;
+                        if (IsOne(R)) return L;
+                    }
+                    else if (b.Op == IR.BinOp.UDiv || b.Op == IR.BinOp.SDiv)
+                    {
+                        if (IsOne(R)) return L;
+                    }
+                    else if (b.Op == IR.BinOp.And)
+                    {
+                        if (IsZero(L) || IsZero(R)) return MakeZeroFrom(L, R);
+                        if (IsAllOnes(L)) return R;
+                        if (IsAllOnes(R)) return L;
+                    }
+                    else if (b.Op == IR.BinOp.Or)
+                    {
+                        if (IsZero(L)) return R;
+                        if (IsZero(R)) return L;
+                    }
+                    else if (b.Op == IR.BinOp.Xor)
+                    {
+                        if (IsZero(L)) return R;
+                        if (IsZero(R)) return L;
+                        if (ExpressionsEqual(L, R)) return MakeZeroFrom(L, R);
+                    }
+                    else if (b.Op == IR.BinOp.Shl || b.Op == IR.BinOp.Shr || b.Op == IR.BinOp.Sar)
+                    {
+                        if (IsZero(R)) return L;
+                    }
+
+                    return new IR.BinOpExpr(b.Op, L, R);
+                }
+
+                case IR.UnOpExpr u:
+                    return new IR.UnOpExpr(u.Op, RewriteExpr(u.Operand, Rewriter));
+
+                case IR.TernaryExpr t:
+                    return new IR.TernaryExpr(RewriteExpr(t.Condition, Rewriter),
+                        RewriteExpr(t.WhenTrue, Rewriter),
+                        RewriteExpr(t.WhenFalse, Rewriter));
+
+                case IR.CompareExpr c:
+                    return new IR.CompareExpr(c.Op, RewriteExpr(c.Left, Rewriter), RewriteExpr(c.Right, Rewriter));
+
+                case IR.CastExpr ce:
+                    return new IR.CastExpr(RewriteExpr(ce.Value, Rewriter), ce.TargetType, ce.Kind);
+
+                case IR.LoadExpr ld:
+                    return new IR.LoadExpr(RewriteExpr(ld.Address, Rewriter), ld.ElemType, ld.Segment);
+
+                case IR.CallExpr call:
+                    return new IR.CallExpr(call.Target, call.Args.Select(a => RewriteExpr(a, Rewriter)).ToList());
+
+                default:
+                    return e;
+            }
+
+            static bool IsZero(IR.Expr x) => x is IR.Const c && c.Value == 0 || x is IR.UConst uc && uc.Value == 0;
+            static bool IsOne(IR.Expr x) => x is IR.Const c && c.Value == 1 || x is IR.UConst uc && uc.Value == 1;
+            static bool IsAllOnes(IR.Expr x)
+            {
+                if (x is IR.Const c) return c.Value == -1;
+                if (x is IR.UConst uc) return uc.Value == ((1UL << uc.Bits) - 1);
+                return false;
+            }
+            static bool ExpressionsEqual(IR.Expr a, IR.Expr b) => a.Equals(b);
+
+            static IR.Expr MakeZeroFrom(IR.Expr a, IR.Expr b)
+            {
+                int bits = GetBits(a) ?? GetBits(b) ?? 32;
+                return new IR.Const(0, bits);
+            }
+            static int? GetBits(IR.Expr e) => e switch
+            {
+                IR.Const c => c.Bits,
+                IR.UConst uc => (int)uc.Bits,
+                _ => null
+            };
+        }
+
+        foreach (var bb in fn.Blocks)
+            for (int i = 0; i < bb.Statements.Count; i++)
+                bb.Statements[i] = RewriteStmt(bb.Statements[i], e => RewriteExpr(e, Rewriter));
+    }
+
+    // ----------------------------------------------------------------
+    //  Simplify ternary boolean idioms
+    // ----------------------------------------------------------------
+    public static void SimplifyBooleanTernary(IR.FunctionIR fn)
+    {
+        IR.Expr Rewriter(IR.Expr e)
+        {
+            switch (e)
+            {
+                case IR.TernaryExpr t:
+                {
+                    var cond = RewriteExpr(t.Condition, Rewriter);
+                    var whenTrue = RewriteExpr(t.WhenTrue, Rewriter);
+                    var whenFalse = RewriteExpr(t.WhenFalse, Rewriter);
+
+                    if (IsOne(whenTrue) && IsZero(whenFalse))
+                        return cond;
+                    if (IsZero(whenTrue) && IsOne(whenFalse))
+                        return new IR.UnOpExpr(IR.UnOp.LNot, cond);
+                    if (whenTrue.Equals(whenFalse))
+                        return whenTrue;
+
+                    return new IR.TernaryExpr(cond, whenTrue, whenFalse);
+                }
+
+                case IR.BinOpExpr b:
+                    return new IR.BinOpExpr(b.Op, RewriteExpr(b.Left, Rewriter), RewriteExpr(b.Right, Rewriter));
+
+                case IR.UnOpExpr u:
+                    return new IR.UnOpExpr(u.Op, RewriteExpr(u.Operand, Rewriter));
+
+                case IR.CompareExpr c:
+                    return new IR.CompareExpr(c.Op, RewriteExpr(c.Left, Rewriter), RewriteExpr(c.Right, Rewriter));
+
+                case IR.CastExpr ce:
+                    return new IR.CastExpr(RewriteExpr(ce.Value, Rewriter), ce.TargetType, ce.Kind);
+
+                case IR.LoadExpr ld:
+                    return new IR.LoadExpr(RewriteExpr(ld.Address, Rewriter), ld.ElemType, ld.Segment);
+
+                case IR.CallExpr call:
+                    return new IR.CallExpr(call.Target, call.Args.Select(a => RewriteExpr(a, Rewriter)).ToList());
+
+                default:
+                    return e;
+            }
+
+            static bool IsZero(IR.Expr x) => x is IR.Const c && c.Value == 0 || x is IR.UConst uc && uc.Value == 0;
+            static bool IsOne(IR.Expr x) => x is IR.Const c && c.Value == 1 || x is IR.UConst uc && uc.Value == 1;
+        }
+
+        foreach (var bb in fn.Blocks)
+            for (int i = 0; i < bb.Statements.Count; i++)
+                bb.Statements[i] = RewriteStmt(bb.Statements[i], e => RewriteExpr(e, Rewriter));
+    }
+
+    // ----------------------------------------------------------------
+    //  Simplify logical NOT patterns
+    // ----------------------------------------------------------------
+    public static void SimplifyLogicalNots(IR.FunctionIR fn)
+    {
+        IR.Expr Rewriter(IR.Expr e)
+        {
+            switch (e)
+            {
+                case IR.UnOpExpr u when u.Op == IR.UnOp.LNot:
+                {
+                    var inner = RewriteExpr(u.Operand, Rewriter);
+                    switch (inner)
+                    {
+                        case IR.UnOpExpr uu when uu.Op == IR.UnOp.LNot:
+                            return uu.Operand;
+                        case IR.CompareExpr cmp:
+                            return new IR.CompareExpr(Invert(cmp.Op), cmp.Left, cmp.Right);
+                        default:
+                            return new IR.UnOpExpr(IR.UnOp.LNot, inner);
+                    }
+                }
+
+                case IR.BinOpExpr b:
+                    return new IR.BinOpExpr(b.Op, RewriteExpr(b.Left, Rewriter), RewriteExpr(b.Right, Rewriter));
+
+                case IR.UnOpExpr u:
+                    return new IR.UnOpExpr(u.Op, RewriteExpr(u.Operand, Rewriter));
+
+                case IR.CompareExpr c:
+                    return new IR.CompareExpr(c.Op, RewriteExpr(c.Left, Rewriter), RewriteExpr(c.Right, Rewriter));
+
+                case IR.TernaryExpr t:
+                    return new IR.TernaryExpr(RewriteExpr(t.Condition, Rewriter), RewriteExpr(t.WhenTrue, Rewriter), RewriteExpr(t.WhenFalse, Rewriter));
+
+                case IR.CastExpr ce:
+                    return new IR.CastExpr(RewriteExpr(ce.Value, Rewriter), ce.TargetType, ce.Kind);
+
+                case IR.LoadExpr ld:
+                    return new IR.LoadExpr(RewriteExpr(ld.Address, Rewriter), ld.ElemType, ld.Segment);
+
+                case IR.CallExpr call:
+                    return new IR.CallExpr(call.Target, call.Args.Select(a => RewriteExpr(a, Rewriter)).ToList());
+
+                default:
+                    return e;
+            }
+
+            static IR.CmpOp Invert(IR.CmpOp op) => op switch
+            {
+                IR.CmpOp.EQ => IR.CmpOp.NE,
+                IR.CmpOp.NE => IR.CmpOp.EQ,
+                IR.CmpOp.SLT => IR.CmpOp.SGE,
+                IR.CmpOp.SLE => IR.CmpOp.SGT,
+                IR.CmpOp.SGT => IR.CmpOp.SLE,
+                IR.CmpOp.SGE => IR.CmpOp.SLT,
+                IR.CmpOp.ULT => IR.CmpOp.UGE,
+                IR.CmpOp.ULE => IR.CmpOp.UGT,
+                IR.CmpOp.UGT => IR.CmpOp.ULE,
+                IR.CmpOp.UGE => IR.CmpOp.ULT,
+                _ => op
+            };
+        }
+
+        foreach (var bb in fn.Blocks)
+            for (int i = 0; i < bb.Statements.Count; i++)
+                bb.Statements[i] = RewriteStmt(bb.Statements[i], e => RewriteExpr(e, Rewriter));
+    }
 }

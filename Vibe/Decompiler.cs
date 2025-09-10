@@ -106,6 +106,9 @@ public sealed class Decompiler
         }
 
         Transformations.SimplifyRedundantAssign(fn);
+        Transformations.SimplifyArithmeticIdentities(fn);
+        Transformations.SimplifyBooleanTernary(fn);
+        Transformations.SimplifyLogicalNots(fn);
 
         // Pretty print IR
         var pp = new IR.PrettyPrinter(new IR.PrettyPrinter.Options
