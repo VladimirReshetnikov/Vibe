@@ -9,8 +9,11 @@ Vibe — x64 PE export → C‑like pseudocode
 4.  Lifts them to a simple intermediate representation (IR),
 5.  Applies a few readability passes (memset/memcpy coalescing, stack‑frame aliasing, constant naming),
 6.  Pretty‑prints C‑style pseudocode **alongside the original assembly** (as comments).
+7.  Optionally refines the pseudocode with an LLM for more human‑like C output.
 
 The eventual goal is to create a high-fidelity decompiler into C code comparable with human-written code.
+
+This project is licensed under the [MIT-0 license](LICENSE).
 * * *
 
 Table of Contents
@@ -56,13 +59,32 @@ dotnet build -c Release
 
 ```csharp
 var disasm = DisassembleExportToPseudo(
-    "dbghelp.dll",
-    "MakeSureDirectoryPathExists",
+    "C:\\Windows\\System32\\Microsoft-Edge-WebView\\msedge.dll",
+    "CreateTestWebClientProxy",
     256 * 1024);
 Console.WriteLine(disasm);
 ```
 
-So running the built exe prints pseudocode for **`dbghelp!MakeSureDirectoryPathExists`**. Example output is included at the end of this README (truncated here).
+If an `OPENAI_API_KEY` or `ANTHROPIC_API_KEY` environment variable is set, the tool sends the pseudocode to that provider and prints a refined version that reads much closer to hand-written C.
+
+An example of the raw and refined output for `msedge!CreateTestWebClientProxy` is shown below; the full listing lives in [`docs/examples.md`](docs/examples.md).
+
+```c
+// ---- Refined by LLM ----
+#include <stdint.h>
+#include <string.h>
+
+uint64_t CreateTestWebClientProxy(uint64_t param1, uint64_t param2, uint64_t param3, uint64_t param4) {
+    uint64_t local_var[20];
+    uint8_t *ptr1;
+    uint8_t *ptr2;
+    uint64_t ret_value;
+    memset(local_var, 0, sizeof(local_var));
+    local_var[39] = 0xFFFFFFFFFFFFFFFE;
+    ptr1 = (uint8_t*)0x18F4770D8;
+    // ...
+}
+```
 
 > **Note on constants (Win32 enums):**
 > `Program.cs` tries to load Win32 metadata (`Windows.Win32.winmd`) to print return values as symbolic names (e.g., `STATUS_*`). It first searches the repo and standard NuGet caches for any `Microsoft.Windows.SDK.Win32Metadata` package, using the metadata if found. If no `.winmd` is located, decompilation still proceeds but constants remain numeric.
@@ -347,3 +369,8 @@ Limitations
 *   **Control flow**: Linear IR with labels/gotos; no region structuring beyond trivial `if (cond) goto`.
 *   **Heuristics**: Memset/memcpy detection is safe but conservative. Some patterns won’t fold.
 *   **Constants**: Return constants are mapped; call‑argument constants are prepared in the database but **not yet** rewritten at call sites.
+
+License
+-------
+
+MIT No Attribution (MIT-0).
