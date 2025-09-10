@@ -67,15 +67,15 @@ public sealed class OpenAiDocPageEvaluator : IDocPageEvaluator
 
 public static class DuckDuckGoDocFetcher
 {
-    private static readonly HttpClient _http = new HttpClient()
+    private static readonly HttpClient _http = new()
     {
         Timeout = TimeSpan.FromSeconds(30)
     };
 
-    private static readonly string ResultLinkPattern = 
-        @"<a[^>]*(?:class=""result__a""[^>]*href=""(?<url>[^""]*)""|href=""(?<url>[^""]*)""[^>]*class=""result__a"")[^>]*>";
+    private const string ResultLinkPattern =
+        """<a[^>]*(?:class="result__a"[^>]*href="(?<url>[^"]*)"|href="(?<url>[^"]*)"[^>]*class="result__a")[^>]*>""";
 
-    private static readonly char[] WordBreakChars = { ' ', '\n', '\r', '\t' };
+    private static readonly char[] WordBreakChars = [' ', '\n', '\r', '\t'];
 
     static DuckDuckGoDocFetcher()
     {
@@ -92,10 +92,8 @@ public static class DuckDuckGoDocFetcher
     {
         if (string.IsNullOrWhiteSpace(functionName))
             throw new ArgumentException("Function name must be provided", nameof(functionName));
-        if (maxPages <= 0)
-            throw new ArgumentOutOfRangeException(nameof(maxPages));
-        if (evaluator is null)
-            throw new ArgumentNullException(nameof(evaluator));
+        ArgumentOutOfRangeException.ThrowIfNegativeOrZero(maxPages);
+        ArgumentNullException.ThrowIfNull(evaluator);
 
         string queryUrl = $"https://duckduckgo.com/html/?q={Uri.EscapeDataString(functionName + " documentation")}&kl=us-en";
 
@@ -106,7 +104,7 @@ public static class DuckDuckGoDocFetcher
         }
         catch (HttpRequestException)
         {
-            return new List<string>();
+            return [];
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
         {
@@ -114,7 +112,7 @@ public static class DuckDuckGoDocFetcher
         }
         catch (OperationCanceledException)
         {
-            return new List<string>();
+            return [];
         }
 
         var linkMatches = Regex.Matches(html, ResultLinkPattern, RegexOptions.IgnoreCase);
