@@ -6,7 +6,15 @@ using System.Text.Json;
 
 public static class Win32DocFetcher
 {
-    private static readonly HttpClient _http = new HttpClient();
+    private static readonly HttpClient _http = new HttpClient()
+    {
+        Timeout = TimeSpan.FromSeconds(30)
+    };
+
+    static Win32DocFetcher()
+    {
+        _http.DefaultRequestHeaders.Add("User-Agent", "Vibe-Decompiler/1.0");
+    }
 
     /// <summary>
     /// Attempts to download HTML documentation for a given Windows API export.
@@ -57,6 +65,10 @@ public static class Win32DocFetcher
             catch (HttpRequestException)
             {
                 // Skip and try next result.
+            }
+            catch (TaskCanceledException)
+            {
+                // Handle timeout/cancellation - skip and try next result.
             }
         }
 
