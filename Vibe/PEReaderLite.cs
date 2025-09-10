@@ -143,6 +143,26 @@ public sealed class PEReaderLite
         throw new EntryPointNotFoundException($"Export '{name}' not found in module.");
     }
 
+    public IEnumerable<string> EnumerateExportNames()
+    {
+        if (ExportRva == 0 || ExportSize == 0)
+            yield break;
+
+        int expDirOff = RvaToOffsetChecked(ExportRva);
+
+        uint NumberOfNames = U32(expDirOff + 0x18);
+        uint AddressOfNames = U32(expDirOff + 0x20);
+
+        int namesOff = RvaToOffsetChecked(AddressOfNames);
+
+        for (uint i = 0; i < NumberOfNames; i++)
+        {
+            uint nameRva = U32(namesOff + (int)(i * 4));
+            int nameOff = RvaToOffsetChecked(nameRva);
+            yield return ReadAsciiZ(nameOff);
+        }
+    }
+
     // ------------------ local data helpers ------------------
 
     private ushort U16(int off) =>
