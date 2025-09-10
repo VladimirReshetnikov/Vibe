@@ -78,6 +78,9 @@ public static class DuckDuckGoDocFetcher
     }
 
     private const int FragmentSize = 4000;
+    private static readonly string ResultLinkPattern =
+        @"<a[^>]*(?:class=""result__a""[^>]*href=""(?<url>[^""]*)""|href=""(?<url>[^""]*)""[^>]*class=""result__a"")[^>]*>";
+    private static readonly char[] WordBreakChars = { ' ', '\n', '\r', '\t' };
 
     public static async Task<List<string>> FindDocumentationPagesAsync(
         string functionName,
@@ -112,10 +115,7 @@ public static class DuckDuckGoDocFetcher
             return new List<string>();
         }
 
-        var linkMatches = Regex.Matches(
-            html,
-            "<a[^>]*(?:class=\\\"result__a\\\"[^>]*href=\\\"(?<url>[^\\\"]*)\\\"|href=\\\"(?<url>[^\\\"]*)\\\"[^>]*class=\\\"result__a\\\")[^>]*>",
-            RegexOptions.IgnoreCase);
+        var linkMatches = Regex.Matches(html, ResultLinkPattern, RegexOptions.IgnoreCase);
         var links = linkMatches.Cast<Match>()
             .Select(m => m.Groups["url"].Value)
             .Where(u => !string.IsNullOrEmpty(u))
@@ -182,7 +182,7 @@ public static class DuckDuckGoDocFetcher
             int nextIndex = index + length;
             if (nextIndex < text.Length)
             {
-                int lastBreak = text.LastIndexOfAny(new[] { ' ', '\n', '\r', '\t' }, nextIndex - 1, length);
+                int lastBreak = text.LastIndexOfAny(WordBreakChars, nextIndex - 1, length);
                 if (lastBreak > index)
                 {
                     length = lastBreak - index + 1;
