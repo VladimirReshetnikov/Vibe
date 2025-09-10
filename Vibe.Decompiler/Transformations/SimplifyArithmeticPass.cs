@@ -45,10 +45,14 @@ public sealed class SimplifyArithmeticPass : IRRewriter, ITransformationPass
                 if (IsZero(L) || IsZero(R)) return MakeZeroFrom(L, R);
                 if (IsAllOnes(L)) return R;
                 if (IsAllOnes(R)) return L;
+                if (ExpressionsEqual(L, R)) return L;
                 break;
             case IR.BinOp.Or:
                 if (IsZero(L)) return R;
                 if (IsZero(R)) return L;
+                if (IsAllOnes(L)) return L;
+                if (IsAllOnes(R)) return R;
+                if (ExpressionsEqual(L, R)) return L;
                 break;
             case IR.BinOp.Xor:
                 if (IsZero(L)) return R;
@@ -78,6 +82,7 @@ public sealed class SimplifyArithmeticPass : IRRewriter, ITransformationPass
         }
         return false;
     }
+    // Uses record-based structural equality for IR expressions
     private static bool ExpressionsEqual(IR.Expr a, IR.Expr b) => a.Equals(b);
     private static IR.Expr MakeZeroFrom(IR.Expr a, IR.Expr b)
     {
