@@ -79,6 +79,7 @@ public sealed class ConstantDatabase : IConstantNameProvider
 
     public void LoadWin32MetadataFromWinmd(string winmdPath)
     {
+        Console.WriteLine($"Loading metadata from ${winmdPath}");
         using var fs = File.OpenRead(winmdPath);
         using var pe = new System.Reflection.PortableExecutable.PEReader(fs, PEStreamOptions.PrefetchEntireImage);
         var md = pe.GetMetadataReader();

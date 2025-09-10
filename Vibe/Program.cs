@@ -6,7 +6,8 @@ public static class Program
 {
     static async Task Main(string[] args)
     {
-        var disasm = DisassembleExportToPseudo("C:\\Windows\\System32\\Microsoft-Edge-WebView\\msedge.dll", "CreateTestWebClientProxy", 256 * 1024);
+        var disasm = DisassembleExportToPseudo("C:\\Windows\\System32\\Microsoft-Edge-WebView\\msedge.dll",
+            "CreateTestWebClientProxy", 256 * 1024);
         Console.WriteLine(disasm);
 
         ILlmProvider? provider = null;
@@ -147,7 +148,8 @@ public static class Program
             return header.ToString() + pseudo;
         }
 
-        throw new InvalidOperationException("Too many forwarder hops; export may be forwarded through multiple API sets.");
+        throw new InvalidOperationException(
+            "Too many forwarder hops; export may be forwarded through multiple API sets.");
 
         static (string dll, string name) ParseForwarder(string fwd)
         {
@@ -179,7 +181,8 @@ public static class Program
             string? repoRoot = FindRepoRoot();
             if (repoRoot is not null)
             {
-                foreach (var file in Directory.EnumerateFiles(repoRoot, "Windows.Win32.winmd", SearchOption.AllDirectories))
+                foreach (var file in Directory.EnumerateFiles(repoRoot, "Windows.Win32.winmd",
+                             SearchOption.AllDirectories))
                 {
                     db.LoadWin32MetadataFromWinmd(file);
                     return;
@@ -188,25 +191,29 @@ public static class Program
 
             foreach (var cache in GetNuGetCacheDirectories())
             {
-            if (!Directory.Exists(cache)) continue;
+                if (!Directory.Exists(cache)) continue;
 
-            // First try extracted packages (more common in global packages folder)
-            foreach (var packageDir in Directory.EnumerateDirectories(cache, "microsoft.windows.sdk.win32metadata*", SearchOption.TopDirectoryOnly))
-            {
-                foreach (var winmdFile in Directory.EnumerateFiles(packageDir, "Windows.Win32.winmd", SearchOption.AllDirectories))
+                // First try extracted packages (more common in global packages folder)
+                foreach (var packageDir in Directory.EnumerateDirectories(cache, "microsoft.windows.sdk.win32metadata*",
+                             SearchOption.TopDirectoryOnly))
                 {
-                    db.LoadWin32MetadataFromWinmd(winmdFile);
-                    return;
+                    foreach (var winmdFile in Directory.EnumerateFiles(packageDir, "Windows.Win32.winmd",
+                                 SearchOption.AllDirectories))
+                    {
+                        db.LoadWin32MetadataFromWinmd(winmdFile);
+                        return;
+                    }
                 }
-            }
 
-            // Fallback to .nupkg files (for HTTP cache locations)
-                foreach (var nupkg in Directory.EnumerateFiles(cache, "Microsoft.Windows.SDK.Win32Metadata*.nupkg", SearchOption.AllDirectories))
+                // Fallback to .nupkg files (for HTTP cache locations)
+                foreach (var nupkg in Directory.EnumerateFiles(cache, "Microsoft.Windows.SDK.Win32Metadata*.nupkg",
+                             SearchOption.AllDirectories))
                 {
                     try
                     {
                         using var zip = ZipFile.OpenRead(nupkg);
-                        var entry = zip.Entries.FirstOrDefault(e => e.FullName.EndsWith("Windows.Win32.winmd", StringComparison.OrdinalIgnoreCase));
+                        var entry = zip.Entries.FirstOrDefault(e =>
+                            e.FullName.EndsWith("Windows.Win32.winmd", StringComparison.OrdinalIgnoreCase));
                         if (entry is not null)
                         {
                             string tempPath = Path.Combine(Path.GetTempPath(), Path.GetRandomFileName() + ".winmd");
@@ -217,16 +224,27 @@ public static class Program
                             }
                             finally
                             {
-                                try { File.Delete(tempPath); } catch { }
+                                try
+                                {
+                                    File.Delete(tempPath);
+                                }
+                                catch
+                                {
+                                }
                             }
+
                             return;
                         }
                     }
-                    catch { }
+                    catch
+                    {
+                    }
                 }
             }
         }
-        catch { }
+        catch
+        {
+        }
     }
 
     static string? FindRepoRoot()
@@ -244,7 +262,10 @@ public static class Program
                 dir = parent;
             }
         }
-        catch { }
+        catch
+        {
+        }
+
         return null;
     }
 
