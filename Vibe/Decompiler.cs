@@ -161,23 +161,23 @@ public sealed class Decompiler
         {
             for (int op = 0; op < ins.OpCount; op++)
             {
-                if (GetOpKind(ins, op) == OpKind.Memory)
-                {
-                    if (ins.MemorySegment == Register.GS &&
-                        ins.MemoryBase == Register.None &&
-                        ins.MemoryIndex == Register.None &&
-                        ins.MemoryDisplacement64 == 0x60)
+                if (GetOpKind(ins, op) == OpKind.Memory && ins is
                     {
-                        ctx.UsesGsPeb = true;
-                        return;
-                    }
+                        MemorySegment: Register.GS,
+                        MemoryBase: Register.None,
+                        MemoryIndex: Register.None,
+                        MemoryDisplacement64: 0x60
+                    })
+                {
+                    ctx.UsesGsPeb = true;
+                    return;
                 }
             }
         }
     }
 
     private static bool IsRet(in Instruction i) =>
-        i.Mnemonic == Mnemonic.Ret || i.Mnemonic == Mnemonic.Retf;
+        i.Mnemonic is Mnemonic.Ret or Mnemonic.Retf;
 
     private static string QuickAsm(in Instruction i)
     {
@@ -193,28 +193,24 @@ public sealed class Decompiler
     private static string QuickFormatOperand(in Instruction i, int n)
     {
         var kind = GetOpKind(i, n);
-        switch (kind)
+        return kind switch
         {
-            case OpKind.Register:
-                return GetOpRegister(i, n).ToString().ToLowerInvariant();
-            case OpKind.NearBranch16:
-            case OpKind.NearBranch32:
-            case OpKind.NearBranch64:
-                return "0x" + i.NearBranchTarget.ToString("X");
-            case OpKind.Immediate8:
-            case OpKind.Immediate16:
-            case OpKind.Immediate32:
-            case OpKind.Immediate64:
-            case OpKind.Immediate8to16:
-            case OpKind.Immediate8to32:
-            case OpKind.Immediate8to64:
-            case OpKind.Immediate32to64:
-                return ImmString(i, kind);
-            case OpKind.Memory:
-                return MemAddrString(i);
-            default:
-                return kind.ToString();
-        }
+            OpKind.Register => GetOpRegister(i, n).ToString().ToLowerInvariant(),
+            OpKind.NearBranch16
+                or OpKind.NearBranch32
+                or OpKind.NearBranch64 =>
+                "0x" + i.NearBranchTarget.ToString("X"),
+            OpKind.Immediate8
+                or OpKind.Immediate16
+                or OpKind.Immediate32
+                or OpKind.Immediate64
+                or OpKind.Immediate8to16
+                or OpKind.Immediate8to32
+                or OpKind.Immediate8to64
+                or OpKind.Immediate32to64 => ImmString(i, kind),
+            OpKind.Memory => MemAddrString(i),
+            _ => kind.ToString()
+        };
     }
 
     // --------- Prologue / locals --------------------------------------------
@@ -320,7 +316,7 @@ public sealed class Decompiler
         {
             var init = new IR.CastExpr(
                 new IR.CallExpr(IR.CallTarget.ByName("__readgsqword"),
-                    new IR.Expr[] { IR.X.C(0x60) }),
+                    [IR.X.C(0x60)]),
                 new IR.PointerType(IR.X.U8),
                 IR.CastKind.Reinterpret);
             fn.Locals.Add(new IR.LocalVar("peb", new IR.PointerType(IR.X.U8), init));
@@ -379,8 +375,8 @@ public sealed class Decompiler
     {
         stmts = new(); consumed = 0;
         var i = ins[idx];
-        if (!((i.Mnemonic == Mnemonic.Xorps || i.Mnemonic == Mnemonic.Pxor) &&
-              i.Op0Kind == OpKind.Register && i.Op1Kind == OpKind.Register &&
+        if (!(i.Mnemonic is Mnemonic.Xorps or Mnemonic.Pxor &&
+              i is { Op0Kind: OpKind.Register, Op1Kind: OpKind.Register } &&
               i.Op0Register == i.Op1Register &&
               RegisterBitWidth(i.Op0Register) == 128))
             return false;
@@ -394,9 +390,9 @@ public sealed class Decompiler
         while (j < ins.Count)
         {
             var s = ins[j];
-            if (!(s.Mnemonic == Mnemonic.Movups || s.Mnemonic == Mnemonic.Movaps || s.Mnemonic == Mnemonic.Movdqu))
+            if (s.Mnemonic is not (Mnemonic.Movups or Mnemonic.Movaps or Mnemonic.Movdqu))
                 break;
-            if (!(s.Op0Kind == OpKind.Memory && s.Op1Kind == OpKind.Register && s.Op1Register == xmm))
+            if (s is not { Op0Kind: OpKind.Memory, Op1Kind: OpKind.Register } || s.Op1Register != xmm)
                 break;
             if (s.MemoryIndex != Register.None || s.MemoryBase == Register.RIP)
                 break;
@@ -406,30 +402,20 @@ public sealed class Decompiler
                 break;
 
             if (baseAddr is null) { baseAddr = baseExpr; expectedOff = off; }
-            else
-            {
-                if (!ExprEquals(baseAddr, baseExpr) || off != expectedOff) break;
-            }
+            else if (!ExprEquals(baseAddr, baseExpr) || off != expectedOff) break;
 
             bytes += 16;
             expectedOff += 16;
             j++;
         }
 
-        if (bytes >= 32 && baseAddr is not null)
-        {
-            var addr = expectedOff == bytes ? baseAddr : IR.X.Add(baseAddr, IR.X.C(expectedOff - bytes));
-            stmts.Add(new IR.PseudoStmt("zero xmm"));
-            stmts.Add(new IR.CallStmt(IR.X.Call("memset",
-                new IR.Expr[] {
-                    new IR.CastExpr(addr, new IR.PointerType(new IR.VoidType()), IR.CastKind.Reinterpret),
-                    IR.X.C(0),
-                    IR.X.C(bytes)
-                })));
-            consumed = j - idx;
-            return true;
-        }
-        return false;
+        if (bytes < 32 || baseAddr is null) return false;
+        var addr = expectedOff == bytes ? baseAddr : IR.X.Add(baseAddr, IR.X.C(expectedOff - bytes));
+        stmts.Add(new IR.PseudoStmt("zero xmm"));
+        stmts.Add(new IR.CallStmt(IR.X.Call("memset",
+            new IR.CastExpr(addr, new IR.PointerType(new IR.VoidType()), IR.CastKind.Reinterpret), IR.X.C(0), IR.X.C(bytes))));
+        consumed = j - idx;
+        return true;
     }
 
     private static bool TryCoalesceMemcpy16BlocksIR(List<Instruction> ins, int idx, Ctx ctx,
@@ -448,12 +434,12 @@ public sealed class Decompiler
             var ld = ins[j];
             var st = ins[j + 1];
 
-            if (!(ld.Op0Kind == OpKind.Register && ld.Op1Kind == OpKind.Memory)) break;
-            if (!(st.Op0Kind == OpKind.Memory && st.Op1Kind == OpKind.Register)) break;
+            if (ld is not { Op0Kind: OpKind.Register, Op1Kind: OpKind.Memory }) break;
+            if (st is not { Op0Kind: OpKind.Memory, Op1Kind: OpKind.Register }) break;
             if (ld.Op0Register != st.Op1Register) break;
 
-            if (!(ld.Mnemonic == Mnemonic.Movups || ld.Mnemonic == Mnemonic.Movaps || ld.Mnemonic == Mnemonic.Movdqu)) break;
-            if (!(st.Mnemonic == Mnemonic.Movups || st.Mnemonic == Mnemonic.Movaps || st.Mnemonic == Mnemonic.Movdqu)) break;
+            if (ld.Mnemonic is not (Mnemonic.Movups or Mnemonic.Movaps or Mnemonic.Movdqu)) break;
+            if (st.Mnemonic is not (Mnemonic.Movups or Mnemonic.Movaps or Mnemonic.Movdqu)) break;
 
             if (ld.MemoryIndex != Register.None || ld.MemoryBase == Register.RIP) break;
             if (st.MemoryIndex != Register.None || st.MemoryBase == Register.RIP) break;
@@ -481,21 +467,15 @@ public sealed class Decompiler
             if (bytes >= 32) haveTwoPairs = true;
         }
 
-        if (haveTwoPairs && srcBase is not null && dstBase is not null)
-        {
-            var src = startSrc == 0 ? srcBase : IR.X.Add(srcBase, IR.X.C(startSrc));
-            var dst = startDst == 0 ? dstBase : IR.X.Add(dstBase, IR.X.C(startDst));
-            stmts.Add(new IR.CallStmt(IR.X.Call("memcpy",
-                new IR.Expr[] {
-                    new IR.CastExpr(dst, new IR.PointerType(new IR.VoidType()), IR.CastKind.Reinterpret),
-                    new IR.CastExpr(src, new IR.PointerType(new IR.VoidType()), IR.CastKind.Reinterpret),
-                    IR.X.C(bytes)
-                })));
-            consumed = j - idx;
-            return true;
-        }
+        if (!haveTwoPairs || srcBase is null || dstBase is null) return false;
+        var src = startSrc == 0 ? srcBase : IR.X.Add(srcBase, IR.X.C(startSrc));
+        var dst = startDst == 0 ? dstBase : IR.X.Add(dstBase, IR.X.C(startDst));
+        stmts.Add(new IR.CallStmt(IR.X.Call("memcpy",
+            new IR.CastExpr(dst, new IR.PointerType(new IR.VoidType()), IR.CastKind.Reinterpret),
+            new IR.CastExpr(src, new IR.PointerType(new IR.VoidType()), IR.CastKind.Reinterpret), IR.X.C(bytes))));
+        consumed = j - idx;
+        return true;
 
-        return false;
     }
 
     private static bool TrySplitBasePlusOffset(IR.Expr addr, out IR.Expr baseExpr, out long off)
@@ -523,14 +503,11 @@ public sealed class Decompiler
         }
 
         // Accept simple base terms as base+0
-        if (addr is IR.RegExpr || addr is IR.LocalExpr || addr is IR.AddrOfExpr)
-        {
-            baseExpr = addr;
-            off = 0;
-            return true;
-        }
+        if (addr is not (IR.RegExpr or IR.LocalExpr or IR.AddrOfExpr)) return false;
+        baseExpr = addr;
+        off = 0;
+        return true;
 
-        return false;
     }
 
     private static bool ExprEquals(IR.Expr a, IR.Expr b)
@@ -1069,26 +1046,15 @@ public sealed class Decompiler
     private static string OperandText(in Instruction i, int op, Ctx ctx)
     {
         var kind = GetOpKind(i, op);
-        switch (kind)
+        return kind switch
         {
-            case OpKind.Register: return AsVarName(ctx, GetOpRegister(i, op));
-            case OpKind.Immediate8:
-            case OpKind.Immediate16:
-            case OpKind.Immediate32:
-            case OpKind.Immediate64:
-            case OpKind.Immediate8to16:
-            case OpKind.Immediate8to32:
-            case OpKind.Immediate8to64:
-            case OpKind.Immediate32to64:
-                return ImmString(i, kind);
-            case OpKind.NearBranch16:
-            case OpKind.NearBranch32:
-            case OpKind.NearBranch64:
-                return $"0x{i.NearBranchTarget:X}";
-            case OpKind.Memory:
-                return MemAddrString(i);
-        }
-        return kind.ToString();
+            OpKind.Register => AsVarName(ctx, GetOpRegister(i, op)),
+            OpKind.Immediate8 or OpKind.Immediate16 or OpKind.Immediate32 or OpKind.Immediate64 or OpKind.Immediate8to16
+                or OpKind.Immediate8to32 or OpKind.Immediate8to64 or OpKind.Immediate32to64 => ImmString(i, kind),
+            OpKind.NearBranch16 or OpKind.NearBranch32 or OpKind.NearBranch64 => $"0x{i.NearBranchTarget:X}",
+            OpKind.Memory => MemAddrString(i),
+            _ => kind.ToString()
+        };
     }
 
     private static IR.IrType MemType(in Instruction i)
@@ -1252,13 +1218,13 @@ public sealed class Decompiler
         static bool LooksLikePointerVar(IR.Expr e)
         {
             return e is IR.RegExpr rr && (rr.Name.Contains("rsp", StringComparison.OrdinalIgnoreCase)
-                                             || rr.Name.StartsWith("p", StringComparison.Ordinal)
+                                             || rr.Name.StartsWith('p')
                                              || rr.Name.Contains("+ 0x", StringComparison.Ordinal));
         }
         static bool IsSmallLiteralOrZero(IR.Expr e)
         {
-            if (e is IR.Const c) return c.Value >= -255 && c.Value <= 255;
-            return e is IR.RegExpr r && (r.Name == "0" || r.Name == "eax" || r.Name == "edx");
+            if (e is IR.Const c) return c.Value is >= -255 and <= 255;
+            return e is IR.RegExpr { Name: "0" or "eax" or "edx" };
         }
     }
 
@@ -1304,40 +1270,29 @@ public sealed class Decompiler
 
     // --------- Misc helpers (from old emitter) -------------------------------
 
-    private static bool IsPrologueOrEpilogue(in Instruction i)
-    {
-        bool IsNonVolatile(Register r) =>
-            r == Register.RBX || r == Register.RBP || r == Register.RSI || r == Register.RDI ||
-            r == Register.R12 || r == Register.R13 || r == Register.R14 || r == Register.R15;
+    private static bool IsPrologueOrEpilogue(in Instruction i) =>
+        i.Mnemonic == Mnemonic.Push && IsNonVolatile(i.Op0Register) ||
+        i.Mnemonic == Mnemonic.Pop && IsNonVolatile(i.Op0Register) ||
+        i is { Mnemonic: Mnemonic.Mov, Op0Register: Register.RBP, Op1Register: Register.RSP } ||
+        i is { Mnemonic: Mnemonic.Lea, Op0Register: Register.RBP, MemoryBase: Register.RSP } ||
+        i is { Mnemonic: Mnemonic.Sub, Op0Register: Register.RSP } && IsImmediate(GetOpKind(i, 1)) ||
+        i is { Mnemonic: Mnemonic.Add, Op0Register: Register.RSP } && IsImmediate(GetOpKind(i, 1));
 
-        if (i.Mnemonic == Mnemonic.Push && IsNonVolatile(i.Op0Register)) return true;
-        if (i.Mnemonic == Mnemonic.Pop && IsNonVolatile(i.Op0Register)) return true;
-
-        if (i.Mnemonic == Mnemonic.Mov && i.Op0Register == Register.RBP && i.Op1Register == Register.RSP) return true;
-        if (i.Mnemonic == Mnemonic.Lea && i.Op0Register == Register.RBP && i.MemoryBase == Register.RSP) return true;
-
-        if (i.Mnemonic == Mnemonic.Sub && i.Op0Register == Register.RSP && IsImmediate(GetOpKind(i, 1))) return true;
-        if (i.Mnemonic == Mnemonic.Add && i.Op0Register == Register.RSP && IsImmediate(GetOpKind(i, 1))) return true;
-
-        return false;
-    }
+    private static bool IsNonVolatile(Register r) =>
+        r is Register.RBX or Register.RBP or Register.RSI or Register.RDI
+            or Register.R12 or Register.R13 or Register.R14 or Register.R15;
 
     private static string AsVarName(Ctx ctx, Register r)
     {
-        if (ctx.RegName.TryGetValue(r, out var nm))
-        {
-            if (nm.Contains("gs:0x60", StringComparison.OrdinalIgnoreCase)) return "peb";
-            if (TryParseRspOffset(nm, out long off) && ctx.RspAliasByOffset.TryGetValue(off, out var alias)) return alias;
-            return nm;
-        }
-        return r.ToString().ToLowerInvariant();
+        if (!ctx.RegName.TryGetValue(r, out var nm)) return r.ToString().ToLowerInvariant();
+        if (nm.Contains("gs:0x60", StringComparison.OrdinalIgnoreCase)) return "peb";
+        if (TryParseRspOffset(nm, out long off) && ctx.RspAliasByOffset.TryGetValue(off, out var alias)) return alias;
+        return nm;
     }
     private static string Friendly(Ctx ctx, Register r) => AsVarName(ctx, r);
 
-    private static int GuessBitWidth(in Instruction i, int operandIndex)
-    {
-        var kind = GetOpKind(i, operandIndex);
-        return kind switch
+    private static int GuessBitWidth(in Instruction i, int operandIndex) =>
+        GetOpKind(i, operandIndex) switch
         {
             OpKind.Register => RegisterBitWidth(GetOpRegister(i, operandIndex)),
             OpKind.Memory => MemoryBitWidth(i),
@@ -1347,24 +1302,25 @@ public sealed class Decompiler
             OpKind.Immediate64 => 64,
             _ => 0
         };
-    }
 
-    private static int RegisterBitWidth(Register r)
-    {
-        if (r == Register.AL || r == Register.CL || r == Register.DL || r == Register.BL || (r >= Register.SPL && r <= Register.R15L)) return 8;
-        if (r == Register.AX || r == Register.CX || r == Register.DX || r == Register.BX || r == Register.SP || r == Register.BP || r == Register.SI || r == Register.DI || (r >= Register.R8W && r <= Register.R15W)) return 16;
-        if (r == Register.EAX || r == Register.ECX || r == Register.EDX || r == Register.EBX || r == Register.ESP || r == Register.EBP || r == Register.ESI || r == Register.EDI || (r >= Register.R8D && r <= Register.R15D)) return 32;
-        if (r == Register.RAX || r == Register.RCX || r == Register.RDX || r == Register.RBX || r == Register.RSP || r == Register.RBP || r == Register.RSI || r == Register.RDI || (r >= Register.R8 && r <= Register.R15)) return 64;
-        if (r >= Register.XMM0 && r <= Register.XMM31) return 128;
-        if (r >= Register.YMM0 && r <= Register.YMM31) return 256;
-        if (r >= Register.ZMM0 && r <= Register.ZMM31) return 512;
-        return 0;
-    }
+    private static int RegisterBitWidth(Register r) =>
+        r switch
+        {
+            Register.AL or Register.CL or Register.DL or Register.BL or >= Register.SPL and <= Register.R15L => 8,
+            Register.AX or Register.CX or Register.DX or Register.BX or Register.SP or Register.BP or Register.SI
+                or Register.DI or >= Register.R8W and <= Register.R15W => 16,
+            Register.EAX or Register.ECX or Register.EDX or Register.EBX or Register.ESP or Register.EBP or Register.ESI
+                or Register.EDI or >= Register.R8D and <= Register.R15D => 32,
+            Register.RAX or Register.RCX or Register.RDX or Register.RBX or Register.RSP or Register.RBP or Register.RSI
+                or Register.RDI or >= Register.R8 and <= Register.R15 => 64,
+            >= Register.XMM0 and <= Register.XMM31 => 128,
+            >= Register.YMM0 and <= Register.YMM31 => 256,
+            >= Register.ZMM0 and <= Register.ZMM31 => 512,
+            _ => 0
+        };
 
-    private static int MemoryBitWidth(in Instruction i)
-    {
-        var ms = i.MemorySize;
-        return ms switch
+    private static int MemoryBitWidth(in Instruction i) =>
+        i.MemorySize switch
         {
             MemorySize.UInt8 or MemorySize.Int8 => 8,
             MemorySize.UInt16 or MemorySize.Int16 => 16,
@@ -1379,17 +1335,14 @@ public sealed class Decompiler
                 or MemorySize.UInt512 => 512,
             _ => 64
         };
-    }
 
-    private static bool HasNearTarget(in Instruction i)
-    {
-        return i.Op0Kind == OpKind.NearBranch16
-            || i.Op0Kind == OpKind.NearBranch32
-            || i.Op0Kind == OpKind.NearBranch64
-            || i.Op1Kind == OpKind.NearBranch16
-            || i.Op1Kind == OpKind.NearBranch32
-            || i.Op1Kind == OpKind.NearBranch64;
-    }
+    private static bool HasNearTarget(in Instruction i) =>
+        i.Op0Kind == OpKind.NearBranch16
+        || i.Op0Kind == OpKind.NearBranch32
+        || i.Op0Kind == OpKind.NearBranch64
+        || i.Op1Kind == OpKind.NearBranch16
+        || i.Op1Kind == OpKind.NearBranch32
+        || i.Op1Kind == OpKind.NearBranch64;
 
     private static string ImmString(in Instruction i, OpKind kind)
     {
@@ -1410,15 +1363,15 @@ public sealed class Decompiler
     }
 
     private static bool IsImmediate(OpKind k) =>
-        k == OpKind.Immediate8 || k == OpKind.Immediate16 || k == OpKind.Immediate32 || k == OpKind.Immediate64
-     || k == OpKind.Immediate8to16 || k == OpKind.Immediate8to32 || k == OpKind.Immediate8to64 || k == OpKind.Immediate32to64;
+        k is OpKind.Immediate8 or OpKind.Immediate16 or OpKind.Immediate32 or OpKind.Immediate64
+            or OpKind.Immediate8to16 or OpKind.Immediate8to32 or OpKind.Immediate8to64 or OpKind.Immediate32to64;
 
     private static string MemAddrString(in Instruction i)
     {
         var sb = new StringBuilder();
 
-        if (i.MemorySegment == Register.FS || i.MemorySegment == Register.GS)
-            sb.Append(i.MemorySegment.ToString().ToLowerInvariant()).Append(":");
+        if (i.MemorySegment is Register.FS or Register.GS)
+            sb.Append(i.MemorySegment.ToString().ToLowerInvariant()).Append(':');
 
         if (i.IsIPRelativeMemoryOperand)
         {
@@ -1453,26 +1406,22 @@ public sealed class Decompiler
         int i = expr.IndexOf("rsp+0x", StringComparison.OrdinalIgnoreCase);
         if (i >= 0)
         {
-            string hex = expr.Substring(i + 6);
+            string hex = expr[(i + 6)..];
             return TryParseHex(hex, out off);
         }
         i = expr.IndexOf("rsp-0x", StringComparison.OrdinalIgnoreCase);
-        if (i >= 0)
-        {
-            if (TryParseHex(expr.Substring(i + 6), out long val))
-            {
-                off = -val;
-                return true;
-            }
-        }
-        return false;
+        if (i < 0 || !TryParseHex(expr[(i + 6)..], out long val)) return false;
+        off = -val;
+        return true;
     }
     private static bool TryParseHex(string s, out long v)
     {
         int end = 0;
         while (end < s.Length && Uri.IsHexDigit(s[end])) end++;
-        if (end == 0) { v = 0; return false; }
-        return long.TryParse(s.AsSpan(0, end), NumberStyles.HexNumber, CultureInfo.InvariantCulture, out v);
+        if (end != 0)
+            return long.TryParse(s.AsSpan(0, end), NumberStyles.HexNumber, CultureInfo.InvariantCulture, out v);
+        v = 0;
+        return false;
     }
 
     private static OpKind GetOpKind(in Instruction i, int n) => n switch
