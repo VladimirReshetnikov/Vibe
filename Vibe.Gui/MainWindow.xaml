@@ -17,13 +17,10 @@
         </Menu>
         <Grid>
             <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="200" />
+                <ColumnDefinition Width="250" />
                 <ColumnDefinition Width="*" />
             </Grid.ColumnDefinitions>
-            <StackPanel Grid.Column="0" Background="{StaticResource PanelBrush}">
-                <ListBox x:Name="ExportList" Margin="4" />
-                <Button x:Name="DecompileButton" Content="Decompile" Margin="4" Background="{StaticResource AccentBrush}" Click="DecompileButton_Click" />
-            </StackPanel>
+            <TreeView x:Name="DllTree" Grid.Column="0" Margin="4" Background="{StaticResource PanelBrush}" SelectedItemChanged="DllTree_SelectedItemChanged" />
             <TextBox x:Name="OutputBox" Grid.Column="1" Margin="4" FontFamily="Consolas" AcceptsReturn="True" AcceptsTab="True" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Auto" TextWrapping="NoWrap" Foreground="{StaticResource TextBrush}" Background="#FFFFFF" />
         </Grid>
     </DockPanel>
