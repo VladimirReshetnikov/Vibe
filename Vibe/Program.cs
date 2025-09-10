@@ -4,7 +4,7 @@ public static class Program
 {
     static void Main(string[] args)
     {
-        var disasm = DisassembleExportToPseudo("dbghelp.dll", "MakeSureDirectoryPathExists", 256 * 1024);
+        var disasm = DisassembleExportToPseudo("C:\\Windows\\System32\\Microsoft-Edge-WebView\\msedge.dll", "CreateTestWebClientProxy", 256 * 1024);
         Console.WriteLine(disasm);
     }
     /// <summary>
@@ -51,7 +51,7 @@ public static class Program
             if (!visited.Add($"{curDllPath}!{curExport}"))
                 throw new InvalidOperationException("Forwarder loop detected.");
 
-            var pe = new PEReader(curDllPath);
+            var pe = new PEReaderLite(curDllPath);
             var export = pe.FindExport(curExport);
 
             if (export.IsForwarder)
@@ -76,7 +76,7 @@ public static class Program
             byte[] body = new byte[take];
             Buffer.BlockCopy(pe.Data, funcOff, body, 0, take);
             var db = new ConstantDatabase();
-            db.LoadWin32MetadataFromWinmd(@"C:\Users\vresh\source\repos\PEInspector\Microsoft.Windows.SDK.Win32Metadata.63.0.31-preview\Windows.Win32.winmd");
+            db.LoadWin32MetadataFromWinmd(@"Microsoft.Windows.SDK.Win32Metadata.63.0.31-preview\Windows.Win32.winmd");
            
             var decompiler = new Decompiler();
             var options = new Decompiler.Options

@@ -580,7 +580,6 @@ public sealed class Decompiler
         // Hide prologue/epilogue (semantic), but assembly is already printed separately
         if (ctx.Opt.DetectPrologue && IsPrologueOrEpilogue(i))
         {
-            yield return new IR.PseudoStmt("prologue/epilogue");
             yield break;
         }
 

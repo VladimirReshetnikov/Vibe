@@ -1,7 +1,7 @@
-﻿PEInspector — x64 PE export → C‑like pseudocode
+﻿Vibe — x64 PE export → C‑like pseudocode
 ===============================================
 
-**PEInspector** is a small, self‑contained tool that:
+**Vibe**
 
 1.  Locates an exported function inside a 64‑bit Windows DLL,
 2.  Slices out its machine code directly from the PE file,
@@ -10,8 +10,7 @@
 5.  Applies a few readability passes (memset/memcpy coalescing, stack‑frame aliasing, constant naming),
 6.  Pretty‑prints C‑style pseudocode **alongside the original assembly** (as comments).
 
-It’s not a full decompiler. The goal is **faithful, readable sketches** for quick inspection and reverse‑engineering hygiene with conservative heuristics and clear fallbacks when information is uncertain.
-
+The eventual goal is to create a high-fidelity decompiler into C code comparable with human-written code.
 * * *
 
 Table of Contents
@@ -337,7 +336,6 @@ Usage Patterns & Extensibility
 Limitations
 -----------
 
-*   **Scope**: This is intentionally **not** a complete decompiler.
 *   **Platforms**: PE32+ (x64) only. No 32‑bit support at the moment.
 *   **Forwarders**: Name forwarders are supported; **ordinal forwarders** are not (throws).
 *   **Types**: Mostly integral types and raw pointers. No full type recovery or signature inference.

@@ -1,6 +1,6 @@
 ﻿﻿using System.Text;
 
-public sealed class PEReader
+public sealed class PEReaderLite
 {
     public readonly byte[] Data;
     public readonly ulong ImageBase;
@@ -9,7 +9,7 @@ public sealed class PEReader
     public readonly uint ExportSize;
     public readonly uint SizeOfHeaders; // NEW: keep SizeOfHeaders for header-range RVA mapping
 
-    public PEReader(string path)
+    public PEReaderLite(string path)
     {
         Data = File.ReadAllBytes(path);
         // DOS header

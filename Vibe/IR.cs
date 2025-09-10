@@ -245,11 +245,10 @@ public static class IR
             if (_opt.EmitHeaderComment)
             {
                 EmitLine("/*");
-                EmitLine(" * Pseudocode (approximate) reconstructed from x64 instructions.");
+                EmitLine(" * C-like pseudocode reconstructed from x64 instructions.");
                 EmitLine(" * Assumptions: MSVC on Windows, Microsoft x64 calling convention.");
                 EmitLine(" * Parameters: p1 (RCX), p2 (RDX), p3 (R8), p4 (R9); return in RAX.");
-                EmitLine(" * NOTE: This is not a full decompiler; conditions, types, and pointer types");
-                EmitLine(" *       are inferred heuristically and may be imprecise.");
+
                 EmitLine(" */");
                 _sb.AppendLine();
             }
@@ -274,7 +273,6 @@ public static class IR
             {
                 EmitLine($"// stack allocation: sub rsp, {localSize} (no rbp)");
             }
-            EmitLine("// registers shown when helpful; memory shown via *(uintXX_t*)(addr)");
             _sb.AppendLine();
 
             // Locals (with optional initializers)
@@ -301,8 +299,6 @@ public static class IR
             EmitLine("}");
             return _sb.ToString();
         }
-
-        // ---------- emit helpers ----------
 
         private static TTag GetTag<TTag>(FunctionIR fn, string key, TTag def)
         {
