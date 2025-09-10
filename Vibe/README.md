@@ -65,7 +65,7 @@ Console.WriteLine(disasm);
 So running the built exe prints pseudocode for **`dbghelp!MakeSureDirectoryPathExists`**. Example output is included at the end of this README (truncated here).
 
 > **Note on constants (Win32 enums):**  
-> `Program.cs` loads Win32 metadata from a local `.winmd` file so that return values can be printed as names (e.g., `STATUS_*`). Update the path in `Program.cs` to wherever your **Windows.Win32.winmd** lives, or comment out the constant-mapping lines if you don’t need it.
+> `Program.cs` tries to load Win32 metadata (`Windows.Win32.winmd`) to print return values as symbolic names (e.g., `STATUS_*`). It first searches the repo and standard NuGet caches for any `Microsoft.Windows.SDK.Win32Metadata` package, using the metadata if found. If no `.winmd` is located, decompilation still proceeds but constants remain numeric.
 
 * * *
 

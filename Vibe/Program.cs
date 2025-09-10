@@ -1,4 +1,5 @@
 ﻿using System.Text;
+using System.IO.Compression;
 
 public static class Program
 {
@@ -114,7 +115,7 @@ public static class Program
             byte[] body = new byte[take];
             Buffer.BlockCopy(pe.Data, funcOff, body, 0, take);
             var db = new ConstantDatabase();
-            db.LoadWin32MetadataFromWinmd(@"Microsoft.Windows.SDK.Win32Metadata.63.0.31-preview\Windows.Win32.winmd");
+            TryLoadWin32Metadata(db);
            
             var decompiler = new Decompiler();
             var options = new Decompiler.Options
@@ -163,5 +164,90 @@ public static class Program
 
             return (dll, sym);
         }
+    }
+
+    static void TryLoadWin32Metadata(ConstantDatabase db)
+    {
+        try
+        {
+            string? repoRoot = FindRepoRoot();
+            if (repoRoot is not null)
+            {
+                foreach (var file in Directory.EnumerateFiles(repoRoot, "Windows.Win32.winmd", SearchOption.AllDirectories))
+                {
+                    db.LoadWin32MetadataFromWinmd(file);
+                    return;
+                }
+            }
+
+            foreach (var cache in GetNuGetCacheDirectories())
+            {
+                if (!Directory.Exists(cache)) continue;
+                foreach (var nupkg in Directory.EnumerateFiles(cache, "Microsoft.Windows.SDK.Win32Metadata*.nupkg", SearchOption.AllDirectories))
+                {
+                    try
+                    {
+                        using var zip = ZipFile.OpenRead(nupkg);
+                        var entry = zip.Entries.FirstOrDefault(e => e.FullName.EndsWith("Windows.Win32.winmd", StringComparison.OrdinalIgnoreCase));
+                        if (entry is not null)
+                        {
+                            string tempPath = Path.Combine(Path.GetTempPath(), Path.GetRandomFileName() + ".winmd");
+                            entry.ExtractToFile(tempPath, true);
+                            try
+                            {
+                                db.LoadWin32MetadataFromWinmd(tempPath);
+                            }
+                            finally
+                            {
+                                try { File.Delete(tempPath); } catch { }
+                            }
+                            return;
+                        }
+                    }
+                    catch { }
+                }
+            }
+        }
+        catch { }
+    }
+
+    static string? FindRepoRoot()
+    {
+        try
+        {
+            string dir = AppContext.BaseDirectory;
+            while (!string.IsNullOrEmpty(dir))
+            {
+                if (Directory.Exists(Path.Combine(dir, ".git")) || File.Exists(Path.Combine(dir, "Vibe.sln")))
+                    return dir;
+                string? parent = Path.GetDirectoryName(dir);
+                if (string.IsNullOrEmpty(parent) || parent == dir)
+                    break;
+                dir = parent;
+            }
+        }
+        catch { }
+        return null;
+    }
+
+    static IEnumerable<string> GetNuGetCacheDirectories()
+    {
+        var dirs = new List<string>();
+        string? env = Environment.GetEnvironmentVariable("NUGET_PACKAGES");
+        if (!string.IsNullOrWhiteSpace(env))
+            dirs.Add(env);
+
+        string profile = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
+        if (!string.IsNullOrEmpty(profile))
+            dirs.Add(Path.Combine(profile, ".nuget", "packages"));
+
+        string local = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
+        if (!string.IsNullOrEmpty(local))
+        {
+            dirs.Add(Path.Combine(local, "NuGet", "Cache"));
+            dirs.Add(Path.Combine(local, "NuGet", "v3-cache"));
+        }
+
+        return dirs;
     }
 }
