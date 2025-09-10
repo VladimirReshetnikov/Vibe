@@ -29,6 +29,7 @@ Table of Contents
 *   [Key Heuristics](#key-heuristics)
 *   [Usage Patterns & Extensibility](#usage-patterns--extensibility)
 *   [Limitations](#limitations)
+*   [Code Formatting](#code-formatting)
 *   [Troubleshooting](#troubleshooting)
 *   [Roadmap / Ideas](#roadmap--ideas)
 *   [Acknowledgments](#acknowledgments)
@@ -347,3 +348,23 @@ Limitations
 *   **Control flow**: Linear IR with labels/gotos; no region structuring beyond trivial `if (cond) goto`.
 *   **Heuristics**: Memset/memcpy detection is safe but conservative. Some patterns won’t fold.
 *   **Constants**: Return constants are mapped; call‑argument constants are prepared in the database but **not yet** rewritten at call sites.
+
+* * *
+
+Code Formatting
+---------------
+
+The repository includes [`.gitattributes`](.gitattributes) and [`.editorconfig`](.editorconfig) to keep text files consistent. In summary:
+
+* UTF‑8 encoding.
+* Unix‐style `LF` line endings with a final newline.
+* Four spaces for indentation.
+* Trailing whitespace trimmed.
+
+Committed code should appear as if the following Git options are set:
+
+```
+git config core.autocrlf false
+git config core.eol lf
+git config core.safecrlf true
+```
