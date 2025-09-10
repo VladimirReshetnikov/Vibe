@@ -1,6 +1,9 @@
 // SPDX-License-Identifier: MIT-0
+
 using System.Globalization;
 using System.Text;
+
+namespace Vibe.Decompiler;
 
 public static class IR
 {
@@ -481,7 +484,7 @@ public static class IR
                         EmitCall(ce);
                         _sb.Append(";");
                         if (a.Lhs is RegExpr rx && (string.Equals(rx.Name, "ret", StringComparison.OrdinalIgnoreCase)
-                                                  || string.Equals(rx.Name, "rax", StringComparison.OrdinalIgnoreCase)))
+                                                    || string.Equals(rx.Name, "rax", StringComparison.OrdinalIgnoreCase)))
                             _sb.Append("  // RAX");
                         _sb.AppendLine();
                         break;
@@ -622,61 +625,61 @@ public static class IR
                     break;
 
                 case BinOpExpr b:
-                    {
-                        var (opTxt, prec, assocRight) = OpInfo(b.Op);
-                        bool need = prec < parentPrec;
-                        if (need) _sb.Append("(");
-                        EmitExpr(b.Left, assocRight ? prec : prec + 1);
-                        _sb.Append(' ').Append(opTxt).Append(' ');
-                        EmitExpr(b.Right, assocRight ? prec + 1 : prec);
-                        if (need) _sb.Append(")");
-                    }
+                {
+                    var (opTxt, prec, assocRight) = OpInfo(b.Op);
+                    bool need = prec < parentPrec;
+                    if (need) _sb.Append("(");
+                    EmitExpr(b.Left, assocRight ? prec : prec + 1);
+                    _sb.Append(' ').Append(opTxt).Append(' ');
+                    EmitExpr(b.Right, assocRight ? prec + 1 : prec);
+                    if (need) _sb.Append(")");
+                }
                     break;
 
                 case UnOpExpr u:
-                    {
-                        var (opTxt, prec) = UnOpInfo(u.Op);
-                        bool need = prec < parentPrec;
-                        if (need) _sb.Append("(");
-                        _sb.Append(opTxt);
-                        EmitExpr(u.Operand, prec);
-                        if (need) _sb.Append(")");
-                    }
+                {
+                    var (opTxt, prec) = UnOpInfo(u.Op);
+                    bool need = prec < parentPrec;
+                    if (need) _sb.Append("(");
+                    _sb.Append(opTxt);
+                    EmitExpr(u.Operand, prec);
+                    if (need) _sb.Append(")");
+                }
                     break;
 
                 case CompareExpr cmp:
-                    {
-                        var (opTxt, signedHint) = CmpInfo(cmp.Op);
-                        if (_opt.CommentSignednessOnCmp && signedHint is not null)
-                            _sb.Append("/* ").Append(signedHint).Append(" */ ");
-                        EmitExpr(cmp.Left, Precedence.Rel);
-                        _sb.Append(' ').Append(opTxt).Append(' ');
-                        EmitExpr(cmp.Right, Precedence.Rel);
-                    }
+                {
+                    var (opTxt, signedHint) = CmpInfo(cmp.Op);
+                    if (_opt.CommentSignednessOnCmp && signedHint is not null)
+                        _sb.Append("/* ").Append(signedHint).Append(" */ ");
+                    EmitExpr(cmp.Left, Precedence.Rel);
+                    _sb.Append(' ').Append(opTxt).Append(' ');
+                    EmitExpr(cmp.Right, Precedence.Rel);
+                }
                     break;
 
                 case TernaryExpr t:
-                    {
-                        bool need = Precedence.Cond < parentPrec;
-                        if (need) _sb.Append("(");
-                        EmitExpr(t.Condition, Precedence.Cond);
-                        _sb.Append(" ? ");
-                        EmitExpr(t.WhenTrue, Precedence.Cond);
-                        _sb.Append(" : ");
-                        EmitExpr(t.WhenFalse, Precedence.Cond);
-                        if (need) _sb.Append(")");
-                    }
+                {
+                    bool need = Precedence.Cond < parentPrec;
+                    if (need) _sb.Append("(");
+                    EmitExpr(t.Condition, Precedence.Cond);
+                    _sb.Append(" ? ");
+                    EmitExpr(t.WhenTrue, Precedence.Cond);
+                    _sb.Append(" : ");
+                    EmitExpr(t.WhenFalse, Precedence.Cond);
+                    if (need) _sb.Append(")");
+                }
                     break;
 
                 case CastExpr c:
-                    {
-                        string castTxt = RenderCast(c);
-                        bool need = Precedence.Prefix < parentPrec;
-                        if (need) _sb.Append("(");
-                        _sb.Append(castTxt);
-                        EmitExpr(c.Value, Precedence.Prefix);
-                        if (need) _sb.Append(")");
-                    }
+                {
+                    string castTxt = RenderCast(c);
+                    bool need = Precedence.Prefix < parentPrec;
+                    if (need) _sb.Append("(");
+                    _sb.Append(castTxt);
+                    EmitExpr(c.Value, Precedence.Prefix);
+                    if (need) _sb.Append(")");
+                }
                     break;
 
                 case CallExpr ce:

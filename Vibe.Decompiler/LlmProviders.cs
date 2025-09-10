@@ -1,8 +1,10 @@
 // SPDX-License-Identifier: MIT-0
-using System.Net.Http;
+
 using System.Net.Http.Headers;
 using System.Text;
 using System.Text.Json;
+
+namespace Vibe.Decompiler;
 
 public interface ILlmProvider : IDisposable
 {
@@ -114,4 +116,3 @@ public sealed class AnthropicLlmProvider : ILlmProvider
 
     public void Dispose() => _http.Dispose();
 }
-

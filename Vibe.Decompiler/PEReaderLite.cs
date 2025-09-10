@@ -1,5 +1,8 @@
 // SPDX-License-Identifier: MIT-0
+
 using System.Text;
+
+namespace Vibe.Decompiler;
 
 public sealed class PEReaderLite
 {

@@ -2,6 +2,8 @@
 
 using System.Text.Json;
 
+namespace Vibe.Decompiler;
+
 public static class Win32DocFetcher
 {
     private static readonly HttpClient _http = new()

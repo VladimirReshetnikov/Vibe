@@ -1,4 +1,6 @@
 // SPDX-License-Identifier: MIT-0
+namespace Vibe.Decompiler;
+
 public static class Transformations
 {
     // --- Helper rewriter ---
