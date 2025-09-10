@@ -44,12 +44,19 @@ public sealed class OpenAiLlmProvider : ILlmProvider, IDisposable
         }
 
         using var doc = JsonDocument.Parse(await resp.Content.ReadAsStringAsync(cancellationToken));
-        var choices = doc.RootElement.GetProperty("choices");
+        if (!doc.RootElement.TryGetProperty("choices", out var choices))
+            throw new InvalidOperationException("OpenAI API response missing 'choices' property");
+
         if (choices.GetArrayLength() == 0)
             throw new InvalidOperationException("OpenAI API returned no choices");
 
-        var message = choices[0].GetProperty("message").GetProperty("content").GetString();
-        if (message is null)
+        var firstChoice = choices[0];
+        if (!firstChoice.TryGetProperty("message", out var messageElement) ||
+            !messageElement.TryGetProperty("content", out var contentElement))
+            throw new InvalidOperationException("OpenAI API response missing message content structure");
+
+        var message = contentElement.GetString();
+        if (string.IsNullOrWhiteSpace(message))
             throw new InvalidOperationException("OpenAI API response missing content");
 
         return message.Trim();
@@ -100,12 +107,18 @@ public sealed class AnthropicLlmProvider : ILlmProvider, IDisposable
         }
 
         using var doc = JsonDocument.Parse(await resp.Content.ReadAsStringAsync(cancellationToken));
-        var contentArr = doc.RootElement.GetProperty("content");
+        if (!doc.RootElement.TryGetProperty("content", out var contentArr))
+            throw new InvalidOperationException("Anthropic API response missing 'content' property");
+
         if (contentArr.GetArrayLength() == 0)
             throw new InvalidOperationException("Anthropic API returned no content");
 
-        var message = contentArr[0].GetProperty("text").GetString();
-        if (message is null)
+        var firstContent = contentArr[0];
+        if (!firstContent.TryGetProperty("text", out var textElement))
+            throw new InvalidOperationException("Anthropic API response missing text property");
+
+        var message = textElement.GetString();
+        if (string.IsNullOrWhiteSpace(message))
             throw new InvalidOperationException("Anthropic API response missing text");
 
         return message.Trim();
