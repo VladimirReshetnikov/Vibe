@@ -18,10 +18,31 @@ public static class Program
 
         if (provider is not null)
         {
-            string refined = await provider.RefineAsync(disasm);
-            Console.WriteLine();
-            Console.WriteLine("// ---- Refined by LLM ----");
-            Console.WriteLine(refined);
+            try
+            {
+                if (provider is IDisposable disposable)
+                {
+                    using (disposable)
+                    {
+                        string refined = await provider.RefineAsync(disasm);
+                        Console.WriteLine();
+                        Console.WriteLine("// ---- Refined by LLM ----");
+                        Console.WriteLine(refined);
+                    }
+                }
+                else
+                {
+                    string refined = await provider.RefineAsync(disasm);
+                    Console.WriteLine();
+                    Console.WriteLine("// ---- Refined by LLM ----");
+                    Console.WriteLine(refined);
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine();
+                Console.WriteLine($"// ---- LLM refinement failed: {ex.Message} ----");
+            }
         }
     }
     /// <summary>
