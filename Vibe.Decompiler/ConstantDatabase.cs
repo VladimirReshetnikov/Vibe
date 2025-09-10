@@ -1,8 +1,11 @@
 // SPDX-License-Identifier: MIT-0
+
 using System.Reflection;
 using System.Reflection.Metadata;
 using System.Reflection.PortableExecutable;
 using System.Runtime.InteropServices;
+
+namespace Vibe.Decompiler;
 
 public interface IConstantNameProvider
 {

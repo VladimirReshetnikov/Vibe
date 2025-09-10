@@ -1,14 +1,11 @@
 // SPDX-License-Identifier: MIT-0
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Net.Http;
+
 using System.Net.Http.Headers;
 using System.Text;
 using System.Text.Json;
 using System.Text.RegularExpressions;
-using System.Threading;
-using System.Threading.Tasks;
+
+namespace Vibe.Decompiler;
 
 public interface IDocPageEvaluator : IDisposable
 {
@@ -194,4 +191,3 @@ public static class DuckDuckGoDocFetcher
         }
     }
 }
-

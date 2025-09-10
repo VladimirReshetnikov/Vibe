@@ -1,7 +1,9 @@
 // SPDX-License-Identifier: MIT-0
-using System.Text;
+
 using System.IO.Compression;
-using System.Text.RegularExpressions;
+using System.Text;
+
+namespace Vibe.Decompiler;
 
 public static class Program
 {
@@ -124,8 +126,8 @@ public static class Program
             var db = new ConstantDatabase();
             TryLoadWin32Metadata(db);
 
-            var decompiler = new Decompiler();
-            var options = new Decompiler.Options
+            var decompiler = new Engine();
+            var options = new Engine.Options
             {
                 BaseAddress = pe.ImageBase + export.FunctionRva,
                 FunctionName = $"{Path.GetFileName(curDllPath)}!{curExport}",

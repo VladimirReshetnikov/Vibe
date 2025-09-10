@@ -1,11 +1,14 @@
 // SPDX-License-Identifier: MIT-0
+
 using System.Globalization;
 using System.Text;
 using Iced.Intel;
 using Decoder = Iced.Intel.Decoder;
 
 
-public sealed class Decompiler
+namespace Vibe.Decompiler;
+
+public sealed class Engine
 {
     public sealed class Options
     {
@@ -185,7 +188,7 @@ public sealed class Decompiler
         for (int op = 0; op < i.OpCount; op++)
             ops.Add(QuickFormatOperand(i, op));
         return ops.Count == 0 ? i.Mnemonic.ToString().ToLowerInvariant()
-                              : i.Mnemonic.ToString().ToLowerInvariant() + " " + string.Join(", ", ops);
+            : i.Mnemonic.ToString().ToLowerInvariant() + " " + string.Join(", ", ops);
     }
 
     private static string QuickAsmWithIp(in Instruction i) => $"0x{i.IP:X}: {QuickAsm(i)}";
@@ -568,128 +571,128 @@ public sealed class Decompiler
         {
             // Moves and LEA
             case Mnemonic.Mov:
+            {
+                if (i.Op0Kind == OpKind.Memory)
                 {
-                    if (i.Op0Kind == OpKind.Memory)
-                    {
-                        var rhs = OperandExpr(i, 1, ctx, forRead: true);
-                        var addr = AddressExpr(i, ctx, isLoadOrStoreAddr: true);
-                        var ty = MemType(i);
-                        yield return new IR.StoreStmt(addr, rhs, ty, Seg(i));
-                    }
-                    else
-                    {
-                        var lhs = LhsExpr(i, ctx);
-                        var rhs = OperandExpr(i, 1, ctx, forRead: true);
-                        yield return new IR.AssignStmt(lhs, rhs);
-                    }
-                    yield break;
+                    var rhs = OperandExpr(i, 1, ctx, forRead: true);
+                    var addr = AddressExpr(i, ctx, isLoadOrStoreAddr: true);
+                    var ty = MemType(i);
+                    yield return new IR.StoreStmt(addr, rhs, ty, Seg(i));
                 }
+                else
+                {
+                    var lhs = LhsExpr(i, ctx);
+                    var rhs = OperandExpr(i, 1, ctx, forRead: true);
+                    yield return new IR.AssignStmt(lhs, rhs);
+                }
+                yield break;
+            }
             case Mnemonic.Movzx:
             case Mnemonic.Movsx:
             case Mnemonic.Movsxd:
-                {
-                    var dst = LhsExpr(i, ctx);
-                    var src = OperandExpr(i, 1, ctx, forRead: true);
-                    var dstTy = ValueTypeGuess(i, 0);
-                    var kind = i.Mnemonic == Mnemonic.Movzx ? IR.CastKind.ZeroExtend : IR.CastKind.SignExtend;
-                    yield return new IR.AssignStmt(dst, new IR.CastExpr(src, dstTy, kind));
-                    yield break;
-                }
+            {
+                var dst = LhsExpr(i, ctx);
+                var src = OperandExpr(i, 1, ctx, forRead: true);
+                var dstTy = ValueTypeGuess(i, 0);
+                var kind = i.Mnemonic == Mnemonic.Movzx ? IR.CastKind.ZeroExtend : IR.CastKind.SignExtend;
+                yield return new IR.AssignStmt(dst, new IR.CastExpr(src, dstTy, kind));
+                yield break;
+            }
             case Mnemonic.Lea:
-                {
-                    var dst = LhsExpr(i, ctx);
-                    var addr = AddressExpr(i, ctx, isLoadOrStoreAddr: false);
-                    yield return new IR.AssignStmt(dst, addr);
-                    yield break;
-                }
+            {
+                var dst = LhsExpr(i, ctx);
+                var addr = AddressExpr(i, ctx, isLoadOrStoreAddr: false);
+                yield return new IR.AssignStmt(dst, addr);
+                yield break;
+            }
 
             // Bitwise & zero idioms
             case Mnemonic.Xor:
-                {
-                    var a = LhsExpr(i, ctx);
-                    var b = OperandExpr(i, 1, ctx, forRead: true);
-                    if (i.Op0Kind == OpKind.Register && i.Op1Kind == OpKind.Register && i.Op0Register == i.Op1Register)
-                        yield return new IR.AssignStmt(a, IR.X.C(0));
-                    else
-                        yield return new IR.AssignStmt(a, new IR.BinOpExpr(IR.BinOp.Xor, a, b));
-                    yield break;
-                }
+            {
+                var a = LhsExpr(i, ctx);
+                var b = OperandExpr(i, 1, ctx, forRead: true);
+                if (i.Op0Kind == OpKind.Register && i.Op1Kind == OpKind.Register && i.Op0Register == i.Op1Register)
+                    yield return new IR.AssignStmt(a, IR.X.C(0));
+                else
+                    yield return new IR.AssignStmt(a, new IR.BinOpExpr(IR.BinOp.Xor, a, b));
+                yield break;
+            }
             case Mnemonic.Or:
-                {
-                    var a = LhsExpr(i, ctx);
-                    var b = OperandExpr(i, 1, ctx, forRead: true);
-                    yield return new IR.AssignStmt(a, new IR.BinOpExpr(IR.BinOp.Or, a, b));
-                    yield break;
-                }
+            {
+                var a = LhsExpr(i, ctx);
+                var b = OperandExpr(i, 1, ctx, forRead: true);
+                yield return new IR.AssignStmt(a, new IR.BinOpExpr(IR.BinOp.Or, a, b));
+                yield break;
+            }
             case Mnemonic.And:
-                {
-                    var a = LhsExpr(i, ctx);
-                    var b = OperandExpr(i, 1, ctx, forRead: true);
-                    yield return new IR.AssignStmt(a, new IR.BinOpExpr(IR.BinOp.And, a, b));
-                    yield break;
-                }
+            {
+                var a = LhsExpr(i, ctx);
+                var b = OperandExpr(i, 1, ctx, forRead: true);
+                yield return new IR.AssignStmt(a, new IR.BinOpExpr(IR.BinOp.And, a, b));
+                yield break;
+            }
             case Mnemonic.Not:
-                {
-                    var a = LhsExpr(i, ctx);
-                    yield return new IR.AssignStmt(a, new IR.UnOpExpr(IR.UnOp.Not, a));
-                    yield break;
-                }
+            {
+                var a = LhsExpr(i, ctx);
+                yield return new IR.AssignStmt(a, new IR.UnOpExpr(IR.UnOp.Not, a));
+                yield break;
+            }
             case Mnemonic.Neg:
-                {
-                    var a = LhsExpr(i, ctx);
-                    yield return new IR.AssignStmt(a, new IR.UnOpExpr(IR.UnOp.Neg, a));
-                    yield break;
-                }
+            {
+                var a = LhsExpr(i, ctx);
+                yield return new IR.AssignStmt(a, new IR.UnOpExpr(IR.UnOp.Neg, a));
+                yield break;
+            }
 
             // Arithmetic
             case Mnemonic.Add:
-                {
-                    var a = LhsExpr(i, ctx);
-                    var b = OperandExpr(i, 1, ctx, forRead: true);
-                    yield return new IR.AssignStmt(a, new IR.BinOpExpr(IR.BinOp.Add, a, b));
-                    yield break;
-                }
+            {
+                var a = LhsExpr(i, ctx);
+                var b = OperandExpr(i, 1, ctx, forRead: true);
+                yield return new IR.AssignStmt(a, new IR.BinOpExpr(IR.BinOp.Add, a, b));
+                yield break;
+            }
             case Mnemonic.Sub:
-                {
-                    var a = LhsExpr(i, ctx);
-                    var b = OperandExpr(i, 1, ctx, forRead: true);
-                    yield return new IR.AssignStmt(a, new IR.BinOpExpr(IR.BinOp.Sub, a, b));
-                    yield break;
-                }
+            {
+                var a = LhsExpr(i, ctx);
+                var b = OperandExpr(i, 1, ctx, forRead: true);
+                yield return new IR.AssignStmt(a, new IR.BinOpExpr(IR.BinOp.Sub, a, b));
+                yield break;
+            }
             case Mnemonic.Inc:
-                {
-                    var a = LhsExpr(i, ctx);
-                    yield return new IR.AssignStmt(a, new IR.BinOpExpr(IR.BinOp.Add, a, IR.X.C(1)));
-                    yield break;
-                }
+            {
+                var a = LhsExpr(i, ctx);
+                yield return new IR.AssignStmt(a, new IR.BinOpExpr(IR.BinOp.Add, a, IR.X.C(1)));
+                yield break;
+            }
             case Mnemonic.Dec:
-                {
-                    var a = LhsExpr(i, ctx);
-                    yield return new IR.AssignStmt(a, new IR.BinOpExpr(IR.BinOp.Sub, a, IR.X.C(1)));
-                    yield break;
-                }
+            {
+                var a = LhsExpr(i, ctx);
+                yield return new IR.AssignStmt(a, new IR.BinOpExpr(IR.BinOp.Sub, a, IR.X.C(1)));
+                yield break;
+            }
 
             case Mnemonic.Imul:
+            {
+                if (i.OpCount == 2 && i.Op0Kind == OpKind.Register)
                 {
-                    if (i.OpCount == 2 && i.Op0Kind == OpKind.Register)
-                    {
-                        var a = LhsExpr(i, ctx);
-                        var b = OperandExpr(i, 1, ctx, forRead: true);
-                        yield return new IR.AssignStmt(a, new IR.BinOpExpr(IR.BinOp.Mul, a, b));
-                    }
-                    else if (i.OpCount == 3)
-                    {
-                        var dst = LhsExpr(i, ctx);
-                        var src = OperandExpr(i, 1, ctx, forRead: true);
-                        var imm = OperandExpr(i, 2, ctx, forRead: true);
-                        yield return new IR.AssignStmt(dst, new IR.BinOpExpr(IR.BinOp.Mul, src, imm));
-                    }
-                    else
-                    {
-                        yield return new IR.PseudoStmt("RDX:RAX = RAX * op (signed)");
-                    }
-                    yield break;
+                    var a = LhsExpr(i, ctx);
+                    var b = OperandExpr(i, 1, ctx, forRead: true);
+                    yield return new IR.AssignStmt(a, new IR.BinOpExpr(IR.BinOp.Mul, a, b));
                 }
+                else if (i.OpCount == 3)
+                {
+                    var dst = LhsExpr(i, ctx);
+                    var src = OperandExpr(i, 1, ctx, forRead: true);
+                    var imm = OperandExpr(i, 2, ctx, forRead: true);
+                    yield return new IR.AssignStmt(dst, new IR.BinOpExpr(IR.BinOp.Mul, src, imm));
+                }
+                else
+                {
+                    yield return new IR.PseudoStmt("RDX:RAX = RAX * op (signed)");
+                }
+                yield break;
+            }
             case Mnemonic.Mul:
                 yield return new IR.PseudoStmt("RDX:RAX = RAX * op (unsigned)"); yield break;
             case Mnemonic.Idiv:
@@ -700,69 +703,69 @@ public sealed class Decompiler
             // Shifts/rotates
             case Mnemonic.Shl:
             case Mnemonic.Sal:
-                {
-                    var a = LhsExpr(i, ctx);
-                    var c = OperandExpr(i, 1, ctx, forRead: true);
-                    yield return new IR.AssignStmt(a, new IR.BinOpExpr(IR.BinOp.Shl, a, c));
-                    yield break;
-                }
+            {
+                var a = LhsExpr(i, ctx);
+                var c = OperandExpr(i, 1, ctx, forRead: true);
+                yield return new IR.AssignStmt(a, new IR.BinOpExpr(IR.BinOp.Shl, a, c));
+                yield break;
+            }
             case Mnemonic.Shr:
-                {
-                    var a = LhsExpr(i, ctx);
-                    var c = OperandExpr(i, 1, ctx, forRead: true);
-                    yield return new IR.AssignStmt(a, new IR.BinOpExpr(IR.BinOp.Shr, a, c));
-                    yield break;
-                }
+            {
+                var a = LhsExpr(i, ctx);
+                var c = OperandExpr(i, 1, ctx, forRead: true);
+                yield return new IR.AssignStmt(a, new IR.BinOpExpr(IR.BinOp.Shr, a, c));
+                yield break;
+            }
             case Mnemonic.Sar:
-                {
-                    var a = LhsExpr(i, ctx);
-                    var c = OperandExpr(i, 1, ctx, forRead: true);
-                    yield return new IR.AssignStmt(a, new IR.BinOpExpr(IR.BinOp.Sar, a, c));
-                    yield break;
-                }
+            {
+                var a = LhsExpr(i, ctx);
+                var c = OperandExpr(i, 1, ctx, forRead: true);
+                yield return new IR.AssignStmt(a, new IR.BinOpExpr(IR.BinOp.Sar, a, c));
+                yield break;
+            }
             case Mnemonic.Rol:
-                {
-                    var a = LhsExpr(i, ctx);
-                    var c = OperandExpr(i, 1, ctx, forRead: true);
-                    yield return new IR.AssignStmt(a, new IR.IntrinsicExpr("rotl", new[] { a, c }));
-                    yield break;
-                }
+            {
+                var a = LhsExpr(i, ctx);
+                var c = OperandExpr(i, 1, ctx, forRead: true);
+                yield return new IR.AssignStmt(a, new IR.IntrinsicExpr("rotl", new[] { a, c }));
+                yield break;
+            }
             case Mnemonic.Ror:
-                {
-                    var a = LhsExpr(i, ctx);
-                    var c = OperandExpr(i, 1, ctx, forRead: true);
-                    yield return new IR.AssignStmt(a, new IR.IntrinsicExpr("rotr", new[] { a, c }));
-                    yield break;
-                }
+            {
+                var a = LhsExpr(i, ctx);
+                var c = OperandExpr(i, 1, ctx, forRead: true);
+                yield return new IR.AssignStmt(a, new IR.IntrinsicExpr("rotr", new[] { a, c }));
+                yield break;
+            }
 
             // Bit test family (record for next jcc)
             case Mnemonic.Bt:
             case Mnemonic.Bts:
             case Mnemonic.Btr:
             case Mnemonic.Btc:
-                {
-                    string v = OperandText(i, 0, ctx);
-                    string ix = OperandText(i, 1, ctx);
-                    ctx.LastBt = new LastBt { Value = v, Index = ix, Ip = i.IP };
-                    yield return new IR.PseudoStmt($"CF = bit({v}, {ix})");
-                    yield break;
-                }
+            {
+                string v = OperandText(i, 0, ctx);
+                string ix = OperandText(i, 1, ctx);
+                ctx.LastBt = new LastBt { Value = v, Index = ix, Ip = i.IP };
+                yield return new IR.PseudoStmt($"CF = bit({v}, {ix})");
+                yield break;
+            }
 
             // Flag setters
             case Mnemonic.Cmp:
-                {
-                    var (l, r, w, lc, lval, rc, rval) = ExtractCmpLike(i, ctx);
-                    ctx.LastCmp = new LastCmp { Left = l, Right = r, BitWidth = w, IsTest = false, Ip = i.IP, LeftIsConst = lc, RightIsConst = rc, LeftConst = lval, RightConst = rval };
-                    if (ctx.Opt.CommentCompare) yield return new IR.PseudoStmt($"compare {l}, {r}");
-                    yield break;
-                }
+            {
+                var (l, r, w, lc, lval, rc, rval) = ExtractCmpLike(i, ctx);
+                ctx.LastCmp = new LastCmp { Left = l, Right = r, BitWidth = w, IsTest = false, Ip = i.IP, LeftIsConst = lc, RightIsConst = rc, LeftConst = lval, RightConst = rval };
+                if (ctx.Opt.CommentCompare) yield return new IR.PseudoStmt($"compare {l}, {r}");
+                yield break;
+            }
             case Mnemonic.Test:
-                {
-                    var (l, r, w, lc, lval, rc, rval) = ExtractCmpLike(i, ctx);
-                    ctx.LastCmp = new LastCmp { Left = l, Right = r, BitWidth = w, IsTest = true, Ip = i.IP, LeftIsConst = lc, RightIsConst = rc, LeftConst = lval, RightConst = rval };
-                    if (ctx.Opt.CommentCompare) yield return new IR.PseudoStmt($"test {l}, {r}");
-                    yield break;
-                }
+            {
+                var (l, r, w, lc, lval, rc, rval) = ExtractCmpLike(i, ctx);
+                ctx.LastCmp = new LastCmp { Left = l, Right = r, BitWidth = w, IsTest = true, Ip = i.IP, LeftIsConst = lc, RightIsConst = rc, LeftConst = lval, RightConst = rval };
+                if (ctx.Opt.CommentCompare) yield return new IR.PseudoStmt($"test {l}, {r}");
+                yield break;
+            }
 
             // Branching (unconditional)
             case Mnemonic.Jmp:
@@ -774,22 +777,22 @@ public sealed class Decompiler
 
             // Calls / returns
             case Mnemonic.Call:
+            {
+                // memset(rcx, edx, r8d) heuristic
+                if (TryRenderMemsetCallSiteIR(i, ctx, out var ms))
                 {
-                    // memset(rcx, edx, r8d) heuristic
-                    if (TryRenderMemsetCallSiteIR(i, ctx, out var ms))
-                    {
-                        yield return ms;
-                        yield break;
-                    }
-
-                    var callExpr = BuildCallExpr(i, ctx, out bool assignsToRet);
-                    if (assignsToRet)
-                        yield return new IR.AssignStmt(IR.X.R("ret"), callExpr);
-                    else
-                        yield return new IR.CallStmt(callExpr);
-                    ctx.LastWasCall = true;
+                    yield return ms;
                     yield break;
                 }
+
+                var callExpr = BuildCallExpr(i, ctx, out bool assignsToRet);
+                if (assignsToRet)
+                    yield return new IR.AssignStmt(IR.X.R("ret"), callExpr);
+                else
+                    yield return new IR.CallStmt(callExpr);
+                ctx.LastWasCall = true;
+                yield break;
+            }
 
             case Mnemonic.Ret:
             case Mnemonic.Retf:
@@ -866,19 +869,19 @@ public sealed class Decompiler
             case Mnemonic.Mulsd:
             case Mnemonic.Divss:
             case Mnemonic.Divsd:
+            {
+                var op = i.Mnemonic switch
                 {
-                    var op = i.Mnemonic switch
-                    {
-                        Mnemonic.Addss or Mnemonic.Addsd => IR.BinOp.Add,
-                        Mnemonic.Subss or Mnemonic.Subsd => IR.BinOp.Sub,
-                        Mnemonic.Mulss or Mnemonic.Mulsd => IR.BinOp.Mul,
-                        _ => IR.BinOp.UDiv
-                    };
-                    var dst = LhsExpr(i, ctx);
-                    var src = OperandExpr(i, 1, ctx, forRead: true);
-                    yield return new IR.AssignStmt(dst, new IR.BinOpExpr(op, dst, src));
-                    yield break;
-                }
+                    Mnemonic.Addss or Mnemonic.Addsd => IR.BinOp.Add,
+                    Mnemonic.Subss or Mnemonic.Subsd => IR.BinOp.Sub,
+                    Mnemonic.Mulss or Mnemonic.Mulsd => IR.BinOp.Mul,
+                    _ => IR.BinOp.UDiv
+                };
+                var dst = LhsExpr(i, ctx);
+                var src = OperandExpr(i, 1, ctx, forRead: true);
+                yield return new IR.AssignStmt(dst, new IR.BinOpExpr(op, dst, src));
+                yield break;
+            }
 
             // misc
             case Mnemonic.Nop:
@@ -1015,18 +1018,18 @@ public sealed class Decompiler
             case OpKind.Immediate8to32:
             case OpKind.Immediate8to64:
             case OpKind.Immediate32to64:
+            {
+                long v = ParseImmediate(i, kind);
+                int bits = kind switch
                 {
-                    long v = ParseImmediate(i, kind);
-                    int bits = kind switch
-                    {
-                        OpKind.Immediate8 or OpKind.Immediate8to16 or OpKind.Immediate8to32 or OpKind.Immediate8to64 => 8,
-                        OpKind.Immediate16 => 16,
-                        OpKind.Immediate32 or OpKind.Immediate32to64 => 32,
-                        OpKind.Immediate64 => 64,
-                        _ => 64
-                    };
-                    return new IR.Const(v, bits);
-                }
+                    OpKind.Immediate8 or OpKind.Immediate8to16 or OpKind.Immediate8to32 or OpKind.Immediate8to64 => 8,
+                    OpKind.Immediate16 => 16,
+                    OpKind.Immediate32 or OpKind.Immediate32to64 => 32,
+                    OpKind.Immediate64 => 64,
+                    _ => 64
+                };
+                return new IR.Const(v, bits);
+            }
 
             case OpKind.NearBranch16:
             case OpKind.NearBranch32:
@@ -1034,11 +1037,11 @@ public sealed class Decompiler
                 return new IR.UConst(i.NearBranchTarget, 64);
 
             case OpKind.Memory:
-                {
-                    var addr = AddressExpr(i, ctx, isLoadOrStoreAddr: forRead);
-                    var ty = MemType(i);
-                    return new IR.LoadExpr(addr, ty, Seg(i));
-                }
+            {
+                var addr = AddressExpr(i, ctx, isLoadOrStoreAddr: forRead);
+                var ty = MemType(i);
+                return new IR.LoadExpr(addr, ty, Seg(i));
+            }
         }
         return IR.X.R("op");
     }
@@ -1183,9 +1186,9 @@ public sealed class Decompiler
         if (w == 0) w = 64;
 
         bool lc = GetOpKind(i, 0) is OpKind.Immediate8 or OpKind.Immediate16 or OpKind.Immediate32 or OpKind.Immediate64
-                                    or OpKind.Immediate8to16 or OpKind.Immediate8to32 or OpKind.Immediate8to64 or OpKind.Immediate32to64;
+            or OpKind.Immediate8to16 or OpKind.Immediate8to32 or OpKind.Immediate8to64 or OpKind.Immediate32to64;
         bool rc = GetOpKind(i, 1) is OpKind.Immediate8 or OpKind.Immediate16 or OpKind.Immediate32 or OpKind.Immediate64
-                                    or OpKind.Immediate8to16 or OpKind.Immediate8to32 or OpKind.Immediate8to64 or OpKind.Immediate32to64;
+            or OpKind.Immediate8to16 or OpKind.Immediate8to32 or OpKind.Immediate8to64 or OpKind.Immediate32to64;
         long lval = lc ? ParseImmediate(i, GetOpKind(i, 0)) : 0;
         long rval = rc ? ParseImmediate(i, GetOpKind(i, 1)) : 0;
 
@@ -1218,8 +1221,8 @@ public sealed class Decompiler
         static bool LooksLikePointerVar(IR.Expr e)
         {
             return e is IR.RegExpr rr && (rr.Name.Contains("rsp", StringComparison.OrdinalIgnoreCase)
-                                             || rr.Name.StartsWith('p')
-                                             || rr.Name.Contains("+ 0x", StringComparison.Ordinal));
+                                          || rr.Name.StartsWith('p')
+                                          || rr.Name.Contains("+ 0x", StringComparison.Ordinal));
         }
         static bool IsSmallLiteralOrZero(IR.Expr e)
         {
@@ -1445,18 +1448,18 @@ public sealed class Decompiler
     private static bool IsSetcc(in Instruction i) => i.Mnemonic switch
     {
         Mnemonic.Seta or Mnemonic.Setae or Mnemonic.Setb or Mnemonic.Setbe or
-        Mnemonic.Sete or Mnemonic.Setne or Mnemonic.Setl or Mnemonic.Setle or
-        Mnemonic.Setg or Mnemonic.Setge or Mnemonic.Seto or Mnemonic.Setno or
-        Mnemonic.Sets or Mnemonic.Setns or Mnemonic.Setp or Mnemonic.Setnp => true,
+            Mnemonic.Sete or Mnemonic.Setne or Mnemonic.Setl or Mnemonic.Setle or
+            Mnemonic.Setg or Mnemonic.Setge or Mnemonic.Seto or Mnemonic.Setno or
+            Mnemonic.Sets or Mnemonic.Setns or Mnemonic.Setp or Mnemonic.Setnp => true,
         _ => false
     };
 
     private static bool IsCmovcc(in Instruction i) => i.Mnemonic switch
     {
         Mnemonic.Cmova or Mnemonic.Cmovae or Mnemonic.Cmovb or Mnemonic.Cmovbe or
-        Mnemonic.Cmove or Mnemonic.Cmovne or Mnemonic.Cmovl or Mnemonic.Cmovle or
-        Mnemonic.Cmovg or Mnemonic.Cmovge or Mnemonic.Cmovo or Mnemonic.Cmovno or
-        Mnemonic.Cmovs or Mnemonic.Cmovns or Mnemonic.Cmovp or Mnemonic.Cmovnp => true,
+            Mnemonic.Cmove or Mnemonic.Cmovne or Mnemonic.Cmovl or Mnemonic.Cmovle or
+            Mnemonic.Cmovg or Mnemonic.Cmovge or Mnemonic.Cmovo or Mnemonic.Cmovno or
+            Mnemonic.Cmovs or Mnemonic.Cmovns or Mnemonic.Cmovp or Mnemonic.Cmovnp => true,
         _ => false
     };
 }
