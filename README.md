@@ -1,4 +1,4 @@
-﻿Vibe — x64 PE export → C‑like pseudocode
+Vibe — x64 PE export → C‑like pseudocode
 ===============================================
 
 **Vibe**

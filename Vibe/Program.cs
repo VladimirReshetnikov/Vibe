@@ -1,4 +1,5 @@
-﻿using System.Text;
+// SPDX-License-Identifier: MIT-0
+using System.Text;
 using System.IO.Compression;
 using System.Text.RegularExpressions;
 
@@ -6,8 +7,7 @@ public static class Program
 {
     static async Task Main(string[] args)
     {
-        var disasm = DisassembleExportToPseudo("C:\\Windows\\System32\\Microsoft-Edge-WebView\\msedge.dll",
-            "CreateTestWebClientProxy", 256 * 1024);
+        var disasm = DisassembleExportToPseudo("C:\\Windows\\System32\\Microsoft-Edge-WebView\\msedge.dll", "CreateTestWebClientProxy", 256 * 1024);
         Console.WriteLine(disasm);
 
         ILlmProvider? provider = null;
@@ -224,27 +224,16 @@ public static class Program
                             }
                             finally
                             {
-                                try
-                                {
-                                    File.Delete(tempPath);
-                                }
-                                catch
-                                {
-                                }
+                                try { File.Delete(tempPath); } catch { }
                             }
-
                             return;
                         }
                     }
-                    catch
-                    {
-                    }
+                    catch { }
                 }
             }
         }
-        catch
-        {
-        }
+        catch { }
     }
 
     static string? FindRepoRoot()
@@ -262,10 +251,7 @@ public static class Program
                 dir = parent;
             }
         }
-        catch
-        {
-        }
-
+        catch { }
         return null;
     }
 

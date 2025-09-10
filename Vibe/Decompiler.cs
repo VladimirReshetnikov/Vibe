@@ -1,4 +1,5 @@
-﻿﻿using System.Globalization;
+// SPDX-License-Identifier: MIT-0
+using System.Globalization;
 using System.Text;
 using Iced.Intel;
 using Decoder = Iced.Intel.Decoder;
