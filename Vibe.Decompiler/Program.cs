@@ -11,14 +11,17 @@ public static class Program
 {
     static async Task Main(string[] args)
     {
-        bool webAccess = args.Any(a => a == "--web-access");
+        var configPath = Path.Combine(AppContext.BaseDirectory, "config.json");
+        var config = AppConfig.Load(configPath);
+
         string dllPath = "C:\\Windows\\System32\\Microsoft-Edge-WebView\\msedge.dll";
         string exportName = "CreateTestWebClientProxy";
 
-        var disasm = DisassembleExportToPseudo(dllPath, exportName, 256 * 1024);
+        var disasm = DisassembleExportToPseudo(dllPath, exportName, config.MaxDataSizeBytes);
         Console.WriteLine(disasm);
+
         var docs = new List<string>();
-        if(webAccess)
+        if (config.UseWin32DocsLookup)
         {
             try
             {
@@ -28,27 +31,35 @@ public static class Program
             }
             catch { }
         }
+
         ILlmProvider? provider = null;
         string? openAiKey = Environment.GetEnvironmentVariable("OPENAI_API_KEY");
         string? anthropicKey = Environment.GetEnvironmentVariable("ANTHROPIC_API_KEY");
 
-        if (!string.IsNullOrWhiteSpace(openAiKey))
+        switch (config.LlmProvider?.ToLowerInvariant())
         {
-            provider = new OpenAiLlmProvider(openAiKey);
-            try
-            {
-                using var evaluator = new OpenAiDocPageEvaluator(openAiKey);
-                if (webAccess)
+            case "openai" when !string.IsNullOrWhiteSpace(openAiKey):
                 {
-                    var pages = await DuckDuckGoDocFetcher.FindDocumentationPagesAsync(exportName, 2, evaluator);
-                    docs.AddRange(pages);
+                    string model = string.IsNullOrWhiteSpace(config.LlmVersion) ? "gpt-4o-mini" : config.LlmVersion;
+                    provider = new OpenAiLlmProvider(openAiKey, model);
+                    if (config.UseWebSearch)
+                    {
+                        try
+                        {
+                            using var evaluator = new OpenAiDocPageEvaluator(openAiKey, model);
+                            var pages = await DuckDuckGoDocFetcher.FindDocumentationPagesAsync(exportName, 2, evaluator);
+                            docs.AddRange(pages);
+                        }
+                        catch { }
+                    }
+                    break;
                 }
-            }
-            catch { }
-        }
-        else if (!string.IsNullOrWhiteSpace(anthropicKey))
-        {
-            provider = new AnthropicLlmProvider(anthropicKey);
+            case "anthropic" when !string.IsNullOrWhiteSpace(anthropicKey):
+                {
+                    string model = string.IsNullOrWhiteSpace(config.LlmVersion) ? "claude-3-5-sonnet-20240620" : config.LlmVersion;
+                    provider = new AnthropicLlmProvider(anthropicKey, model);
+                    break;
+                }
         }
 
         if (provider is not null)

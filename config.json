@@ -1,0 +1,7 @@
+{
+  "useWin32DocsLookup": true,
+  "useWebSearch": true,
+  "llmProvider": "openai",
+  "llmVersion": "gpt-4o-mini",
+  "maxDataSizeBytes": 10240
+}
