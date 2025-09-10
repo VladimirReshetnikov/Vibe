@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT-0
 namespace Vibe.Decompiler;
 
-public static class Transformations
+public static class LegacyTransformations
 {
     // --- Helper rewriter ---
     private static IR.Stmt RewriteStmt(IR.Stmt s, Func<IR.Expr, IR.Expr> f)
