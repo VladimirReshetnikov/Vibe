@@ -1,10 +1,11 @@
 ﻿using System.Text;
+using static System.Net.Mime.MediaTypeNames;
 
 public static class Win64ExportRunner
 {
     static void Main(string[] args)
     {
-        var disasm = DisassembleExportToPseudo("shell32.dll", "ShellExecuteExW", 256 * 1024);
+        var disasm = DisassembleExportToPseudo("dbghelp.dll", "FindDebugInfoFileEx", 256 * 1024);
         Console.WriteLine(disasm);
     }
     /// <summary>
@@ -75,7 +76,9 @@ public static class Win64ExportRunner
 
             byte[] body = new byte[take];
             Buffer.BlockCopy(pe.Data, funcOff, body, 0, take);
-
+            var db = new ConstantDatabase();
+            db.LoadWin32MetadataFromWinmd(@"C:\Users\vresh\source\repos\PEInspector\Microsoft.Windows.SDK.Win32Metadata.63.0.31-preview\Windows.Win32.winmd");
+           
             var decompiler = new MsvcFunctionPseudoDecompiler();
             var options = new MsvcFunctionPseudoDecompiler.Options
             {
@@ -84,7 +87,7 @@ public static class Win64ExportRunner
                 MaxBytes = take,
                 EmitLabels = true,
                 DetectPrologue = true,
-                InlineAsmComments = false,
+                ConstantProvider = db,
             };
 
             string pseudo = decompiler.ToPseudoCode(body, options);

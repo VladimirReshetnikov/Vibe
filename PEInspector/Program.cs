@@ -2,7 +2,11 @@
 using System;
 using System.Collections.Generic;
 using System.Globalization;
+using System.IO;
 using System.Linq;
+using System.Reflection;
+using System.Reflection.Metadata;
+using System.Reflection.PortableExecutable;
 using System.Text;
 using static PseudoIr;
 using Decoder = Iced.Intel.Decoder;
@@ -11,6 +15,27 @@ using Decoder = Iced.Intel.Decoder;
  *                P S E U D O  -  I R
  * Medium-level IR (MIR) for C-like pseudocode reconstructed from x64.
  * The decompiler below now *builds* this IR first, then pretty-prints it.
+ *
+ * Updates in this revision:
+ *   1) Free-form pseudocode is emitted via a fictitious keyword:
+ *        __pseudo(...)
+ *      e.g., "__pseudo(compare eax, ebx);" instead of "/* compare eax, ebx *​/"
+ *      Actual assembly is still shown as block comments interleaved with code.
+ *
+ *   2) New IR nodes:
+ *        - AsmCommentStmt: keeps original disassembly lines (as comments)
+ *        - PseudoStmt:     structured pseudo annotations -> __pseudo(...)
+ *        - SymConst:       symbolic constants (e.g., STATUS_SUCCESS)
+ *
+ *   3) Refinement passes (simple & safe, run after IR construction):
+ *        - ReplaceParamRegsWithParams: replace RegExpr("p1..p4") with ParamExpr
+ *        - MapNamedReturnConstants:    map return immediates to named constants
+ *        - SimplifyRedundantAssign:    drop x = x; and trivial no-ops
+ *      (memset/memcpy peepholes from previous version remain in-place)
+ *
+ *   4) ConstantDatabase supports naming values (Win32 metadata). PrettyPrinter
+ *      uses it for call-argument flags; MapNamedReturnConstants uses it for
+ *      return codes (e.g., NTSTATUS).
  * ============================================================ */
 
 public static class PseudoIr
@@ -21,49 +46,24 @@ public static class PseudoIr
 
     public abstract record IrType;
 
-    public sealed record VoidType() : IrType
-    {
-        public override string ToString() => "void";
-    }
-
-    public sealed record IntType(int Bits, bool IsSigned) : IrType
-    {
-        public override string ToString() => (IsSigned ? "i" : "u") + Bits;
-    }
-
-    public sealed record FloatType(int Bits) : IrType
-    {
-        public override string ToString() => "f" + Bits;
-    }
-
-    public sealed record PointerType(IrType Element) : IrType
-    {
-        public override string ToString() => $"ptr({Element})";
-    }
-
-    public sealed record VectorType(int Bits) : IrType
-    {
-        public override string ToString() => $"v{Bits}";
-    }
-
-    /// <summary>Use for unknown/opaque or "best-effort" types.</summary>
-    public sealed record UnknownType(string? Note = null) : IrType
-    {
-        public override string ToString() => Note is null ? "unknown" : $"unknown:{Note}";
-    }
+    public sealed record VoidType() : IrType { public override string ToString() => "void"; }
+    public sealed record IntType(int Bits, bool IsSigned) : IrType { public override string ToString() => (IsSigned ? "i" : "u") + Bits; }
+    public sealed record FloatType(int Bits) : IrType { public override string ToString() => "f" + Bits; }
+    public sealed record PointerType(IrType Element) : IrType { public override string ToString() => $"ptr({Element})"; }
+    public sealed record VectorType(int Bits) : IrType { public override string ToString() => $"v{Bits}"; }
+    public sealed record UnknownType(string? Note = null) : IrType { public override string ToString() => Note is null ? "unknown" : $"unknown:{Note}"; }
 
     // ============================================================
     //  Expressions
     // ============================================================
 
-    public abstract record Expr
-    {
-        /// <summary>Optional static type. Passes may fill this in.</summary>
-        public IrType? Type { get; init; }
-    }
+    public abstract record Expr { public IrType? Type { get; init; } }
 
     public sealed record Const(long Value, int Bits) : Expr;
     public sealed record UConst(ulong Value, int Bits) : Expr;
+
+    /// <summary>Symbolic constant (pretty-prints as Name, optionally with numeric)</summary>
+    public sealed record SymConst(ulong Value, int Bits, string Name) : Expr;
 
     /// <summary>Named register or pseudo-register.</summary>
     public sealed record RegExpr(string Name) : Expr;
@@ -97,34 +97,16 @@ public static class PseudoIr
 
     public enum SegmentReg { None, FS, GS }
 
-    public enum BinOp
-    {
-        Add, Sub, Mul, UDiv, SDiv, URem, SRem, And, Or, Xor, Shl, Shr, Sar
-    }
-
-    public enum UnOp
-    {
-        Neg, Not, LNot
-    }
-
-    public enum CmpOp
-    {
-        EQ, NE,
-        SLT, SLE, SGT, SGE,
-        ULT, ULE, UGT, UGE
-    }
-
-    public enum CastKind
-    {
-        ZeroExtend, SignExtend, Trunc, Bitcast, Reinterpret
-    }
+    public enum BinOp { Add, Sub, Mul, UDiv, SDiv, URem, SRem, And, Or, Xor, Shl, Shr, Sar }
+    public enum UnOp { Neg, Not, LNot }
+    public enum CmpOp { EQ, NE, SLT, SLE, SGT, SGE, ULT, ULE, UGT, UGE }
+    public enum CastKind { ZeroExtend, SignExtend, Trunc, Bitcast, Reinterpret }
 
     public sealed record CallTarget
     {
-        public string? Symbol { get; init; }         // e.g., "kernelbase!CreateFileW" or "memset"
-        public Expr? Address { get; init; }          // e.g., RIP-relative IAT slot expression
+        public string? Symbol { get; init; }
+        public Expr? Address { get; init; }
         public bool IsIndirect => Address is not null && Symbol is null;
-
         public static CallTarget ByName(string name) => new() { Symbol = name };
         public static CallTarget Indirect(Expr addr) => new() { Address = addr };
     }
@@ -147,7 +129,12 @@ public static class PseudoIr
     public sealed record LabelStmt(LabelSymbol Label) : Stmt;
     public sealed record ReturnStmt(Expr? Value) : Stmt;
 
-    public sealed record CommentStmt(string Text) : Stmt;
+    /// <summary>Assembly disassembly line (always printed as a block comment)</summary>
+    public sealed record AsmCommentStmt(string Text) : Stmt;
+
+    /// <summary>Free-form pseudo annotation (printed as "__pseudo(...)")</summary>
+    public sealed record PseudoStmt(string Text) : Stmt;
+
     public sealed record NopStmt() : Stmt;
 
     // ============================================================
@@ -168,16 +155,13 @@ public static class PseudoIr
     //  Labels / Blocks / Function container
     // ============================================================
 
-    public sealed record LabelSymbol(string Name, int Id)
-    {
-        public override string ToString() => Name;
-    }
+    public sealed record LabelSymbol(string Name, int Id) { public override string ToString() => Name; }
 
     public sealed class BasicBlock
     {
         public LabelSymbol Label { get; init; }
         public List<Stmt> Statements { get; } = new();
-        public BasicBlock(LabelSymbol label) => Label = label;
+        public BasicBlock(LabelSymbol label) { Label = label; }
     }
 
     public sealed class Parameter
@@ -192,8 +176,7 @@ public static class PseudoIr
     {
         public string Name { get; init; }
         public IrType Type { get; init; }
-        public Expr? Initializer { get; set; } // allow 'uint8_t* peb = (uint8_t*)__readgsqword(0x60);'
-
+        public Expr? Initializer { get; set; }
         public LocalVar(string name, IrType type, Expr? init = null) { Name = name; Type = type; Initializer = init; }
     }
 
@@ -212,10 +195,17 @@ public static class PseudoIr
 
         public Dictionary<string, object> Tags { get; } = new();
 
-        public FunctionIR(string name, ulong imageBase = 0, ulong entry = 0)
-        {
-            Name = name; ImageBase = imageBase; EntryAddress = entry;
-        }
+        public FunctionIR(string name, ulong imageBase = 0, ulong entry = 0) { Name = name; ImageBase = imageBase; EntryAddress = entry; }
+    }
+
+    // ============================================================
+    //  Constant naming hook
+    // ============================================================
+
+    public interface IConstantNameProvider
+    {
+        bool TryGetArgExpectedEnumType(string? callTargetSymbol, int argIndex, out string enumTypeFullName);
+        bool TryFormatValue(string enumTypeFullName, ulong value, out string formatted);
     }
 
     // ============================================================
@@ -227,10 +217,11 @@ public static class PseudoIr
         public sealed class Options
         {
             public bool EmitHeaderComment { get; set; } = true;
-            public bool EmitBlockLabels { get; set; } = false; // we print label statements explicitly; no need for block headers
+            public bool EmitBlockLabels { get; set; } = false;
             public bool CommentSignednessOnCmp { get; set; } = true;
-            public bool UseStdIntNames { get; set; } = true; // uint8_t/uint16_t/...
+            public bool UseStdIntNames { get; set; } = true;
             public string Indent { get; set; } = "    ";
+            public IConstantNameProvider? ConstantProvider { get; set; }
         }
 
         private readonly Options _opt;
@@ -256,15 +247,12 @@ public static class PseudoIr
                 _sb.AppendLine();
             }
 
-            // Signature
             var ret = RenderType(fn.ReturnType);
-            var paramList = string.Join(", ",
-                fn.Parameters.OrderBy(p => p.Index).Select(p => $"{RenderType(p.Type)} {p.Name}"));
+            var paramList = string.Join(", ", fn.Parameters.OrderBy(p => p.Index).Select(p => $"{RenderType(p.Type)} {p.Name}"));
 
             EmitLine($"{ret} {fn.Name}({paramList}) {{");
             _indent++;
 
-            // Prologue comments (for parity with previous string emitter)
             bool usesFp = GetTag(fn, "UsesFramePointer", false);
             int localSize = GetTag(fn, "LocalSize", 0);
             if (usesFp)
@@ -279,7 +267,6 @@ public static class PseudoIr
             EmitLine("// registers shown when helpful; memory shown via *(uintXX_t*)(addr)");
             _sb.AppendLine();
 
-            // Locals (with optional initializers)
             foreach (var l in fn.Locals)
             {
                 EmitIndent();
@@ -293,7 +280,6 @@ public static class PseudoIr
             }
             if (fn.Locals.Count > 0) _sb.AppendLine();
 
-            // Body
             if (fn.StructuredBody is not null)
                 EmitHiNode(fn.StructuredBody);
             else
@@ -303,8 +289,6 @@ public static class PseudoIr
             EmitLine("}");
             return _sb.ToString();
         }
-
-        // ---------- emit helpers ----------
 
         private static TTag GetTag<TTag>(FunctionIR fn, string key, TTag def)
         {
@@ -398,7 +382,7 @@ public static class PseudoIr
                     break;
 
                 default:
-                    EmitLine("/* unsupported structured node */");
+                    EmitLine("__pseudo(unsupported_structured_node);");
                     break;
             }
         }
@@ -409,7 +393,6 @@ public static class PseudoIr
             {
                 case AssignStmt a:
                     EmitIndent();
-                    // special: call assignment → keep previous "/* call */ ... // RAX" flavor
                     if (a.Rhs is CallExpr ce)
                     {
                         _sb.Append("/* call */ ");
@@ -463,48 +446,48 @@ public static class PseudoIr
                 case ReturnStmt r:
                     EmitIndent();
                     if (r.Value is null) _sb.AppendLine("return;");
-                    else
-                    {
-                        _sb.Append("return ");
-                        EmitExpr(r.Value, Precedence.Min);
-                        _sb.AppendLine(";");
-                    }
+                    else { _sb.Append("return "); EmitExpr(r.Value, Precedence.Min); _sb.AppendLine(";"); }
                     break;
 
-                case CommentStmt c:
+                case AsmCommentStmt c:
                     EmitLine($"/* {c.Text} */");
                     break;
 
+                case PseudoStmt p:
+                    EmitIndent(); _sb.Append("__pseudo(").Append(p.Text).AppendLine(");");
+                    break;
+
                 case NopStmt:
-                    EmitLine("/* nop */");
+                    EmitIndent(); _sb.AppendLine("__pseudo(nop);");
                     break;
 
                 default:
-                    EmitLine("/* unsupported stmt */");
+                    EmitIndent(); _sb.AppendLine("__pseudo(unsupported_stmt);");
                     break;
             }
         }
 
-        // ---------- expression printing ----------
-
         private void EmitCall(CallExpr c)
         {
-            if (c.Target.Symbol is not null)
-                _sb.Append(c.Target.Symbol);
-            else if (c.Target.Address is not null)
-            {
-                _sb.Append("(*");
-                EmitExpr(c.Target.Address, Precedence.Min);
-                _sb.Append(")");
-            }
-            else
-                _sb.Append("indirect_call");
+            if (c.Target.Symbol is not null) _sb.Append(c.Target.Symbol);
+            else if (c.Target.Address is not null) { _sb.Append("(*"); EmitExpr(c.Target.Address, Precedence.Min); _sb.Append(")"); }
+            else _sb.Append("indirect_call");
 
             _sb.Append("(");
             for (int i = 0; i < c.Args.Count; i++)
             {
                 if (i > 0) _sb.Append(", ");
-                EmitExpr(c.Args[i], Precedence.Min);
+                if (_opt.ConstantProvider != null &&
+                    _opt.ConstantProvider.TryGetArgExpectedEnumType(c.Target.Symbol, i, out var enumType) &&
+                    TryEvalConst(c.Args[i], out var constVal) &&
+                    _opt.ConstantProvider.TryFormatValue(enumType, constVal, out var fmt))
+                {
+                    _sb.Append(fmt);
+                }
+                else
+                {
+                    EmitExpr(c.Args[i], Precedence.Min);
+                }
             }
             _sb.Append(")");
         }
@@ -519,6 +502,10 @@ public static class PseudoIr
 
                 case UConst uc:
                     EmitUConst(uc.Value, uc.Bits);
+                    break;
+
+                case SymConst sc:
+                    _sb.Append(sc.Name);
                     break;
 
                 case RegExpr r:
@@ -623,9 +610,27 @@ public static class PseudoIr
                     break;
 
                 default:
-                    _sb.Append("/* unsupported expr */");
+                    _sb.Append("__pseudo(unsupported_expr)");
                     break;
             }
+        }
+
+        private static bool TryEvalConst(Expr e, out ulong value)
+        {
+            switch (e)
+            {
+                case UConst uc: value = uc.Value; return true;
+                case Const c: value = unchecked((ulong)c.Value); return true;
+                case SymConst sc: value = sc.Value; return true;
+                case BinOpExpr b when b.Op == BinOp.Or:
+                    if (TryEvalConst(b.Left, out var l) && TryEvalConst(b.Right, out var r)) { value = l | r; return true; }
+                    break;
+                case BinOpExpr b when b.Op == BinOp.Add:
+                    if (TryEvalConst(b.Left, out var l2) && TryEvalConst(b.Right, out var r2)) { value = l2 + r2; return true; }
+                    break;
+            }
+            value = 0;
+            return false;
         }
 
         private void EmitLValue(Expr lhs)
@@ -635,11 +640,9 @@ public static class PseudoIr
                 case RegExpr or LocalExpr or ParamExpr:
                     EmitExpr(lhs, Precedence.Min);
                     break;
-
-                case LoadExpr ld: // LHS 'load' means deref target
+                case LoadExpr ld:
                     EmitMemory(ld.ElemType, ld.Address, ld.Segment);
                     break;
-
                 default:
                     EmitExpr(lhs, Precedence.Min);
                     break;
@@ -655,41 +658,22 @@ public static class PseudoIr
             _sb.Append("))");
         }
 
-        // ---------- low-level printers ----------
-
         private void EmitConst(long v, int bits)
         {
-            if (v < 0)
-                _sb.Append("0x").Append(unchecked((ulong)v).ToString("X"));
-            else if (v >= 10)
-                _sb.Append("0x").Append(v.ToString("X"));
-            else
-                _sb.Append(v.ToString(CultureInfo.InvariantCulture));
+            if (v < 0) _sb.Append("0x").Append(unchecked((ulong)v).ToString("X"));
+            else if (v >= 10) _sb.Append("0x").Append(v.ToString("X"));
+            else _sb.Append(v.ToString(CultureInfo.InvariantCulture));
         }
 
         private void EmitUConst(ulong v, int bits)
         {
-            if (v >= 10)
-                _sb.Append("0x").Append(v.ToString("X"));
-            else
-                _sb.Append(v.ToString(CultureInfo.InvariantCulture));
+            if (v >= 10) _sb.Append("0x").Append(v.ToString("X"));
+            else _sb.Append(v.ToString(CultureInfo.InvariantCulture));
         }
 
         private static class Precedence
         {
-            public const int Min = 0;
-            public const int Assign = 1;
-            public const int Cond = 2;
-            public const int Or = 3;
-            public const int And = 4;
-            public const int Xor = 5;
-            public const int BitAnd = 6;
-            public const int Rel = 7;
-            public const int Shift = 8;
-            public const int Add = 9;
-            public const int Mul = 10;
-            public const int Prefix = 11;
-            public const int Atom = 12;
+            public const int Min = 0, Assign = 1, Cond = 2, Or = 3, And = 4, Xor = 5, BitAnd = 6, Rel = 7, Shift = 8, Add = 9, Mul = 10, Prefix = 11, Atom = 12;
         }
 
         private static (string op, int prec, bool assocRight) OpInfo(BinOp op) => op switch
@@ -719,28 +703,18 @@ public static class PseudoIr
         {
             CmpOp.EQ => ("==", null),
             CmpOp.NE => ("!=", null),
-
             CmpOp.SLT => ("<", "signed"),
             CmpOp.SLE => ("<=", "signed"),
             CmpOp.SGT => (">", "signed"),
             CmpOp.SGE => (">=", "signed"),
-
             CmpOp.ULT => ("<", "unsigned"),
             CmpOp.ULE => ("<=", "unsigned"),
             CmpOp.UGT => (">", "unsigned"),
             CmpOp.UGE => (">=", "unsigned"),
-
             _ => ("/* ? */", null)
         };
 
-        private string RenderCast(CastExpr c) => c.Kind switch
-        {
-            CastKind.Bitcast or CastKind.Reinterpret => $"({RenderType(c.TargetType)})",
-            CastKind.Trunc => $"({RenderType(c.TargetType)})",
-            CastKind.ZeroExtend => $"({RenderType(c.TargetType)})",
-            CastKind.SignExtend => $"({RenderType(c.TargetType)})",
-            _ => $"({RenderType(c.TargetType)})"
-        };
+        private string RenderCast(CastExpr c) => $"({RenderType(c.TargetType)})";
 
         private string RenderType(IrType t) => t switch
         {
@@ -748,32 +722,21 @@ public static class PseudoIr
             IntType it => RenderIntType(it),
             FloatType ft => ft.Bits == 32 ? "float" : ft.Bits == 64 ? "double" : $"float{ft.Bits}_t",
             PointerType pt => $"{RenderType(pt.Element)}*",
-            VectorType vt => vt.Bits switch
-            {
-                128 => "vec128_t",
-                256 => "vec256_t",
-                512 => "vec512_t",
-                _ => $"vec{vt.Bits}_t"
-            },
+            VectorType vt => vt.Bits switch { 128 => "vec128_t", 256 => "vec256_t", 512 => "vec512_t", _ => $"vec{vt.Bits}_t" },
             UnknownType ut => ut.Note is null ? "uint64_t /* unknown */" : $"uint64_t /* {ut.Note} */",
             _ => "uint64_t /* ? */"
         };
 
         private string RenderIntType(IntType t)
-        {
-            if (_opt.UseStdIntNames)
-            {
-                return (t.IsSigned ? "int" : "uint") + t.Bits + "_t";
-            }
-            return t.Bits switch
-            {
-                8 => t.IsSigned ? "signed char" : "unsigned char",
-                16 => t.IsSigned ? "short" : "unsigned short",
-                32 => t.IsSigned ? "int" : "unsigned int",
-                64 => t.IsSigned ? "long long" : "unsigned long long",
-                _ => t.IsSigned ? $"int{t.Bits}_t" : $"uint{t.Bits}_t"
-            };
-        }
+            => _opt.UseStdIntNames ? (t.IsSigned ? "int" : "uint") + t.Bits + "_t"
+                                   : t.Bits switch
+                                   {
+                                       8 => t.IsSigned ? "signed char" : "unsigned char",
+                                       16 => t.IsSigned ? "short" : "unsigned short",
+                                       32 => t.IsSigned ? "int" : "unsigned int",
+                                       64 => t.IsSigned ? "long long" : "unsigned long long",
+                                       _ => t.IsSigned ? $"int{t.Bits}_t" : $"uint{t.Bits}_t"
+                                   };
 
         private void Emit(string s) => _sb.Append(s);
         private void EmitLine(string s) { EmitIndent(); _sb.AppendLine(s); }
@@ -799,6 +762,7 @@ public static class PseudoIr
 
         public static Const C(long v, int bits = 64) => new(v, bits);
         public static UConst UC(ulong v, int bits = 64) => new(v, bits);
+        public static SymConst SC(ulong v, int bits, string name) => new(v, bits, name);
 
         public static RegExpr R(string name) => new(name);
         public static ParamExpr P(string name, int index) => new(name, index);
@@ -849,36 +813,31 @@ public static class PseudoIr
 
 /* ============================================================
  *   M S V C   F u n c t i o n   P s e u d o - D e c o m p i l e r
- * Now: builds PseudoIr.FunctionIR and then pretty-prints it.
+ *   - Builds PseudoIr.FunctionIR
+ *   - Runs refinement passes
+ *   - Pretty-prints (with disassembly comments and __pseudo annotations)
  * ============================================================ */
 
 public sealed class MsvcFunctionPseudoDecompiler
 {
     public sealed class Options
     {
-        /// <summary>Base address to assume for the function (used for RIP-relative and labels)</summary>
         public ulong BaseAddress { get; set; } = 0x0000000140000000UL;
-
-        /// <summary>Optional pretty function name to show in the pseudocode header</summary>
         public string FunctionName { get; set; } = "func";
-
-        /// <summary>Emit original labels for branch targets (L1, L2, ...)</summary>
         public bool EmitLabels { get; set; } = true;
-
-        /// <summary>Try to detect MSVC prologue/epilogue and hide low-level stack chaff</summary>
         public bool DetectPrologue { get; set; } = true;
-
-        /// <summary>Also emit trailing comments for some instructions that are purely flag-setting</summary>
         public bool CommentCompare { get; set; } = true;
-
-        /// <summary>Include very short assembly comments (mnemonic+operands) for context</summary>
-        public bool InlineAsmComments { get; set; } = false;
-
-        /// <summary>Maximum bytes to decode; null = all provided bytes</summary>
         public int? MaxBytes { get; set; } = null;
-
-        /// <summary>Optional name resolver for indirect/IAT calls.</summary>
         public Func<ulong, string?>? ResolveImportName { get; set; } = null;
+
+        /// <summary>Constant provider for naming flags and codes.</summary>
+        public PseudoIr.IConstantNameProvider? ConstantProvider { get; set; }
+
+        /// <summary>
+        /// Optional: if set (e.g., "Windows.Win32.Foundation.NTSTATUS"),
+        /// MapNamedReturnConstants pass will rewrite "return 0xC000000D;" to "return STATUS_INVALID_PARAMETER;"
+        /// </summary>
+        public string? ReturnEnumTypeFullName { get; set; }
     }
 
     private sealed class LastCmp
@@ -894,12 +853,7 @@ public sealed class MsvcFunctionPseudoDecompiler
         public long RightConst;
     }
 
-    private sealed class LastBt
-    {
-        public string Value = "";
-        public string Index = "";
-        public ulong Ip;
-    }
+    private sealed class LastBt { public string Value = ""; public string Index = ""; public ulong Ip; }
 
     private sealed class Ctx
     {
@@ -907,9 +861,7 @@ public sealed class MsvcFunctionPseudoDecompiler
         public readonly Dictionary<ulong, int> LabelByIp = new();
         public readonly HashSet<ulong> LabelNeeded = new();
         public readonly List<Instruction> Insns = new();
-        public readonly Dictionary<ulong, string> InsnToAsm = new(); // optional ASM comments
 
-        // Friendly names for registers (stable aliases only: p1..p4, ret)
         public readonly Dictionary<Register, string> RegName = new();
 
         public LastCmp? LastCmp;
@@ -920,33 +872,41 @@ public sealed class MsvcFunctionPseudoDecompiler
         public Register LastZeroedXmm = Register.None;
         public bool LastWasCall;
 
-        // RSP alias names for stack regions
         public readonly Dictionary<long, string> RspAliasByOffset = new();
 
         public ulong StartIp;
+
+        public readonly Formatter Formatter = new IntelFormatter();
+
         public Ctx(Options opt) { Opt = opt; }
     }
 
-    /// <summary>Entry point: build IR and pretty-print.</summary>
+    /// <summary>Entry point: build IR, run passes, pretty-print.</summary>
     public string ToPseudoCode(byte[] code, Options? options = null)
     {
         var opt = options ?? new Options();
         var ctx = new Ctx(opt);
 
-        // Decode and analyze
         DecodeFunction(code, ctx);
         AnalyzeLabels(ctx);
 
         // Build IR
         var fn = BuildFunctionIr(ctx);
 
-        // Pretty print IR
+        // --- Refinement passes (simple & safe) ---
+        IrPasses.ReplaceParamRegsWithParams(fn); // p1..p4 RegExpr -> ParamExpr
+        if (!string.IsNullOrEmpty(opt.ReturnEnumTypeFullName) && opt.ConstantProvider is not null)
+            IrPasses.MapNamedReturnConstants(fn, opt.ConstantProvider, opt.ReturnEnumTypeFullName!);
+        IrPasses.SimplifyRedundantAssign(fn);
+
+        // Pretty print
         var pp = new PseudoIr.PrettyPrinter(new PseudoIr.PrettyPrinter.Options
         {
             EmitHeaderComment = true,
             EmitBlockLabels = false,
             CommentSignednessOnCmp = true,
-            UseStdIntNames = true
+            UseStdIntNames = true,
+            ConstantProvider = opt.ConstantProvider
         });
         return pp.Print(fn);
     }
@@ -963,27 +923,18 @@ public sealed class MsvcFunctionPseudoDecompiler
         ulong stopIp = ctx.Opt.BaseAddress + (ulong)byteLimit;
 
         ctx.StartIp = ctx.Opt.BaseAddress;
-
-        // Seed stable entry register names
         SeedEntryRegisterNames(ctx);
 
         while (decoder.IP < stopIp)
         {
             decoder.Decode(out instr);
             ctx.Insns.Add(instr);
-
-            if (IsRet(instr))
-                break;
-
-            if (ctx.Opt.InlineAsmComments)
-                ctx.InsnToAsm[instr.IP] = QuickAsm(instr);
+            if (IsRet(instr)) break;
         }
 
-        // Prologue/locals detection
         if (ctx.Opt.DetectPrologue)
             DetectPrologueAndLocals(ctx);
 
-        // gs:[0x60] presence
         DetectWellKnowns(ctx);
     }
 
@@ -1010,44 +961,6 @@ public sealed class MsvcFunctionPseudoDecompiler
 
     private static bool IsRet(in Instruction i) =>
         i.Mnemonic == Mnemonic.Ret || i.Mnemonic == Mnemonic.Retf;
-
-    private static string QuickAsm(in Instruction i)
-    {
-        var ops = new List<string>();
-        for (int op = 0; op < i.OpCount; op++)
-            ops.Add(QuickFormatOperand(i, op));
-        return ops.Count == 0 ? i.Mnemonic.ToString().ToLowerInvariant()
-                              : i.Mnemonic.ToString().ToLowerInvariant() + " " + string.Join(", ", ops);
-    }
-
-    private static string QuickFormatOperand(in Instruction i, int n)
-    {
-        var kind = GetOpKind(i, n);
-        switch (kind)
-        {
-            case OpKind.Register:
-                return GetOpRegister(i, n).ToString().ToLowerInvariant();
-            case OpKind.NearBranch16:
-            case OpKind.NearBranch32:
-            case OpKind.NearBranch64:
-                return "0x" + i.NearBranchTarget.ToString("X");
-            case OpKind.Immediate8:
-            case OpKind.Immediate16:
-            case OpKind.Immediate32:
-            case OpKind.Immediate64:
-            case OpKind.Immediate8to16:
-            case OpKind.Immediate8to32:
-            case OpKind.Immediate8to64:
-            case OpKind.Immediate32to64:
-                return ImmString(i, kind);
-            case OpKind.Memory:
-                return MemAddrString(i);
-            default:
-                return kind.ToString();
-        }
-    }
-
-    // --------- Prologue / locals --------------------------------------------
 
     private static void DetectPrologueAndLocals(Ctx ctx)
     {
@@ -1127,7 +1040,23 @@ public sealed class MsvcFunctionPseudoDecompiler
         }
     }
 
-    // --------- Build IR & Pretty-print ---------------------------------------
+    // --------- Disassembly formatting ----------------------------------------
+
+    private static string FormatDisasm(Ctx ctx, in Instruction i)
+    {
+        var outBuf = new StringOutput();
+        ctx.Formatter.Format(in i, outBuf);
+        return $"0x{i.IP:X}: {outBuf.ToString()}";
+    }
+
+    private sealed class StringOutput : FormatterOutput
+    {
+        private readonly StringBuilder _sb = new();
+        public override void Write(string text, FormatterTextKind kind) => _sb.Append(text);
+        public override string ToString() => _sb.ToString();
+    }
+
+    // --------- Build IR  -----------------------------------------------------
 
     private PseudoIr.FunctionIR BuildFunctionIr(Ctx ctx)
     {
@@ -1135,17 +1064,14 @@ public sealed class MsvcFunctionPseudoDecompiler
         {
             ReturnType = PseudoIr.X.U64
         };
-        // Parameters (for signature only; body uses RegExpr "pX")
         fn.Parameters.Add(new PseudoIr.Parameter("p1", PseudoIr.X.U64, 0));
         fn.Parameters.Add(new PseudoIr.Parameter("p2", PseudoIr.X.U64, 1));
         fn.Parameters.Add(new PseudoIr.Parameter("p3", PseudoIr.X.U64, 2));
         fn.Parameters.Add(new PseudoIr.Parameter("p4", PseudoIr.X.U64, 3));
 
-        // Set tags used by pretty-printer for header/body comments
         fn.Tags["UsesFramePointer"] = ctx.UsesFramePointer;
         fn.Tags["LocalSize"] = ctx.LocalSize;
 
-        // Optional PEB alias local with initializer
         if (ctx.UsesGsPeb)
         {
             var init = new PseudoIr.CastExpr(
@@ -1159,17 +1085,18 @@ public sealed class MsvcFunctionPseudoDecompiler
         var block = new PseudoIr.BasicBlock(new PseudoIr.LabelSymbol("entry", 0));
         fn.Blocks.Add(block);
 
-        // Walk instructions and append statements
         var ins = ctx.Insns;
         for (int idx = 0; idx < ins.Count; idx++)
         {
             var i = ins[idx];
 
-            // Label line if needed
             if (ctx.Opt.EmitLabels && ctx.LabelByIp.TryGetValue(i.IP, out int lab))
                 block.Statements.Add(new PseudoIr.LabelStmt(new PseudoIr.LabelSymbol($"L{lab}", lab)));
 
-            // Peephole: coalesce zero-store runs into one memset
+            // Always emit disassembly line
+            block.Statements.Add(new PseudoIr.AsmCommentStmt(FormatDisasm(ctx, i)));
+
+            // Peepholes that replace runs with single calls (memset/memcpy)
             if (TryCoalesceZeroStoresIR(ins, idx, ctx, out var zeroStmts, out int consumedZero))
             {
                 block.Statements.AddRange(zeroStmts);
@@ -1177,7 +1104,6 @@ public sealed class MsvcFunctionPseudoDecompiler
                 continue;
             }
 
-            // Peephole: memcpy 16B blocks
             if (TryCoalesceMemcpy16BlocksIR(ins, idx, ctx, out var memcpyStmts, out int consumedMemcpy))
             {
                 block.Statements.AddRange(memcpyStmts);
@@ -1207,7 +1133,7 @@ public sealed class MsvcFunctionPseudoDecompiler
 
         var xmm = i.Op0Register;
         int j = idx + 1;
-        Expr? baseAddr = null;
+        PseudoIr.Expr? baseAddr = null;
         long expectedOff = 0;
         int bytes = 0;
 
@@ -1238,7 +1164,6 @@ public sealed class MsvcFunctionPseudoDecompiler
 
         if (bytes >= 32 && baseAddr is not null)
         {
-            // memset((void*)(base + firstOff), 0, bytes)
             var addr = expectedOff == bytes ? baseAddr : PseudoIr.X.Add(baseAddr, PseudoIr.X.C(expectedOff - bytes));
             stmts.Add(new PseudoIr.CallStmt(PseudoIr.X.Call("memset",
                 new PseudoIr.Expr[] {
@@ -1258,7 +1183,7 @@ public sealed class MsvcFunctionPseudoDecompiler
         stmts = new(); consumed = 0;
 
         int j = idx;
-        Expr? srcBase = null, dstBase = null;
+        PseudoIr.Expr? srcBase = null, dstBase = null;
         long expectedSrc = 0, expectedDst = 0, startSrc = 0, startDst = 0;
         int bytes = 0;
         bool haveTwoPairs = false;
@@ -1318,9 +1243,8 @@ public sealed class MsvcFunctionPseudoDecompiler
         return false;
     }
 
-    private static bool TrySplitBasePlusOffset(Expr addr, out Expr baseExpr, out long off)
+    private static bool TrySplitBasePlusOffset(PseudoIr.Expr addr, out PseudoIr.Expr baseExpr, out long off)
     {
-        // Recognize (base + const) or (base - const)
         baseExpr = addr; off = 0;
         if (addr is PseudoIr.BinOpExpr bop && (bop.Op == PseudoIr.BinOp.Add || bop.Op == PseudoIr.BinOp.Sub))
         {
@@ -1334,9 +1258,8 @@ public sealed class MsvcFunctionPseudoDecompiler
         return true;
     }
 
-    private static bool ExprEquals(Expr a, Expr b)
+    private static bool ExprEquals(PseudoIr.Expr a, PseudoIr.Expr b)
     {
-        // Cheap structural check for our simple base expressions (RegExpr/LocalExpr)
         if (a is PseudoIr.RegExpr ra && b is PseudoIr.RegExpr rb) return string.Equals(ra.Name, rb.Name, StringComparison.Ordinal);
         if (a is PseudoIr.LocalExpr la && b is PseudoIr.LocalExpr lb) return string.Equals(la.Name, lb.Name, StringComparison.Ordinal);
         if (a is PseudoIr.AddrOfExpr aa && b is PseudoIr.AddrOfExpr ab) return ExprEquals(aa.Operand, ab.Operand);
@@ -1378,17 +1301,14 @@ public sealed class MsvcFunctionPseudoDecompiler
             if (HasNearTarget(i) && ctx.LabelByIp.TryGetValue(i.NearBranchTarget, out int lab))
                 yield return new PseudoIr.IfGotoStmt(cond, new PseudoIr.LabelSymbol($"L{lab}", lab));
             else
-                yield return new PseudoIr.CommentStmt($"if ({ExprToText(cond)}) goto 0x{i.NearBranchTarget:X};");
+                yield return new PseudoIr.PseudoStmt($"if ({ExprToText(cond)}) goto 0x{i.NearBranchTarget:X}");
             ctx.LastBt = null;
             yield break;
         }
 
-        // Hide prologue/epilogue (emit comment only)
+        // Skip extra pseudo for prologue/epilogue—disasm line already emitted
         if (ctx.Opt.DetectPrologue && IsPrologueOrEpilogue(i))
-        {
-            yield return new PseudoIr.CommentStmt(QuickAsm(i));
             yield break;
-        }
 
         switch (i.Mnemonic)
         {
@@ -1512,16 +1432,16 @@ public sealed class MsvcFunctionPseudoDecompiler
                     }
                     else
                     {
-                        yield return new PseudoIr.CommentStmt("RDX:RAX = RAX * op (signed)");
+                        yield return new PseudoIr.PseudoStmt("RDX_RAX = RAX * op /* signed */");
                     }
                     yield break;
                 }
             case Mnemonic.Mul:
-                yield return new PseudoIr.CommentStmt("RDX:RAX = RAX * op (unsigned)"); yield break;
+                yield return new PseudoIr.PseudoStmt("RDX_RAX = RAX * op /* unsigned */"); yield break;
             case Mnemonic.Idiv:
-                yield return new PseudoIr.CommentStmt("RAX = (RDX:RAX) / op; RDX = remainder (signed)"); yield break;
+                yield return new PseudoIr.PseudoStmt("RAX = (RDX_RAX) / op; RDX = remainder /* signed */"); yield break;
             case Mnemonic.Div:
-                yield return new PseudoIr.CommentStmt("RAX = (RDX:RAX) / op; RDX = remainder (unsigned)"); yield break;
+                yield return new PseudoIr.PseudoStmt("RAX = (RDX_RAX) / op; RDX = remainder /* unsigned */"); yield break;
 
             // Shifts/rotates
             case Mnemonic.Shl:
@@ -1570,7 +1490,7 @@ public sealed class MsvcFunctionPseudoDecompiler
                     string v = OperandText(i, 0, ctx);
                     string ix = OperandText(i, 1, ctx);
                     ctx.LastBt = new LastBt { Value = v, Index = ix, Ip = i.IP };
-                    yield return new PseudoIr.CommentStmt($"CF = bit({v}, {ix})");
+                    yield return new PseudoIr.PseudoStmt($"CF = bit({v}, {ix})");
                     yield break;
                 }
 
@@ -1579,14 +1499,14 @@ public sealed class MsvcFunctionPseudoDecompiler
                 {
                     var (l, r, w, lc, lval, rc, rval) = ExtractCmpLike(i, ctx);
                     ctx.LastCmp = new LastCmp { Left = l, Right = r, BitWidth = w, IsTest = false, Ip = i.IP, LeftIsConst = lc, RightIsConst = rc, LeftConst = lval, RightConst = rval };
-                    if (ctx.Opt.CommentCompare) yield return new PseudoIr.CommentStmt($"compare {l}, {r}");
+                    if (ctx.Opt.CommentCompare) yield return new PseudoIr.PseudoStmt($"compare {l}, {r}");
                     yield break;
                 }
             case Mnemonic.Test:
                 {
                     var (l, r, w, lc, lval, rc, rval) = ExtractCmpLike(i, ctx);
                     ctx.LastCmp = new LastCmp { Left = l, Right = r, BitWidth = w, IsTest = true, Ip = i.IP, LeftIsConst = lc, RightIsConst = rc, LeftConst = lval, RightConst = rval };
-                    if (ctx.Opt.CommentCompare) yield return new PseudoIr.CommentStmt($"test {l}, {r}");
+                    if (ctx.Opt.CommentCompare) yield return new PseudoIr.PseudoStmt($"test {l}, {r}");
                     yield break;
                 }
 
@@ -1595,13 +1515,12 @@ public sealed class MsvcFunctionPseudoDecompiler
                 if (HasNearTarget(i) && ctx.LabelByIp.TryGetValue(i.NearBranchTarget, out int lab))
                     yield return new PseudoIr.GotoStmt(new PseudoIr.LabelSymbol($"L{lab}", lab));
                 else
-                    yield return new PseudoIr.CommentStmt($"jmp 0x{i.NearBranchTarget:X}");
+                    yield return new PseudoIr.PseudoStmt($"jmp 0x{i.NearBranchTarget:X}");
                 yield break;
 
             // Calls / returns
             case Mnemonic.Call:
                 {
-                    // memset(rcx, edx, r8d) call-site
                     if (TryRenderMemsetCallSiteIR(i, ctx, out var ms))
                     {
                         yield return ms;
@@ -1609,10 +1528,8 @@ public sealed class MsvcFunctionPseudoDecompiler
                     }
 
                     var callExpr = BuildCallExpr(i, ctx, out bool assignsToRet);
-                    if (assignsToRet)
-                        yield return new PseudoIr.AssignStmt(PseudoIr.X.R("ret"), callExpr);
-                    else
-                        yield return new PseudoIr.CallStmt(callExpr);
+                    if (assignsToRet) yield return new PseudoIr.AssignStmt(PseudoIr.X.R("ret"), callExpr);
+                    else yield return new PseudoIr.CallStmt(callExpr);
                     ctx.LastWasCall = true;
                     yield break;
                 }
@@ -1622,11 +1539,14 @@ public sealed class MsvcFunctionPseudoDecompiler
                 yield return new PseudoIr.ReturnStmt(PseudoIr.X.R("ret"));
                 yield break;
 
-            // Push / Pop
+            // Push/Pop/misc: disassembly already shown
             case Mnemonic.Push:
-                yield return new PseudoIr.CommentStmt($"push {OperandText(i, 0, ctx)}"); yield break;
             case Mnemonic.Pop:
-                yield return new PseudoIr.CommentStmt($"pop -> {OperandText(i, 0, ctx)}"); yield break;
+            case Mnemonic.Nop:
+            case Mnemonic.Leave:
+            case Mnemonic.Cdq:
+            case Mnemonic.Cqo:
+                yield break;
 
             // String ops
             case Mnemonic.Movsb:
@@ -1639,7 +1559,6 @@ public sealed class MsvcFunctionPseudoDecompiler
                     yield return new PseudoIr.CallStmt(PseudoIr.X.Call("memcpy",
                         new PseudoIr.Expr[] { PseudoIr.X.R("rdi"), PseudoIr.X.R("rsi"), PseudoIr.X.Mul(PseudoIr.X.R("rcx"), PseudoIr.X.C(sz)) }));
                 }
-                else yield return new PseudoIr.CommentStmt("movs (element size varies)");
                 yield break;
 
             case Mnemonic.Stosb:
@@ -1653,86 +1572,23 @@ public sealed class MsvcFunctionPseudoDecompiler
                     yield return new PseudoIr.CallStmt(PseudoIr.X.Call("memset",
                         new PseudoIr.Expr[] { PseudoIr.X.R("rdi"), PseudoIr.X.R(val), PseudoIr.X.Mul(PseudoIr.X.R("rcx"), PseudoIr.X.C(sz)) }));
                 }
-                else yield return new PseudoIr.CommentStmt("stos (element size varies)");
                 yield break;
-
-            // SSE zero idioms and stores
-            case Mnemonic.Xorps:
-            case Mnemonic.Pxor:
-                if (i.Op0Kind == OpKind.Register && i.Op1Kind == OpKind.Register &&
-                    GetOpRegister(i, 0) == GetOpRegister(i, 1) &&
-                    RegisterBitWidth(GetOpRegister(i, 0)) == 128)
-                {
-                    ctx.LastZeroedXmm = GetOpRegister(i, 0);
-                    yield return new PseudoIr.CommentStmt("zero xmm");
-                    yield break;
-                }
-                break;
-
-            case Mnemonic.Movups:
-            case Mnemonic.Movaps:
-            case Mnemonic.Movdqu:
-                if (i.Op0Kind == OpKind.Memory && i.Op1Kind == OpKind.Register &&
-                    RegisterBitWidth(GetOpRegister(i, 1)) == 128 &&
-                    GetOpRegister(i, 1) == ctx.LastZeroedXmm)
-                {
-                    var addr = AddressExpr(i, ctx, isLoadOrStoreAddr: true);
-                    yield return new PseudoIr.CallStmt(PseudoIr.X.Call("memset",
-                        new PseudoIr.Expr[] { new PseudoIr.CastExpr(addr, new PseudoIr.PointerType(new PseudoIr.VoidType()), PseudoIr.CastKind.Reinterpret), PseudoIr.X.C(0), PseudoIr.X.C(16) }));
-                    ctx.LastZeroedXmm = Register.None;
-                    yield break;
-                }
-                break;
-
-            // Scalar FP ops → "dst = dst op src;"
-            case Mnemonic.Addss:
-            case Mnemonic.Addsd:
-            case Mnemonic.Subss:
-            case Mnemonic.Subsd:
-            case Mnemonic.Mulss:
-            case Mnemonic.Mulsd:
-            case Mnemonic.Divss:
-            case Mnemonic.Divsd:
-                {
-                    var op = i.Mnemonic switch
-                    {
-                        Mnemonic.Addss or Mnemonic.Addsd => PseudoIr.BinOp.Add,
-                        Mnemonic.Subss or Mnemonic.Subsd => PseudoIr.BinOp.Sub,
-                        Mnemonic.Mulss or Mnemonic.Mulsd => PseudoIr.BinOp.Mul,
-                        _ => PseudoIr.BinOp.UDiv
-                    };
-                    var dst = LhsExpr(i, ctx);
-                    var src = OperandExpr(i, 1, ctx, forRead: true);
-                    yield return new PseudoIr.AssignStmt(dst, new PseudoIr.BinOpExpr(op, dst, src));
-                    yield break;
-                }
-
-            // misc
-            case Mnemonic.Nop:
-                yield return new PseudoIr.NopStmt(); yield break;
-            case Mnemonic.Leave:
-                yield return new PseudoIr.CommentStmt("leave (epilogue)"); yield break;
-            case Mnemonic.Cdq:
-            case Mnemonic.Cqo:
-                yield return new PseudoIr.CommentStmt("sign-extend: RDX:RAX <- sign(RAX)"); yield break;
         }
 
-        // Default: comment with asm text
-        yield return new PseudoIr.CommentStmt(QuickAsm(i));
+        // Fallback: translation omitted; disasm already printed
+        yield break;
     }
 
     // --------- Condition construction ----------------------------------------
 
     private PseudoIr.Expr ConditionExpr(in Instruction i, Ctx ctx)
     {
-        // Special mnemonics
         if (i.Mnemonic == Mnemonic.Jrcxz) return PseudoIr.X.Eq(PseudoIr.X.R("rcx"), PseudoIr.X.C(0));
         if (i.Mnemonic == Mnemonic.Jecxz) return PseudoIr.X.Eq(PseudoIr.X.R("ecx"), PseudoIr.X.C(0));
         if (i.Mnemonic == Mnemonic.Jcxz) return PseudoIr.X.Eq(PseudoIr.X.R("cx"), PseudoIr.X.C(0));
 
         var cc = i.ConditionCode;
 
-        // BT → CF predicate
         if (ctx.LastBt is { } bt)
         {
             if (cc == ConditionCode.b || cc == ConditionCode.ae)
@@ -1746,7 +1602,6 @@ public sealed class MsvcFunctionPseudoDecompiler
 
         var c = ctx.LastCmp;
 
-        // test r,r → simplify je/jne
         if (c != null && c.IsTest && c.Left == c.Right)
         {
             var r = ParseTextAsExpr(c.Left);
@@ -1774,7 +1629,6 @@ public sealed class MsvcFunctionPseudoDecompiler
                 case ConditionCode.be: return PseudoIr.X.ULe(L, R);
                 case ConditionCode.a: return PseudoIr.X.UGt(L, R);
 
-                // flag-only fallbacks
                 case ConditionCode.s: return PseudoIr.X.Ne(PseudoIr.X.R("SF"), PseudoIr.X.C(0));
                 case ConditionCode.ns: return PseudoIr.X.Eq(PseudoIr.X.R("SF"), PseudoIr.X.C(0));
                 case ConditionCode.o: return PseudoIr.X.Ne(PseudoIr.X.R("OF"), PseudoIr.X.C(0));
@@ -1784,7 +1638,6 @@ public sealed class MsvcFunctionPseudoDecompiler
             }
         }
 
-        // Fallback to flags
         return cc switch
         {
             ConditionCode.e => PseudoIr.X.Ne(PseudoIr.X.R("ZF"), PseudoIr.X.C(0)),
@@ -1797,35 +1650,30 @@ public sealed class MsvcFunctionPseudoDecompiler
             ConditionCode.ae => PseudoIr.X.Eq(PseudoIr.X.R("CF"), PseudoIr.X.C(0)),
             ConditionCode.be => PseudoIr.X.Or(PseudoIr.X.Ne(PseudoIr.X.R("CF"), PseudoIr.X.C(0)), PseudoIr.X.Ne(PseudoIr.X.R("ZF"), PseudoIr.X.C(0))),
             ConditionCode.a => PseudoIr.X.And(PseudoIr.X.Eq(PseudoIr.X.R("CF"), PseudoIr.X.C(0)), PseudoIr.X.Eq(PseudoIr.X.R("ZF"), PseudoIr.X.C(0))),
-            _ => new PseudoIr.IntrinsicExpr("/* unknown condition */", Array.Empty<PseudoIr.Expr>())
+            _ => new PseudoIr.IntrinsicExpr("__unknown_cond", Array.Empty<PseudoIr.Expr>())
         };
     }
 
     private static string ExprToText(PseudoIr.Expr e)
-    {
-        // Used only for fallback comments when emitting unknown conditional jump
-        return e switch
+        => e switch
         {
             PseudoIr.RegExpr r => r.Name,
             PseudoIr.Const c => (c.Value >= 10 ? "0x" + c.Value.ToString("X") : c.Value.ToString()),
+            PseudoIr.UConst uc => "0x" + uc.Value.ToString("X"),
             _ => "cond"
         };
-    }
 
     // --------- Operand & address helpers -------------------------------------
 
     private PseudoIr.Expr LhsExpr(in Instruction i, Ctx ctx)
     {
-        // Only register or (rarely) memory treated as lvalue via StoreStmt; so here, registers only
         if (i.Op0Kind == OpKind.Register)
             return PseudoIr.X.R(AsVarName(ctx, i.Op0Register));
         if (i.Op0Kind == OpKind.Memory)
         {
-            // used by callers that still choose AssignStmt(lvalue) for memory; but we prefer StoreStmt
             var addr = AddressExpr(i, ctx, isLoadOrStoreAddr: true);
             return new PseudoIr.LoadExpr(addr, MemType(i), Seg(i));
         }
-        // default
         return PseudoIr.X.R("tmp");
     }
 
@@ -1875,7 +1723,6 @@ public sealed class MsvcFunctionPseudoDecompiler
 
     private static string OperandText(in Instruction i, int op, Ctx ctx)
     {
-        // for comments only
         var kind = GetOpKind(i, op);
         switch (kind)
         {
@@ -1920,18 +1767,10 @@ public sealed class MsvcFunctionPseudoDecompiler
     }
 
     private static PseudoIr.SegmentReg Seg(in Instruction i)
-    {
-        return i.MemorySegment switch
-        {
-            Register.FS => PseudoIr.SegmentReg.FS,
-            Register.GS => PseudoIr.SegmentReg.GS,
-            _ => PseudoIr.SegmentReg.None
-        };
-    }
+        => i.MemorySegment switch { Register.FS => PseudoIr.SegmentReg.FS, Register.GS => PseudoIr.SegmentReg.GS, _ => PseudoIr.SegmentReg.None };
 
     private static PseudoIr.Expr AddressExpr(in Instruction i, Ctx ctx, bool isLoadOrStoreAddr)
     {
-        // [gs:0x60] → peb
         if (i.MemorySegment == Register.GS &&
             i.MemoryBase == Register.None &&
             i.MemoryIndex == Register.None &&
@@ -1940,14 +1779,12 @@ public sealed class MsvcFunctionPseudoDecompiler
             return PseudoIr.X.L("peb");
         }
 
-        // RIP-relative absolute
         if (i.IsIPRelativeMemoryOperand)
         {
             ulong target = i.IPRelativeMemoryAddress;
             return new PseudoIr.UConst(target, 64);
         }
 
-        // rbp/ebp locals: negative disp & no index → &local_N
         if ((i.MemoryBase == Register.RBP || i.MemoryBase == Register.EBP) && i.MemoryIndex == Register.None)
         {
             long disp = unchecked((long)i.MemoryDisplacement64);
@@ -1960,9 +1797,8 @@ public sealed class MsvcFunctionPseudoDecompiler
 
         PseudoIr.Expr? expr = null;
         if (i.MemoryBase != Register.None)
-        {
             expr = PseudoIr.X.R(AsVarName(ctx, i.MemoryBase));
-        }
+
         if (i.MemoryIndex != Register.None)
         {
             var idx = PseudoIr.X.R(AsVarName(ctx, i.MemoryIndex));
@@ -2004,7 +1840,6 @@ public sealed class MsvcFunctionPseudoDecompiler
 
     private PseudoIr.Expr ParseTextAsExpr(string t)
     {
-        // We only need a few simple cases for conditions built from LastCmp/LastBt
         if (t == "rcx") return PseudoIr.X.R("rcx");
         if (t == "ecx") return PseudoIr.X.R("ecx");
         if (t == "cx") return PseudoIr.X.R("cx");
@@ -2046,7 +1881,6 @@ public sealed class MsvcFunctionPseudoDecompiler
         var val = PseudoIr.X.R(Friendly(ctx, Register.EDX));
         var siz = PseudoIr.X.R(Friendly(ctx, Register.R8D));
 
-        // Heuristic (same as before): small value and pointer-ish dst
         if (!LooksLikePointerVar(dst) || !IsSmallLiteralOrZero(val)) return false;
 
         var call = PseudoIr.X.Call("memset",
@@ -2059,22 +1893,20 @@ public sealed class MsvcFunctionPseudoDecompiler
         return true;
 
         static bool LooksLikePointerVar(PseudoIr.Expr e)
-        {
-            return e is PseudoIr.RegExpr rr && (rr.Name.Contains("rsp", StringComparison.OrdinalIgnoreCase)
-                                             || rr.Name.StartsWith("p", StringComparison.Ordinal)
-                                             || rr.Name.Contains("+ 0x", StringComparison.Ordinal));
-        }
+            => e is PseudoIr.RegExpr rr && (rr.Name.Contains("rsp", StringComparison.OrdinalIgnoreCase)
+                                         || rr.Name.StartsWith("p", StringComparison.Ordinal)
+                                         || rr.Name.Contains("+ 0x", StringComparison.Ordinal));
+
         static bool IsSmallLiteralOrZero(PseudoIr.Expr e)
         {
             if (e is PseudoIr.Const c) return c.Value >= -255 && c.Value <= 255;
-            return e is PseudoIr.RegExpr r && (r.Name == "0" || r.Name == "eax" || r.Name == "edx"); // weak fallback
+            return e is PseudoIr.RegExpr r && (r.Name == "0" || r.Name == "eax" || r.Name == "edx");
         }
     }
 
     private PseudoIr.CallExpr BuildCallExpr(in Instruction i, Ctx ctx, out bool assignsToRet)
     {
         assignsToRet = true;
-
         string targetRepr = "indirect_call";
         PseudoIr.Expr? addr = null;
 
@@ -2096,7 +1928,6 @@ public sealed class MsvcFunctionPseudoDecompiler
             }
         }
 
-        // Args by MS x64: RCX,RDX,R8,R9
         var args = new PseudoIr.Expr[]
         {
             PseudoIr.X.R(Friendly(ctx, Register.RCX)),
@@ -2105,15 +1936,21 @@ public sealed class MsvcFunctionPseudoDecompiler
             PseudoIr.X.R(Friendly(ctx, Register.R9)),
         };
 
-        // keep RAX named 'ret' after call
         ctx.RegName[Register.RAX] = "ret";
 
         return addr is null
-            ? new PseudoIr.CallExpr(PseudoIr.CallTarget.ByName(targetRepr), args)
+            ? new PseudoIr.CallExpr(PseudoIr.CallTarget.ByName(NormalizeCallName(targetRepr)), args)
             : new PseudoIr.CallExpr(PseudoIr.CallTarget.Indirect(addr), args);
+
+        static string NormalizeCallName(string s)
+        {
+            int bang = s.IndexOf('!');
+            if (bang >= 0 && bang + 1 < s.Length) return s[(bang + 1)..];
+            return s;
+        }
     }
 
-    // --------- Misc helpers (from old emitter) -------------------------------
+    // --------- Misc helpers ---------------------------------------------------
 
     private static bool IsPrologueOrEpilogue(in Instruction i)
     {
@@ -2193,14 +2030,8 @@ public sealed class MsvcFunctionPseudoDecompiler
     }
 
     private static bool HasNearTarget(in Instruction i)
-    {
-        return i.Op0Kind == OpKind.NearBranch16
-            || i.Op0Kind == OpKind.NearBranch32
-            || i.Op0Kind == OpKind.NearBranch64
-            || i.Op1Kind == OpKind.NearBranch16
-            || i.Op1Kind == OpKind.NearBranch32
-            || i.Op1Kind == OpKind.NearBranch64;
-    }
+        => i.Op0Kind == OpKind.NearBranch16 || i.Op0Kind == OpKind.NearBranch32 || i.Op0Kind == OpKind.NearBranch64
+        || i.Op1Kind == OpKind.NearBranch16 || i.Op1Kind == OpKind.NearBranch32 || i.Op1Kind == OpKind.NearBranch64;
 
     private static string ImmString(in Instruction i, OpKind kind)
     {
@@ -2209,8 +2040,7 @@ public sealed class MsvcFunctionPseudoDecompiler
     }
 
     private static long ParseImmediate(in Instruction i, OpKind kind)
-    {
-        return kind switch
+        => kind switch
         {
             OpKind.Immediate8 or OpKind.Immediate8to16 or OpKind.Immediate8to32 or OpKind.Immediate8to64 => (sbyte)i.Immediate8,
             OpKind.Immediate16 => (short)i.Immediate16,
@@ -2218,7 +2048,6 @@ public sealed class MsvcFunctionPseudoDecompiler
             OpKind.Immediate64 => (long)i.Immediate64,
             _ => 0
         };
-    }
 
     private static bool IsImmediate(OpKind k) =>
         k == OpKind.Immediate8 || k == OpKind.Immediate16 || k == OpKind.Immediate32 || k == OpKind.Immediate64
@@ -2226,7 +2055,6 @@ public sealed class MsvcFunctionPseudoDecompiler
 
     private static string MemAddrString(in Instruction i)
     {
-        // Minimal asm-like format
         var sb = new StringBuilder();
 
         if (i.MemorySegment == Register.FS || i.MemorySegment == Register.GS)
@@ -2287,24 +2115,8 @@ public sealed class MsvcFunctionPseudoDecompiler
         return long.TryParse(s.AsSpan(0, end), NumberStyles.HexNumber, CultureInfo.InvariantCulture, out v);
     }
 
-    private static OpKind GetOpKind(in Instruction i, int n) => n switch
-    {
-        0 => i.Op0Kind,
-        1 => i.Op1Kind,
-        2 => i.Op2Kind,
-        3 => i.Op3Kind,
-        _ => OpKind.Register
-    };
-
-    private static Register GetOpRegister(in Instruction i, int n) => n switch
-    {
-        0 => i.Op0Register,
-        1 => i.Op1Register,
-        2 => i.Op2Register,
-        3 => i.Op3Register,
-        _ => Register.None
-    };
-
+    private static OpKind GetOpKind(in Instruction i, int n) => n switch { 0 => i.Op0Kind, 1 => i.Op1Kind, 2 => i.Op2Kind, 3 => i.Op3Kind, _ => OpKind.Register };
+    private static Register GetOpRegister(in Instruction i, int n) => n switch { 0 => i.Op0Register, 1 => i.Op1Register, 2 => i.Op2Register, 3 => i.Op3Register, _ => Register.None };
     private static bool IsSetcc(in Instruction i) => i.Mnemonic switch
     {
         Mnemonic.Seta or Mnemonic.Setae or Mnemonic.Setb or Mnemonic.Setbe or
@@ -2313,7 +2125,6 @@ public sealed class MsvcFunctionPseudoDecompiler
         Mnemonic.Sets or Mnemonic.Setns or Mnemonic.Setp or Mnemonic.Setnp => true,
         _ => false
     };
-
     private static bool IsCmovcc(in Instruction i) => i.Mnemonic switch
     {
         Mnemonic.Cmova or Mnemonic.Cmovae or Mnemonic.Cmovb or Mnemonic.Cmovbe or
@@ -2322,4 +2133,412 @@ public sealed class MsvcFunctionPseudoDecompiler
         Mnemonic.Cmovs or Mnemonic.Cmovns or Mnemonic.Cmovp or Mnemonic.Cmovnp => true,
         _ => false
     };
+
+    // ============================================================
+    //  Refinement passes (simple, safe)
+    // ============================================================
+
+    private static class IrPasses
+    {
+        /// <summary>Replace RegExpr("p1..p4") with ParamExpr references.</summary>
+        public static void ReplaceParamRegsWithParams(PseudoIr.FunctionIR fn)
+        {
+            var map = fn.Parameters.ToDictionary(p => p.Name, p => p);
+            foreach (var bb in fn.Blocks)
+                for (int i = 0; i < bb.Statements.Count; i++)
+                    bb.Statements[i] = RewriteStmt(bb.Statements[i], e =>
+                    {
+                        if (e is PseudoIr.RegExpr r && map.TryGetValue(r.Name, out var param))
+                            return new PseudoIr.ParamExpr(param.Name, param.Index);
+                        return e;
+                    });
+        }
+
+        /// <summary>Map "return CONST" to named constants via provider enum type.</summary>
+        public static void MapNamedReturnConstants(PseudoIr.FunctionIR fn, PseudoIr.IConstantNameProvider provider, string enumFullName)
+        {
+            foreach (var bb in fn.Blocks)
+            {
+                for (int i = 0; i < bb.Statements.Count; i++)
+                {
+                    if (bb.Statements[i] is PseudoIr.ReturnStmt rs && rs.Value != null)
+                    {
+                        if (TryEvalULong(rs.Value, out var v) && provider.TryFormatValue(enumFullName, v, out var name))
+                        {
+                            bb.Statements[i] = new PseudoIr.ReturnStmt(new PseudoIr.SymConst(v, 32, name));
+                        }
+                    }
+                }
+            }
+
+            static bool TryEvalULong(PseudoIr.Expr e, out ulong v)
+            {
+                switch (e)
+                {
+                    case PseudoIr.UConst uc: v = uc.Value; return true;
+                    case PseudoIr.Const c: v = unchecked((ulong)c.Value); return true;
+                    case PseudoIr.SymConst sc: v = sc.Value; return true;
+                }
+                v = 0; return false;
+            }
+        }
+
+        /// <summary>Drop trivial assigns like "x = x;" and "__pseudo(nop)" around nothing.</summary>
+        public static void SimplifyRedundantAssign(PseudoIr.FunctionIR fn)
+        {
+            foreach (var bb in fn.Blocks)
+            {
+                var dst = new List<PseudoIr.Stmt>(bb.Statements.Count);
+                foreach (var s in bb.Statements)
+                {
+                    if (s is PseudoIr.AssignStmt a && ExprEq(a.Lhs, a.Rhs)) continue;
+                    dst.Add(s);
+                }
+                bb.Statements.Clear();
+                bb.Statements.AddRange(dst);
+            }
+
+            static bool ExprEq(PseudoIr.Expr x, PseudoIr.Expr y)
+            {
+                if (ReferenceEquals(x, y)) return true;
+                return x switch
+                {
+                    PseudoIr.RegExpr rx when y is PseudoIr.RegExpr ry => string.Equals(rx.Name, ry.Name, StringComparison.Ordinal),
+                    PseudoIr.ParamExpr px when y is PseudoIr.ParamExpr py => px.Index == py.Index && px.Name == py.Name,
+                    PseudoIr.LocalExpr lx when y is PseudoIr.LocalExpr ly => lx.Name == ly.Name,
+                    _ => false
+                };
+            }
+        }
+
+        // --- Rewriter utility ---
+        private static PseudoIr.Stmt RewriteStmt(PseudoIr.Stmt s, Func<PseudoIr.Expr, PseudoIr.Expr> f)
+        {
+            switch (s)
+            {
+                case PseudoIr.AssignStmt a: return new PseudoIr.AssignStmt(f(a.Lhs), f(a.Rhs));
+                case PseudoIr.StoreStmt st: return new PseudoIr.StoreStmt(f(st.Address), f(st.Value), st.ElemType, st.Segment);
+                case PseudoIr.CallStmt cs: return new PseudoIr.CallStmt(RewriteCall(cs.Call, f));
+                case PseudoIr.IfGotoStmt ig: return new PseudoIr.IfGotoStmt(f(ig.Condition), ig.Target);
+                case PseudoIr.GotoStmt or PseudoIr.LabelStmt or PseudoIr.ReturnStmt or PseudoIr.AsmCommentStmt or PseudoIr.PseudoStmt or PseudoIr.NopStmt:
+                    if (s is PseudoIr.ReturnStmt r && r.Value != null) return new PseudoIr.ReturnStmt(f(r.Value));
+                    return s;
+                default: return s;
+            }
+        }
+
+        private static PseudoIr.CallExpr RewriteCall(PseudoIr.CallExpr c, Func<PseudoIr.Expr, PseudoIr.Expr> f)
+        {
+            var args = c.Args.Select(f).ToArray();
+            PseudoIr.CallTarget target = c.Target.Address is null ? PseudoIr.CallTarget.ByName(c.Target.Symbol!) : PseudoIr.CallTarget.Indirect(f(c.Target.Address));
+            return new PseudoIr.CallExpr(target, args);
+        }
+    }
+}
+
+/* ============================================================
+ *   C O N S T A N T   D A T A B A S E
+ *   (Win32 Metadata-backed constant/flags naming)
+ * ============================================================ */
+
+public sealed class ConstantDatabase : PseudoIr.IConstantNameProvider
+{
+    private readonly Dictionary<string, EnumDesc> _enums = new(StringComparer.Ordinal);
+    private readonly Dictionary<string, Dictionary<int, string>> _callArgEnums = new(StringComparer.OrdinalIgnoreCase);
+
+    public ConstantDatabase()
+    {
+        MapArgEnum("VirtualAlloc", 2, "Windows.Win32.System.Memory.MEMORY_ALLOCATION_TYPE");
+        MapArgEnum("VirtualAlloc", 3, "Windows.Win32.System.Memory.PAGE_PROTECTION_FLAGS");
+        MapArgEnum("VirtualProtect", 2, "Windows.Win32.System.Memory.PAGE_PROTECTION_FLAGS");
+        MapArgEnum("OpenProcess", 1, "Windows.Win32.System.Threading.PROCESS_ACCESS_RIGHTS");
+        MapArgEnum("LoadLibraryExW", 2, "Windows.Win32.System.LibraryLoader.LOAD_LIBRARY_FLAGS");
+        MapArgEnum("CreateFileW", 1, "Windows.Win32.Storage.FileSystem.FILE_ACCESS_RIGHTS");
+        MapArgEnum("CreateFileW", 2, "Windows.Win32.Storage.FileSystem.FILE_SHARE_MODE");
+        MapArgEnum("CreateFileW", 5, "Windows.Win32.Storage.FileSystem.FILE_FLAGS_AND_ATTRIBUTES");
+    }
+
+    public void MapArgEnum(string callSymbolName, int argIndex, string enumFullName)
+    {
+        if (!_callArgEnums.TryGetValue(callSymbolName, out var map))
+            _callArgEnums[callSymbolName] = map = new Dictionary<int, string>();
+        map[argIndex] = enumFullName;
+    }
+
+    public bool TryGetArgExpectedEnumType(string? callTargetSymbol, int argIndex, out string enumTypeFullName)
+    {
+        enumTypeFullName = "";
+        if (string.IsNullOrEmpty(callTargetSymbol)) return false;
+        var sym = callTargetSymbol!;
+        int bang = sym.IndexOf('!');
+        if (bang >= 0 && bang + 1 < sym.Length) sym = sym[(bang + 1)..];
+
+        if (_callArgEnums.TryGetValue(sym, out var map) && map.TryGetValue(argIndex, out enumTypeFullName))
+            return _enums.ContainsKey(enumTypeFullName);
+        return false;
+    }
+
+    public bool TryFormatValue(string enumTypeFullName, ulong value, out string formatted)
+    {
+        formatted = "";
+        if (!_enums.TryGetValue(enumTypeFullName, out var ed)) return false;
+
+        if (ed.ValueToName.TryGetValue(value, out var exact))
+        {
+            formatted = exact;
+            return true;
+        }
+
+        if (ed.Flags || ed.LooksLikeFlags)
+        {
+            var parts = new List<string>();
+            ulong remaining = value;
+            foreach (var p in ed.FlagParts)
+            {
+                if ((remaining & p.Mask) == p.Mask)
+                {
+                    parts.Add(p.Name);
+                    remaining &= ~p.Mask;
+                }
+            }
+            if (parts.Count > 0 && remaining == 0)
+            {
+                formatted = string.Join(" | ", parts);
+                return true;
+            }
+        }
+
+        formatted = $"0x{value:X}";
+        return true;
+    }
+
+    public void LoadWin32MetadataFromWinmd(string winmdPath)
+    {
+        using var fs = File.OpenRead(winmdPath);
+        using var pe = new PEReader(fs, PEStreamOptions.PrefetchEntireImage);
+        var md = pe.GetMetadataReader();
+
+        foreach (var tdHandle in md.TypeDefinitions)
+        {
+            var td = md.GetTypeDefinition(tdHandle);
+            string ns = md.GetString(td.Namespace);
+            string name = md.GetString(td.Name);
+            string full = string.IsNullOrEmpty(ns) ? name : ns + "." + name;
+
+            if (!IsEnum(md, td)) continue;
+
+            var desc = new EnumDesc(full);
+            desc.Flags = HasFlagsAttribute(md, td);
+
+            int bits = 32;
+            foreach (var fHandle in td.GetFields())
+            {
+                var f = md.GetFieldDefinition(fHandle);
+                string fName = md.GetString(f.Name);
+                if (fName == "value__")
+                {
+                    bits = UnderlyingBitsFromSignature(md, f);
+                    break;
+                }
+            }
+            desc.UnderlyingBits = bits;
+
+            foreach (var fHandle in td.GetFields())
+            {
+                var f = md.GetFieldDefinition(fHandle);
+                if (!f.GetDefaultValue().IsNil)
+                {
+                    string fName = md.GetString(f.Name);
+                    ulong val = ReadConstantValueAsUInt64(md, f.GetDefaultValue());
+                    if (!desc.ValueToName.ContainsKey(val))
+                        desc.ValueToName[val] = $"{full}.{fName}";
+                }
+            }
+
+            desc.FinalizeAfterLoad();
+            _enums[full] = desc;
+        }
+    }
+
+    public void LoadFromAssembly(Assembly asm)
+    {
+        foreach (var t in asm.GetTypes())
+        {
+            if (t.IsEnum)
+            {
+                var full = t.FullName ?? t.Name;
+                var desc = new EnumDesc(full)
+                {
+                    Flags = t.GetCustomAttributes(typeof(FlagsAttribute), inherit: false).Any(),
+                    UnderlyingBits = Math.Max(8, Math.Min(64, System.Runtime.InteropServices.Marshal.SizeOf(Enum.GetUnderlyingType(t)) * 8))
+                };
+                foreach (var name in Enum.GetNames(t))
+                {
+                    var valObj = Convert.ChangeType(Enum.Parse(t, name), Enum.GetUnderlyingType(t));
+                    ulong v = ConvertToUInt64(valObj);
+                    if (!desc.ValueToName.ContainsKey(v))
+                        desc.ValueToName[v] = $"{full}.{name}";
+                }
+                desc.FinalizeAfterLoad();
+                _enums[full] = desc;
+            }
+            else if (t.IsAbstract && t.IsSealed)
+            {
+                foreach (var f in t.GetFields(BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Static))
+                {
+                    if (!f.IsLiteral) continue;
+                    object? val = f.GetRawConstantValue();
+                    if (val is null) continue;
+                    var full = t.FullName ?? t.Name;
+                    if (!_enums.TryGetValue(full, out var desc))
+                    {
+                        desc = new EnumDesc(full) { Flags = false, UnderlyingBits = 32 };
+                        _enums[full] = desc;
+                    }
+                    ulong v = ConvertToUInt64(val);
+                    string key = $"{full}.{f.Name}";
+                    if (!desc.ValueToName.ContainsKey(v))
+                        desc.ValueToName[v] = key;
+                }
+            }
+        }
+        foreach (var e in _enums.Values) e.FinalizeAfterLoad();
+    }
+
+    private static bool IsEnum(MetadataReader md, TypeDefinition td)
+    {
+        var bt = td.BaseType;
+        if (bt.Kind != HandleKind.TypeReference) return false;
+        var tr = md.GetTypeReference((TypeReferenceHandle)bt);
+        string ns = md.GetString(tr.Namespace);
+        string n = md.GetString(tr.Name);
+        return ns == "System" && n == "Enum";
+    }
+
+    private static bool HasFlagsAttribute(MetadataReader md, TypeDefinition td)
+    {
+        foreach (var caHandle in td.GetCustomAttributes())
+        {
+            var ca = md.GetCustomAttribute(caHandle);
+            if (TryGetAttributeTypeName(md, ca.Constructor, out var attNs, out var attName))
+            {
+                if (attNs == "System" && attName == "FlagsAttribute") return true;
+            }
+        }
+        return false;
+    }
+
+    private static bool TryGetAttributeTypeName(MetadataReader md, EntityHandle ctor, out string ns, out string name)
+    {
+        ns = ""; name = "";
+        if (ctor.Kind == HandleKind.MemberReference)
+        {
+            var mr = md.GetMemberReference((MemberReferenceHandle)ctor);
+            if (mr.Parent.Kind == HandleKind.TypeReference)
+            {
+                var tr = md.GetTypeReference((TypeReferenceHandle)mr.Parent);
+                ns = md.GetString(tr.Namespace);
+                name = md.GetString(tr.Name);
+                return true;
+            }
+            if (mr.Parent.Kind == HandleKind.TypeDefinition)
+            {
+                var td = md.GetTypeDefinition((TypeDefinitionHandle)mr.Parent);
+                ns = md.GetString(td.Namespace);
+                name = md.GetString(td.Name);
+                return true;
+            }
+        }
+        else if (ctor.Kind == HandleKind.MethodDefinition)
+        {
+            var mdh = (MethodDefinitionHandle)ctor;
+            var mdDef = md.GetMethodDefinition(mdh);
+            var td = md.GetTypeDefinition(mdDef.GetDeclaringType());
+            ns = md.GetString(td.Namespace);
+            name = md.GetString(td.Name);
+            return true;
+        }
+        return false;
+    }
+
+    private static int UnderlyingBitsFromSignature(MetadataReader md, FieldDefinition f)
+    {
+        var sig = md.GetBlobReader(f.Signature);
+        if (sig.ReadByte() != 0x06) return 32;
+        var (bits, _) = ReadTypeCode(sig);
+        return bits == 0 ? 32 : bits;
+    }
+
+    private static (int bits, bool isSigned) ReadTypeCode(BlobReader br)
+    {
+        var code = (SignatureTypeCode)br.ReadCompressedInteger();
+        return code switch
+        {
+            SignatureTypeCode.SByte => (8, true),
+            SignatureTypeCode.Byte => (8, false),
+            SignatureTypeCode.Int16 => (16, true),
+            SignatureTypeCode.UInt16 => (16, false),
+            SignatureTypeCode.Int32 => (32, true),
+            SignatureTypeCode.UInt32 => (32, false),
+            SignatureTypeCode.Int64 => (64, true),
+            SignatureTypeCode.UInt64 => (64, false),
+            _ => (0, false)
+        };
+    }
+
+    private static ulong ReadConstantValueAsUInt64(MetadataReader md, ConstantHandle ch)
+    {
+        var c = md.GetConstant(ch);
+        var br = md.GetBlobReader(c.Value);
+        return c.TypeCode switch
+        {
+            ConstantTypeCode.SByte => unchecked((ulong)(sbyte)br.ReadSByte()),
+            ConstantTypeCode.Byte => br.ReadByte(),
+            ConstantTypeCode.Int16 => unchecked((ulong)br.ReadInt16()),
+            ConstantTypeCode.UInt16 => br.ReadUInt16(),
+            ConstantTypeCode.Int32 => unchecked((ulong)br.ReadInt32()),
+            ConstantTypeCode.UInt32 => br.ReadUInt32(),
+            ConstantTypeCode.Int64 => unchecked((ulong)br.ReadInt64()),
+            ConstantTypeCode.UInt64 => br.ReadUInt64(),
+            _ => 0UL
+        };
+    }
+
+    private static ulong ConvertToUInt64(object v)
+        => v switch
+        {
+            sbyte a => unchecked((ulong)a),
+            byte b => b,
+            short s => unchecked((ulong)s),
+            ushort us => us,
+            int i => unchecked((ulong)i),
+            uint ui => ui,
+            long l => unchecked((ulong)l),
+            ulong ul => ul,
+            _ => 0UL
+        };
+
+    private sealed class EnumDesc
+    {
+        public string FullName { get; }
+        public int UnderlyingBits { get; set; } = 32;
+        public bool Flags { get; set; }
+        public bool LooksLikeFlags { get; private set; }
+        public readonly Dictionary<ulong, string> ValueToName = new();
+        public readonly List<(ulong Mask, string Name)> FlagParts = new();
+
+        public EnumDesc(string full) { FullName = full; }
+
+        public void FinalizeAfterLoad()
+        {
+            var singles = ValueToName.Keys.Where(v => v != 0 && (v & (v - 1)) == 0).ToList();
+            LooksLikeFlags = Flags || singles.Count >= Math.Max(1, ValueToName.Count / 2);
+
+            if (LooksLikeFlags)
+            {
+                foreach (var s in singles) FlagParts.Add((s, ValueToName[s]));
+                FlagParts.Sort((a, b) => b.Mask.CompareTo(a.Mask));
+            }
+        }
+    }
 }
