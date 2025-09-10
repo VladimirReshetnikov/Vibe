@@ -1,12 +1,43 @@
 ﻿using System.Text;
+using System.Text.RegularExpressions;
 
 public static class Program
 {
-    static void Main(string[] args)
+    static async Task Main(string[] args)
     {
         var disasm = DisassembleExportToPseudo("C:\\Windows\\System32\\Microsoft-Edge-WebView\\msedge.dll", "CreateTestWebClientProxy", 256 * 1024);
         Console.WriteLine(disasm);
+
+        ILlmProvider? provider = null;
+        string? openAiKey = Environment.GetEnvironmentVariable("OPENAI_API_KEY");
+        string? anthropicKey = Environment.GetEnvironmentVariable("ANTHROPIC_API_KEY");
+
+        if (!string.IsNullOrWhiteSpace(openAiKey))
+            provider = new OpenAiLlmProvider(openAiKey);
+        else if (!string.IsNullOrWhiteSpace(anthropicKey))
+            provider = new AnthropicLlmProvider(anthropicKey);
+
+        if (provider is not null)
+        {
+            try
+            {
+                string refined = await provider.RefineAsync(disasm);
+                Console.WriteLine();
+                Console.WriteLine("// ---- Refined by LLM ----");
+                Console.WriteLine(refined);
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine();
+                Console.WriteLine($"// ---- LLM refinement failed: {ex.Message} ----");
+            }
+            finally
+            {
+                provider?.Dispose();
+            }
+        }
     }
+
     /// <summary>
     /// Disassembles a Windows exported function (default: ntdll!RtlGetVersion) into C-like pseudocode
     /// by extracting its body from the PE file and passing the bytes to MsvcFunctionPseudoDecompiler.
@@ -125,5 +156,43 @@ public static class Program
 
             return (dll, sym);
         }
+    }
+
+    public static Dictionary<string, string> DisassembleExportsToPseudo(
+        string dllName,
+        string exportNamePattern,
+        int maxBytes = 4096)
+    {
+        // Resolve a *64-bit* System32 path even if this process is 32-bit (WOW64).
+        string ResolveSystemDllPath(string name)
+        {
+            if (!name.EndsWith(".dll", StringComparison.OrdinalIgnoreCase))
+                name += ".dll";
+
+            string windows = Environment.GetFolderPath(Environment.SpecialFolder.Windows);
+            string dir = (Environment.Is64BitOperatingSystem && !Environment.Is64BitProcess)
+                ? Path.Combine(windows, "Sysnative") // 32-bit process reaching 64-bit System32
+                : Path.Combine(windows, "System32");
+
+            string path = Path.Combine(dir, name);
+            if (!File.Exists(path))
+                throw new FileNotFoundException($"System DLL not found: {path}");
+            return path;
+        }
+
+        string dllPath = ResolveSystemDllPath(dllName);
+        var regex = new Regex(exportNamePattern);
+        var pe = new PEReaderLite(dllPath);
+        var results = new Dictionary<string, string>(StringComparer.Ordinal);
+
+        foreach (var name in pe.EnumerateExportNames())
+        {
+            if (regex.IsMatch(name))
+            {
+                results[name] = DisassembleExportToPseudo(dllName, name, maxBytes);
+            }
+        }
+
+        return results;
     }
 }
