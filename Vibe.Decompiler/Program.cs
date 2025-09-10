@@ -36,30 +36,55 @@ public static class Program
         string? openAiKey = Environment.GetEnvironmentVariable("OPENAI_API_KEY");
         string? anthropicKey = Environment.GetEnvironmentVariable("ANTHROPIC_API_KEY");
 
-        switch (config.LlmProvider?.ToLowerInvariant())
+        // Fall back to environment variables if no provider is configured
+        if (string.IsNullOrWhiteSpace(config.LlmProvider))
         {
-            case "openai" when !string.IsNullOrWhiteSpace(openAiKey):
+            if (!string.IsNullOrWhiteSpace(openAiKey))
+            {
+                provider = new OpenAiLlmProvider(openAiKey);
+                if (config.UseWebSearch)
                 {
-                    string model = string.IsNullOrWhiteSpace(config.LlmVersion) ? "gpt-4o-mini" : config.LlmVersion;
-                    provider = new OpenAiLlmProvider(openAiKey, model);
-                    if (config.UseWebSearch)
+                    try
                     {
-                        try
-                        {
-                            using var evaluator = new OpenAiDocPageEvaluator(openAiKey, model);
-                            var pages = await DuckDuckGoDocFetcher.FindDocumentationPagesAsync(exportName, 2, evaluator);
-                            docs.AddRange(pages);
-                        }
-                        catch { }
+                        using var evaluator = new OpenAiDocPageEvaluator(openAiKey);
+                        var pages = await DuckDuckGoDocFetcher.FindDocumentationPagesAsync(exportName, 2, evaluator);
+                        docs.AddRange(pages);
                     }
-                    break;
+                    catch { }
                 }
-            case "anthropic" when !string.IsNullOrWhiteSpace(anthropicKey):
-                {
-                    string model = string.IsNullOrWhiteSpace(config.LlmVersion) ? "claude-3-5-sonnet-20240620" : config.LlmVersion;
-                    provider = new AnthropicLlmProvider(anthropicKey, model);
-                    break;
-                }
+            }
+            else if (!string.IsNullOrWhiteSpace(anthropicKey))
+            {
+                provider = new AnthropicLlmProvider(anthropicKey);
+            }
+        }
+        else
+        {
+            switch (config.LlmProvider.ToLowerInvariant())
+            {
+                case "openai" when !string.IsNullOrWhiteSpace(openAiKey):
+                    {
+                        string model = string.IsNullOrWhiteSpace(config.LlmVersion) ? "gpt-4o-mini" : config.LlmVersion;
+                        provider = new OpenAiLlmProvider(openAiKey, model);
+                        if (config.UseWebSearch)
+                        {
+                            try
+                            {
+                                using var evaluator = new OpenAiDocPageEvaluator(openAiKey, model);
+                                var pages = await DuckDuckGoDocFetcher.FindDocumentationPagesAsync(exportName, 2, evaluator);
+                                docs.AddRange(pages);
+                            }
+                            catch { }
+                        }
+                        break;
+                    }
+                case "anthropic" when !string.IsNullOrWhiteSpace(anthropicKey):
+                    {
+                        string model = string.IsNullOrWhiteSpace(config.LlmVersion) ? "claude-3-5-sonnet-20240620" : config.LlmVersion;
+                        provider = new AnthropicLlmProvider(anthropicKey, model);
+                        break;
+                    }
+            }
         }
 
         if (provider is not null)
