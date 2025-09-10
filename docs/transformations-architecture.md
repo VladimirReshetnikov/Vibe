@@ -178,10 +178,10 @@ public abstract class IRRewriter
 ## 7. Migration Checklist
 
  - [x] Create foundational files (`ITransformationPass`, `PassManager`, `IRRewriter`).
- - [x] Move `SimplifyRedundantAssign` into `SimplifyRedundantAssignPass`.
- - [x] Add unit tests for `SimplifyRedundantAssignPass`.
- - [ ] Move `SimplifyArithmeticIdentities` into `SimplifyArithmeticPass`.
- - [ ] Add unit tests for `SimplifyArithmeticPass`.
+- [x] Move `SimplifyRedundantAssign` into `SimplifyRedundantAssignPass`.
+- [x] Add unit tests for `SimplifyRedundantAssignPass`.
+ - [x] Move `SimplifyArithmeticIdentities` into `SimplifyArithmeticPass`.
+ - [x] Add unit tests for `SimplifyArithmeticPass`.
  - [ ] Move `FoldConstants` into `FoldConstantsPass`.
  - [ ] Add unit tests for `FoldConstantsPass`.
  - [ ] Repeat for remaining passes: `DeadCodeEliminationPass`, `CanonicalizeLoopsPass`, etc.

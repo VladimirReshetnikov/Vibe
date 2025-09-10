@@ -13,6 +13,7 @@ public static class DefaultPassPipeline
         return new PassManager(new ITransformationPass[]
         {
             new SimplifyRedundantAssignPass(),
+            new SimplifyArithmeticPass(),
         });
     }
 }
