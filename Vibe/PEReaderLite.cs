@@ -46,6 +46,11 @@ public sealed class PEReaderLite
             throw new BadImageFormatException("No data directories.");
 
         int dirCount = (int)Math.Min(numberOfRvaAndSizes, 16);
+
+        // Ensure we don't read beyond the optional header bounds
+        int maxDirCount = (optHeaderSize - 112) / 8;
+        dirCount = Math.Min(dirCount, maxDirCount);
+
         DataDirectories = new DataDirectory[dirCount];
         for (int i = 0; i < dirCount; i++)
         {
@@ -171,6 +176,86 @@ public sealed class PEReaderLite
         throw new EntryPointNotFoundException($"Export '{name}' not found in module.");
     }
 
+    private void ParseImports(uint importRva)
+    {
+        int descOff = RvaToOffsetChecked(importRva);
+        int descCount = 0;
+        while (true)
+        {
+            if (descCount++ >= 1000)
+                throw new BadImageFormatException("Too many import descriptors.");
+
+            // Check bounds before reading import descriptor (20 bytes)
+            if (descOff + 20 > Data.Length)
+                break;
+
+            uint originalFirstThunk = U32(descOff + 0);
+            uint timeDateStamp = U32(descOff + 4);
+            uint forwarderChain = U32(descOff + 8);
+            uint nameRva = U32(descOff + 12);
+            uint firstThunk = U32(descOff + 16);
+
+            if (originalFirstThunk == 0 && timeDateStamp == 0 &&
+                forwarderChain == 0 && nameRva == 0 && firstThunk == 0)
+                break;
+
+            if (nameRva == 0)
+            {
+                descOff += 20;
+                continue; // Skip malformed import descriptor
+            }
+
+            string moduleName = ReadAsciiZ(RvaToOffsetChecked(nameRva));
+            uint thunkRva = originalFirstThunk != 0 ? originalFirstThunk : firstThunk;
+
+            if (thunkRva == 0)
+            {
+                descOff += 20;
+                continue; // Skip import descriptor with no thunks
+            }
+
+            int thunkOff = RvaToOffsetChecked(thunkRva);
+
+            var module = new ImportModule { Name = moduleName };
+
+            int symbolCount = 0;
+            while (true)
+            {
+                if (symbolCount++ >= 10000)
+                    throw new BadImageFormatException("Too many import symbols in module.");
+
+                // Check bounds before reading thunk entry (8 bytes)
+                if (thunkOff + 8 > Data.Length)
+                    break;
+                    
+                ulong entry = U64(thunkOff);
+                if (entry == 0)
+                    break;
+
+                bool byOrdinal = (entry & 0x8000000000000000UL) != 0;
+                if (byOrdinal)
+                {
+                    ushort ord = (ushort)(entry & 0xFFFF);
+                    module.Symbols.Add(ImportSymbol.FromOrdinal(ord));
+                }
+                else
+                {
+                    uint hintNameRva = (uint)entry;
+                    int hnOff = RvaToOffsetChecked(hintNameRva);
+                    if (hnOff + 2 >= Data.Length)
+                        break;
+                    string funcName = ReadAsciiZ(hnOff + 2); // skip hint
+                    module.Symbols.Add(ImportSymbol.FromName(funcName));
+                }
+
+                thunkOff += 8;
+            }
+
+            Imports.Add(module);
+            descOff += 20;
+        }
+    }
+
     public IEnumerable<string> EnumerateExportNames()
     {
         if (ExportRva == 0 || ExportSize == 0)
@@ -284,7 +369,7 @@ public sealed class PEReaderLite
 
     public sealed class ImportModule
     {
-        public string Name { get; init; }
+        public string Name { get; init; } = string.Empty;
         public List<ImportSymbol> Symbols { get; } = new();
     }
 
