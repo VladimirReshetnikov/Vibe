@@ -185,6 +185,10 @@ public sealed class PEReaderLite
             if (descCount++ >= 1000)
                 throw new BadImageFormatException("Too many import descriptors.");
 
+            // Check bounds before reading import descriptor (20 bytes)
+            if (descOff + 20 > Data.Length)
+                break;
+
             uint originalFirstThunk = U32(descOff + 0);
             uint timeDateStamp = U32(descOff + 4);
             uint forwarderChain = U32(descOff + 8);
