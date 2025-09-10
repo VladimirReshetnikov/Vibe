@@ -1,4 +1,5 @@
-﻿public static class Transformations
+// SPDX-License-Identifier: MIT-0
+public static class Transformations
 {
     // --- Helper rewriter ---
     private static IR.Stmt RewriteStmt(IR.Stmt s, Func<IR.Expr, IR.Expr> f)

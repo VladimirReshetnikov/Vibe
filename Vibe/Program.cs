@@ -1,4 +1,5 @@
-﻿using System.Text;
+// SPDX-License-Identifier: MIT-0
+using System.Text;
 using System.IO.Compression;
 using System.Text.RegularExpressions;
 
