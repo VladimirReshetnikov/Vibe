@@ -1,4 +1,5 @@
 ﻿using System.Text;
+using System.IO.Compression;
 using System.Text.RegularExpressions;
 
 public static class Program
@@ -21,10 +22,23 @@ public static class Program
         {
             try
             {
-                string refined = await provider.RefineAsync(disasm);
-                Console.WriteLine();
-                Console.WriteLine("// ---- Refined by LLM ----");
-                Console.WriteLine(refined);
+                if (provider is IDisposable disposable)
+                {
+                    using (disposable)
+                    {
+                        string refined = await provider.RefineAsync(disasm);
+                        Console.WriteLine();
+                        Console.WriteLine("// ---- Refined by LLM ----");
+                        Console.WriteLine(refined);
+                    }
+                }
+                else
+                {
+                    string refined = await provider.RefineAsync(disasm);
+                    Console.WriteLine();
+                    Console.WriteLine("// ---- Refined by LLM ----");
+                    Console.WriteLine(refined);
+                }
             }
             catch (Exception ex)
             {
@@ -107,7 +121,7 @@ public static class Program
             byte[] body = new byte[take];
             Buffer.BlockCopy(pe.Data, funcOff, body, 0, take);
             var db = new ConstantDatabase();
-            db.LoadWin32MetadataFromWinmd(@"Microsoft.Windows.SDK.Win32Metadata.63.0.31-preview\Windows.Win32.winmd");
+            TryLoadWin32Metadata(db);
            
             var decompiler = new Decompiler();
             var options = new Decompiler.Options
@@ -157,6 +171,102 @@ public static class Program
             return (dll, sym);
         }
     }
+
+    static void TryLoadWin32Metadata(ConstantDatabase db)
+    {
+        try
+        {
+            string? repoRoot = FindRepoRoot();
+            if (repoRoot is not null)
+            {
+                foreach (var file in Directory.EnumerateFiles(repoRoot, "Windows.Win32.winmd", SearchOption.AllDirectories))
+                {
+                    db.LoadWin32MetadataFromWinmd(file);
+                    return;
+                }
+            }
+
+            foreach (var cache in GetNuGetCacheDirectories())
+            {
+            if (!Directory.Exists(cache)) continue;
+            
+            // First try extracted packages (more common in global packages folder)
+            foreach (var packageDir in Directory.EnumerateDirectories(cache, "microsoft.windows.sdk.win32metadata*", SearchOption.TopDirectoryOnly))
+            {
+                foreach (var winmdFile in Directory.EnumerateFiles(packageDir, "Windows.Win32.winmd", SearchOption.AllDirectories))
+                {
+                    db.LoadWin32MetadataFromWinmd(winmdFile);
+                    return;
+                }
+            }
+            
+            // Fallback to .nupkg files (for HTTP cache locations)
+                foreach (var nupkg in Directory.EnumerateFiles(cache, "Microsoft.Windows.SDK.Win32Metadata*.nupkg", SearchOption.AllDirectories))
+                {
+                    try
+                    {
+                        using var zip = ZipFile.OpenRead(nupkg);
+                        var entry = zip.Entries.FirstOrDefault(e => e.FullName.EndsWith("Windows.Win32.winmd", StringComparison.OrdinalIgnoreCase));
+                        if (entry is not null)
+                        {
+                            string tempPath = Path.Combine(Path.GetTempPath(), Path.GetRandomFileName() + ".winmd");
+                            entry.ExtractToFile(tempPath, true);
+                            try
+                            {
+                                db.LoadWin32MetadataFromWinmd(tempPath);
+                            }
+                            finally
+                            {
+                                try { File.Delete(tempPath); } catch { }
+                            }
+                            return;
+                        }
+                    }
+                    catch { }
+                }
+            }
+        }
+        catch { }
+    }
+
+    static string? FindRepoRoot()
+    {
+        try
+        {
+            string dir = AppContext.BaseDirectory;
+            while (!string.IsNullOrEmpty(dir))
+            {
+                if (Directory.Exists(Path.Combine(dir, ".git")) || File.Exists(Path.Combine(dir, "Vibe.sln")))
+                    return dir;
+                string? parent = Path.GetDirectoryName(dir);
+                if (string.IsNullOrEmpty(parent) || parent == dir)
+                    break;
+                dir = parent;
+            }
+        }
+        catch { }
+        return null;
+    }
+
+    static IEnumerable<string> GetNuGetCacheDirectories()
+    {
+        var dirs = new List<string>();
+        string? env = Environment.GetEnvironmentVariable("NUGET_PACKAGES");
+        if (!string.IsNullOrWhiteSpace(env))
+            dirs.Add(env);
+
+        string profile = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
+        if (!string.IsNullOrEmpty(profile))
+            dirs.Add(Path.Combine(profile, ".nuget", "packages"));
+
+        string local = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
+        if (!string.IsNullOrEmpty(local))
+        {
+            dirs.Add(Path.Combine(local, "NuGet", "Cache"));
+            dirs.Add(Path.Combine(local, "NuGet", "v3-cache"));
+        }
+
+        return dirs;
 
     public static Dictionary<string, string> DisassembleExportsToPseudo(
         string dllName,
