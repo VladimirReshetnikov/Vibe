@@ -13,7 +13,7 @@ public static class Win32DocFetcher
 
     static Win32DocFetcher()
     {
-        _http.DefaultRequestHeaders.Add("User-Agent", "Vibe-Decompiler/1.0");
+        _http.DefaultRequestHeaders.UserAgent.TryParseAdd("Vibe-Decompiler/1.0");
     }
 
     /// <summary>
@@ -46,7 +46,7 @@ public static class Win32DocFetcher
         {
             using var stream = await _http.GetStreamAsync(url, cancellationToken);
             using var doc = await JsonDocument.ParseAsync(stream, cancellationToken: cancellationToken);
-            if (!doc.RootElement.TryGetProperty("results", out results))
+            if (!doc.RootElement.TryGetProperty("results", out results) || results.ValueKind != JsonValueKind.Array)
                 return null;
         }
         catch (HttpRequestException)
@@ -70,7 +70,6 @@ public static class Win32DocFetcher
             return null;
         }
 
-        string exportLower = exportName.ToLowerInvariant();
         foreach (var result in results.EnumerateArray())
         {
             if (!result.TryGetProperty("url", out var urlProp))
@@ -78,8 +77,8 @@ public static class Win32DocFetcher
             string resultUrl = urlProp.GetString() ?? string.Empty;
             if (resultUrl.IndexOf("learn.microsoft.com", StringComparison.OrdinalIgnoreCase) < 0)
                 continue;
-            // Basic heuristic: ensure the URL contains the export name in lowercase.
-            if (!resultUrl.ToLowerInvariant().Contains(exportLower))
+            // Basic heuristic: ensure the URL contains the export name (case-insensitive).
+            if (resultUrl.IndexOf(exportName, StringComparison.OrdinalIgnoreCase) < 0)
                 continue;
 
             try
