@@ -13,7 +13,7 @@ Vibe — x64 PE export → C‑like pseudocode
 
 The eventual goal is to create a high-fidelity decompiler into C code comparable with human-written code.
 
-This project is licensed under the [MIT-0 license](LICENSE).
+This project is licensed under the [MIT-0 license](../LICENSE).
 * * *
 
 Table of Contents
@@ -24,7 +24,7 @@ Table of Contents
 *   [How It Works (Pipeline)](#how-it-works-pipeline)
 *   [Architecture Overview](#architecture-overview)
     *   [IR (types, expressions, statements, printer)](#ir-types-expressions-statements-printer)
-    *   [Decompiler (decode → IR)](#decompiler-decode--ir)
+    *   [Engine (decode → IR)](#engine-decode--ir)
     *   [Transformations (readability passes)](#transformations-readability-passes)
     *   [ConstantDatabase (symbolic constants & flags)](#constantdatabase-symbolic-constants--flags)
     *   [PEReader (minimal PE32+ reader)](#pereader-minimal-pe32-reader)
@@ -68,7 +68,7 @@ Console.WriteLine(disasm);
 
 If an `OPENAI_API_KEY` or `ANTHROPIC_API_KEY` environment variable is set, the tool sends the pseudocode to that provider and prints a refined version that reads much closer to hand-written C.
 
-An example of the raw and refined output for `msedge!CreateTestWebClientProxy` is shown below; the full listing lives in [`docs/examples.md`](docs/examples.md).
+An example of the raw and refined output for `msedge!CreateTestWebClientProxy` is shown below; the full listing lives in [../docs/examples.md](../docs/examples.md).
 
 ```c
 // ---- Refined by LLM ----
@@ -125,7 +125,7 @@ PEReader
 Iced.Intel Decoder
   └─ Decode x64 instructions until the first RET (or byte limit)
 
-Decompiler
+Engine
   ├─ Label analysis (targets inside slice)
   ├─ Prologue/locals detection (MSVC‑ish, rbp/rsp)
   ├─ Detect well‑knowns (gs:[0x60] → PEB alias)
@@ -171,15 +171,15 @@ File: **[`IR.cs`](IR.cs)**
 
 * * *
 
-### Decompiler (decode → IR)
+### Engine (decode → IR)
 
-File: **[`Decompiler.cs`](Decompiler.cs)**
+File: **[`Engine.cs`](Engine.cs)**
 
 **Public API:**
 
 ```csharp
-var decompiler = new Decompiler();
-var pseudo = decompiler.ToPseudoCode(bytes, new Decompiler.Options { ... });
+var engine = new Engine();
+var pseudo = engine.ToPseudoCode(bytes, new Engine.Options { ... });
 ```
 
 **Options**:
@@ -311,7 +311,7 @@ Steps:
 2.  Use `PEReader` to locate the export. If it’s a **forwarder**, follow to the target DLL (up to 8 hops).
 3.  Slice bytes from the function start up to the end of its section (capped by `maxBytes`).
 4.  Create a `ConstantDatabase`, load Win32 metadata from a local `.winmd` (path is hard‑coded in the sample; adjust).
-5.  Run the `Decompiler` with labels, prologue detection, constant mapping enabled.
+5.  Run the `Engine` with labels, prologue detection, constant mapping enabled.
 6.  Emit a small header (source DLL path, export name, image base, function RVA, slice size) + the pretty‑printed pseudocode.
 
 * * *
@@ -347,7 +347,7 @@ Usage Patterns & Extensibility
 ------------------------------
 
 *   **As a library**: Call `Program.DisassembleExportToPseudo()` for a single export or `Program.DisassembleExportsToPseudo()` with a regex pattern string to process all matching exports.
-    Or skip `Program` and use `PEReader` + `Decompiler` directly if you already have bytes.
+    Or skip `Program` and use `PEReader` + `Engine` directly if you already have bytes.
 *   **Change the function under test**: In `Program.Main`, edit the DLL/export name and the `maxBytes` bound. The decompiler will stop at first `RET` anyway.
 *   **Constant naming**:
     *   Replace `ReturnEnumTypeFullName` if your target returns something other than `NTSTATUS`.
@@ -376,7 +376,7 @@ Limitations
 Code Formatting
 ---------------
 
-The repository includes [`.gitattributes`](.gitattributes) and [`.editorconfig`](.editorconfig) to keep text files consistent. In summary:
+The repository includes [`.gitattributes`](../.gitattributes) and [`.editorconfig`](../.editorconfig) to keep text files consistent. In summary:
 
 * UTF‑8 encoding.
 * Unix‐style `LF` line endings with a final newline.
