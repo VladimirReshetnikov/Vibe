@@ -2,11 +2,13 @@
 using System.Reflection;
 using System.Reflection.Metadata;
 using System.Reflection.PortableExecutable;
+using System.Runtime.InteropServices;
 
 public interface IConstantNameProvider
 {
     bool TryFormatValue(string enumFullName, ulong value, out string name);
 }
+
 public sealed class ConstantDatabase : IConstantNameProvider
 {
     private readonly Dictionary<string, EnumDesc> _enums = new(StringComparer.Ordinal);
@@ -82,7 +84,7 @@ public sealed class ConstantDatabase : IConstantNameProvider
     {
         Console.WriteLine($"Loading metadata from ${winmdPath}");
         using var fs = File.OpenRead(winmdPath);
-        using var pe = new System.Reflection.PortableExecutable.PEReader(fs, PEStreamOptions.PrefetchEntireImage);
+        using var pe = new PEReader(fs, PEStreamOptions.PrefetchEntireImage);
         var md = pe.GetMetadataReader();
 
         foreach (var tdHandle in md.TypeDefinitions)
@@ -94,8 +96,10 @@ public sealed class ConstantDatabase : IConstantNameProvider
 
             if (!IsEnum(md, td)) continue;
 
-            var desc = new EnumDesc(full);
-            desc.Flags = HasFlagsAttribute(md, td);
+            var desc = new EnumDesc(full)
+            {
+                Flags = HasFlagsAttribute(md, td)
+            };
 
             int bits = 32;
             foreach (var fHandle in td.GetFields())
@@ -113,13 +117,11 @@ public sealed class ConstantDatabase : IConstantNameProvider
             foreach (var fHandle in td.GetFields())
             {
                 var f = md.GetFieldDefinition(fHandle);
-                if (!f.GetDefaultValue().IsNil)
-                {
-                    string fName = md.GetString(f.Name);
-                    ulong val = ReadConstantValueAsUInt64(md, f.GetDefaultValue());
-                    if (!desc.ValueToName.ContainsKey(val))
-                        desc.ValueToName[val] = $"{full}.{fName}";
-                }
+                if (f.GetDefaultValue().IsNil) continue;
+                string fName = md.GetString(f.Name);
+                ulong val = ReadConstantValueAsUInt64(md, f.GetDefaultValue());
+                if (!desc.ValueToName.ContainsKey(val))
+                    desc.ValueToName[val] = $"{full}.{fName}";
             }
 
             desc.FinalizeAfterLoad();
@@ -137,7 +139,7 @@ public sealed class ConstantDatabase : IConstantNameProvider
                 var desc = new EnumDesc(full)
                 {
                     Flags = t.GetCustomAttributes(typeof(FlagsAttribute), inherit: false).Any(),
-                    UnderlyingBits = Math.Max(8, Math.Min(64, System.Runtime.InteropServices.Marshal.SizeOf(Enum.GetUnderlyingType(t)) * 8))
+                    UnderlyingBits = Math.Max(8, Math.Min(64, Marshal.SizeOf(Enum.GetUnderlyingType(t)) * 8))
                 };
                 foreach (var name in Enum.GetNames(t))
                 {
@@ -164,8 +166,7 @@ public sealed class ConstantDatabase : IConstantNameProvider
                     }
                     ulong v = ConvertToUInt64(val);
                     string key = $"{full}.{f.Name}";
-                    if (!desc.ValueToName.ContainsKey(v))
-                        desc.ValueToName[v] = key;
+                    desc.ValueToName.TryAdd(v, key);
                 }
             }
         }
@@ -198,32 +199,36 @@ public sealed class ConstantDatabase : IConstantNameProvider
     private static bool TryGetAttributeTypeName(MetadataReader md, EntityHandle ctor, out string ns, out string name)
     {
         ns = ""; name = "";
-        if (ctor.Kind == HandleKind.MemberReference)
+        switch (ctor.Kind)
         {
-            var mr = md.GetMemberReference((MemberReferenceHandle)ctor);
-            if (mr.Parent.Kind == HandleKind.TypeReference)
+            case HandleKind.MemberReference:
             {
-                var tr = md.GetTypeReference((TypeReferenceHandle)mr.Parent);
-                ns = md.GetString(tr.Namespace);
-                name = md.GetString(tr.Name);
-                return true;
+                var mr = md.GetMemberReference((MemberReferenceHandle)ctor);
+                switch (mr.Parent.Kind)
+                {
+                    case HandleKind.TypeReference:
+                        var tr = md.GetTypeReference((TypeReferenceHandle)mr.Parent);
+                        ns = md.GetString(tr.Namespace);
+                        name = md.GetString(tr.Name);
+                        return true;
+                    case HandleKind.TypeDefinition:
+                        var td = md.GetTypeDefinition((TypeDefinitionHandle)mr.Parent);
+                        ns = md.GetString(td.Namespace);
+                        name = md.GetString(td.Name);
+                        return true;
+                }
+
+                return false;
             }
-            if (mr.Parent.Kind == HandleKind.TypeDefinition)
+            case HandleKind.MethodDefinition:
             {
-                var td = md.GetTypeDefinition((TypeDefinitionHandle)mr.Parent);
+                var mdh = (MethodDefinitionHandle)ctor;
+                var mdDef = md.GetMethodDefinition(mdh);
+                var td = md.GetTypeDefinition(mdDef.GetDeclaringType());
                 ns = md.GetString(td.Namespace);
                 name = md.GetString(td.Name);
                 return true;
             }
-        }
-        else if (ctor.Kind == HandleKind.MethodDefinition)
-        {
-            var mdh = (MethodDefinitionHandle)ctor;
-            var mdDef = md.GetMethodDefinition(mdh);
-            var td = md.GetTypeDefinition(mdDef.GetDeclaringType());
-            ns = md.GetString(td.Namespace);
-            name = md.GetString(td.Name);
-            return true;
         }
         return false;
     }
@@ -300,12 +305,9 @@ public sealed class ConstantDatabase : IConstantNameProvider
         {
             var singles = ValueToName.Keys.Where(v => v != 0 && (v & (v - 1)) == 0).ToList();
             LooksLikeFlags = Flags || singles.Count >= Math.Max(1, ValueToName.Count / 2);
-
-            if (LooksLikeFlags)
-            {
-                foreach (var s in singles) FlagParts.Add((s, ValueToName[s]));
-                FlagParts.Sort((a, b) => b.Mask.CompareTo(a.Mask));
-            }
+            if (!LooksLikeFlags) return;
+            foreach (var s in singles) FlagParts.Add((s, ValueToName[s]));
+            FlagParts.Sort((a, b) => b.Mask.CompareTo(a.Mask));
         }
     }
 }
