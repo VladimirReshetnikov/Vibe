@@ -3,7 +3,7 @@ using System.Net.Http.Headers;
 using System.Text;
 using System.Text.Json;
 
-public interface ILlmProvider
+public interface ILlmProvider : IDisposable
 {
     Task<string> RefineAsync(string decompiledCode, CancellationToken cancellationToken = default);
 }
