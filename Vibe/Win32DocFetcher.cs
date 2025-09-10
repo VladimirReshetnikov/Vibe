@@ -1,13 +1,10 @@
 // SPDX-License-Identifier: MIT-0
-using System;
-using System.Threading;
-using System.Threading.Tasks;
-using System.Net.Http;
+
 using System.Text.Json;
 
 public static class Win32DocFetcher
 {
-    private static readonly HttpClient _http = new HttpClient()
+    private static readonly HttpClient _http = new()
     {
         Timeout = TimeSpan.FromSeconds(30)
     };
@@ -48,7 +45,7 @@ public static class Win32DocFetcher
         JsonElement results;
         try
         {
-            using var stream = await _http.GetStreamAsync(url, cancellationToken);
+            await using var stream = await _http.GetStreamAsync(url, cancellationToken);
             using var doc = await JsonDocument.ParseAsync(stream, cancellationToken: cancellationToken);
             if (!doc.RootElement.TryGetProperty("results", out results) || results.ValueKind != JsonValueKind.Array)
                 return null;
