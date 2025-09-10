@@ -1,4 +1,4 @@
-﻿# An example of output
+# An example of output
 
 // Source DLL  : C:\Windows\System32\Microsoft-Edge-WebView\msedge.dll
 // Export      : CreateTestWebClientProxy

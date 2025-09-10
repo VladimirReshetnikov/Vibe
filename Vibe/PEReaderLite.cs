@@ -228,7 +228,7 @@ public sealed class PEReaderLite
                 // Check bounds before reading thunk entry (8 bytes)
                 if (thunkOff + 8 > Data.Length)
                     break;
-                    
+
                 ulong entry = U64(thunkOff);
                 if (entry == 0)
                     break;

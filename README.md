@@ -64,7 +64,7 @@ Console.WriteLine(disasm);
 
 So running the built exe prints pseudocode for **`dbghelp!MakeSureDirectoryPathExists`**. Example output is included at the end of this README (truncated here).
 
-> **Note on constants (Win32 enums):**  
+> **Note on constants (Win32 enums):**
 > `Program.cs` tries to load Win32 metadata (`Windows.Win32.winmd`) to print return values as symbolic names (e.g., `STATUS_*`). It first searches the repo and standard NuGet caches for any `Microsoft.Windows.SDK.Win32Metadata` package, using the metadata if found. If no `.winmd` is located, decompilation still proceeds but constants remain numeric.
 
 * * *
@@ -91,7 +91,7 @@ What You Get
 How It Works (Pipeline)
 -----------------------
 
-**Input** → DLL path + export name  
+**Input** → DLL path + export name
 **Output** → Annotated C‑style pseudocode string
 
 ```
@@ -131,7 +131,7 @@ Architecture Overview
 
 File: **[`IR.cs`](IR.cs)**
 
-*   **Types (`IrType`)**: `IntType`, `FloatType`, `PointerType`, `VectorType`, `UnknownType`, `VoidType`.  
+*   **Types (`IrType`)**: `IntType`, `FloatType`, `PointerType`, `VectorType`, `UnknownType`, `VoidType`.
     Pretty‑printer favors stdint names (`uint8_t`, `uint16_t`, …) by default.
 *   **Expressions (`Expr`)**: registers, locals, loads/stores, constants (`Const`/`UConst`/`SymConst`), binary/unary ops, casts (several kinds), calls (`CallExpr`), intrinsics (`rotl`/`rotr`, etc.), ternary, label refs.
 *   **Statements (`Stmt`)**: assignment, memory store, call, `if (cond) goto Lx`, `goto`, label, `return`, `AsmStmt` (original text), `PseudoStmt`, `Nop`.
@@ -200,16 +200,16 @@ var pseudo = decompiler.ToPseudoCode(bytes, new Decompiler.Options { ... });
 
 File: **[`Transformations.cs`](Transformations.cs)**
 
-*   **`FrameObjectClusteringAndRspAlias`**  
-    Finds `memset((void*)(rsp + K), 0, N)` and creates a local pointer `frame_0xK` initialized to `(uint8_t*)(rsp + K)`.  
-    Then rewrites occurrences of `(rsp + C)` inside `[K, K+N)` as `frame_0xK (+ delta)`.  
+*   **`FrameObjectClusteringAndRspAlias`**
+    Finds `memset((void*)(rsp + K), 0, N)` and creates a local pointer `frame_0xK` initialized to `(uint8_t*)(rsp + K)`.
+    Then rewrites occurrences of `(rsp + C)` inside `[K, K+N)` as `frame_0xK (+ delta)`.
     Result: stack object accesses look like `frame_0x... + off` instead of raw `rsp ± const`.
-*   **`DropRedundantBitTestPseudo`**  
+*   **`DropRedundantBitTestPseudo`**
     Removes internal pseudo notes like `"CF = bit(...)"` once they’ve served their purpose for condition building.
-*   **`MapNamedReturnConstants` + `MapNamedRetAssignConstants`**  
-    If a `return` (or `ret = ...;`) is a constant, query `IConstantNameProvider` to replace it with a `SymConst(name)` (e.g., `STATUS_SUCCESS`).  
+*   **`MapNamedReturnConstants` + `MapNamedRetAssignConstants`**
+    If a `return` (or `ret = ...;`) is a constant, query `IConstantNameProvider` to replace it with a `SymConst(name)` (e.g., `STATUS_SUCCESS`).
     The default is `NTSTATUS` (configurable via `ReturnEnumTypeFullName`).
-*   **`SimplifyRedundantAssign`**  
+*   **`SimplifyRedundantAssign`**
     Drops trivial `x = x;` assigns introduced by earlier steps.
 
 All rewriters are **local** and deliberately conservative.
