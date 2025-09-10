@@ -1,6 +1,6 @@
 ﻿using System.Text;
 
-public sealed class PeReaderLite
+public sealed class PEReader
 {
     public readonly byte[] Data;
     public readonly ulong ImageBase;
@@ -8,7 +8,7 @@ public sealed class PeReaderLite
     public readonly uint ExportRva;
     public readonly uint ExportSize;
 
-    public PeReaderLite(string path)
+    public PEReader(string path)
     {
         Data = File.ReadAllBytes(path);
         // DOS header

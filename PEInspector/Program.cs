@@ -1,10 +1,10 @@
 ﻿using System.Text;
 
-public static class Win64ExportRunner
+public static class Program
 {
     static void Main(string[] args)
     {
-        var disasm = DisassembleExportToPseudo("dbghelp.dll", "FindDebugInfoFileEx", 256 * 1024);
+        var disasm = DisassembleExportToPseudo("dbghelp.dll", "MakeSureDirectoryPathExists", 256 * 1024);
         Console.WriteLine(disasm);
     }
     /// <summary>
@@ -51,7 +51,7 @@ public static class Win64ExportRunner
             if (!visited.Add($"{curDllPath}!{curExport}"))
                 throw new InvalidOperationException("Forwarder loop detected.");
 
-            var pe = new PeReaderLite(curDllPath);
+            var pe = new PEReader(curDllPath);
             var export = pe.FindExport(curExport);
 
             if (export.IsForwarder)
@@ -78,8 +78,8 @@ public static class Win64ExportRunner
             var db = new ConstantDatabase();
             db.LoadWin32MetadataFromWinmd(@"C:\Users\vresh\source\repos\PEInspector\Microsoft.Windows.SDK.Win32Metadata.63.0.31-preview\Windows.Win32.winmd");
            
-            var decompiler = new MsvcFunctionPseudoDecompiler();
-            var options = new MsvcFunctionPseudoDecompiler.Options
+            var decompiler = new Decompiler();
+            var options = new Decompiler.Options
             {
                 BaseAddress = pe.ImageBase + export.FunctionRva,
                 FunctionName = $"{Path.GetFileName(curDllPath)}!{curExport}",

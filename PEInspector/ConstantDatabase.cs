@@ -2,7 +2,11 @@
 using System.Reflection.Metadata;
 using System.Reflection.PortableExecutable;
 
-public sealed class ConstantDatabase : PseudoIr.IConstantNameProvider
+public interface IConstantNameProvider
+{
+    bool TryFormatValue(string enumFullName, ulong value, out string name);
+}
+public sealed class ConstantDatabase : IConstantNameProvider
 {
     private readonly Dictionary<string, EnumDesc> _enums = new(StringComparer.Ordinal);
     private readonly Dictionary<string, Dictionary<int, string>> _callArgEnums = new(StringComparer.OrdinalIgnoreCase);
@@ -76,7 +80,7 @@ public sealed class ConstantDatabase : PseudoIr.IConstantNameProvider
     public void LoadWin32MetadataFromWinmd(string winmdPath)
     {
         using var fs = File.OpenRead(winmdPath);
-        using var pe = new PEReader(fs, PEStreamOptions.PrefetchEntireImage);
+        using var pe = new System.Reflection.PortableExecutable.PEReader(fs, PEStreamOptions.PrefetchEntireImage);
         var md = pe.GetMetadataReader();
 
         foreach (var tdHandle in md.TypeDefinitions)
