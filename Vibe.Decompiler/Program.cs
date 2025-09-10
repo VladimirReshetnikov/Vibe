@@ -3,6 +3,7 @@
 using System.Collections.Generic;
 using System.IO;
 using System.IO.Compression;
+using System.Linq;
 using System.Text;
 
 namespace Vibe.Decompiler;
@@ -11,8 +12,10 @@ public static class Program
 {
     static async Task Main(string[] args)
     {
-        var configPath = Path.Combine(AppContext.BaseDirectory, "config.json");
-        var config = AppConfig.Load(configPath);
+        string repoRoot = FindRepoRoot() ?? AppContext.BaseDirectory;
+        string? configPath = Directory.EnumerateFiles(repoRoot, "config.json", SearchOption.AllDirectories)
+            .FirstOrDefault();
+        var config = AppConfig.Load(configPath ?? Path.Combine(AppContext.BaseDirectory, "config.json"));
 
         string dllPath = "C:\\Windows\\System32\\Microsoft-Edge-WebView\\msedge.dll";
         string exportName = "CreateTestWebClientProxy";
