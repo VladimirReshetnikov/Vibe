@@ -122,7 +122,7 @@ public static class Program
             Buffer.BlockCopy(pe.Data, funcOff, body, 0, take);
             var db = new ConstantDatabase();
             TryLoadWin32Metadata(db);
-           
+
             var decompiler = new Decompiler();
             var options = new Decompiler.Options
             {
@@ -189,7 +189,7 @@ public static class Program
             foreach (var cache in GetNuGetCacheDirectories())
             {
             if (!Directory.Exists(cache)) continue;
-            
+
             // First try extracted packages (more common in global packages folder)
             foreach (var packageDir in Directory.EnumerateDirectories(cache, "microsoft.windows.sdk.win32metadata*", SearchOption.TopDirectoryOnly))
             {
@@ -199,7 +199,7 @@ public static class Program
                     return;
                 }
             }
-            
+
             // Fallback to .nupkg files (for HTTP cache locations)
                 foreach (var nupkg in Directory.EnumerateFiles(cache, "Microsoft.Windows.SDK.Win32Metadata*.nupkg", SearchOption.AllDirectories))
                 {
@@ -267,42 +267,5 @@ public static class Program
         }
 
         return dirs;
-
-    public static Dictionary<string, string> DisassembleExportsToPseudo(
-        string dllName,
-        string exportNamePattern,
-        int maxBytes = 4096)
-    {
-        // Resolve a *64-bit* System32 path even if this process is 32-bit (WOW64).
-        string ResolveSystemDllPath(string name)
-        {
-            if (!name.EndsWith(".dll", StringComparison.OrdinalIgnoreCase))
-                name += ".dll";
-
-            string windows = Environment.GetFolderPath(Environment.SpecialFolder.Windows);
-            string dir = (Environment.Is64BitOperatingSystem && !Environment.Is64BitProcess)
-                ? Path.Combine(windows, "Sysnative") // 32-bit process reaching 64-bit System32
-                : Path.Combine(windows, "System32");
-
-            string path = Path.Combine(dir, name);
-            if (!File.Exists(path))
-                throw new FileNotFoundException($"System DLL not found: {path}");
-            return path;
-        }
-
-        string dllPath = ResolveSystemDllPath(dllName);
-        var regex = new Regex(exportNamePattern);
-        var pe = new PEReaderLite(dllPath);
-        var results = new Dictionary<string, string>(StringComparer.Ordinal);
-
-        foreach (var name in pe.EnumerateExportNames())
-        {
-            if (regex.IsMatch(name))
-            {
-                results[name] = DisassembleExportToPseudo(dllName, name, maxBytes);
-            }
-        }
-
-        return results;
     }
 }
