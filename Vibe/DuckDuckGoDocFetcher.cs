@@ -99,12 +99,23 @@ public static class DuckDuckGoDocFetcher
         {
             html = await _http.GetStringAsync(queryUrl, cancellationToken);
         }
-        catch
+        catch (HttpRequestException)
+        {
+            return new List<string>();
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            throw;
+        }
+        catch (OperationCanceledException)
         {
             return new List<string>();
         }
 
-        var linkMatches = Regex.Matches(html, "<a[^>]+class=\"result__a\"[^>]+href=\"(?<url>.*?)\"", RegexOptions.IgnoreCase);
+        var linkMatches = Regex.Matches(
+            html,
+            "<a[^>]*(?:class=\\\"result__a\\\"[^>]*href=\\\"(?<url>[^\\\"]*)\\\"|href=\\\"(?<url>[^\\\"]*)\\\"[^>]*class=\\\"result__a\\\")[^>]*>",
+            RegexOptions.IgnoreCase);
         var links = linkMatches.Cast<Match>()
             .Select(m => m.Groups["url"].Value)
             .Where(u => !string.IsNullOrEmpty(u))
@@ -121,7 +132,15 @@ public static class DuckDuckGoDocFetcher
             {
                 page = await _http.GetStringAsync(link, cancellationToken);
             }
-            catch
+            catch (HttpRequestException)
+            {
+                continue;
+            }
+            catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+            {
+                throw;
+            }
+            catch (OperationCanceledException)
             {
                 continue;
             }
@@ -137,7 +156,11 @@ public static class DuckDuckGoDocFetcher
                         break;
                     }
                 }
-                catch
+                catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+                {
+                    throw;
+                }
+                catch (Exception)
                 {
                     // Ignore evaluator errors for this fragment
                 }
@@ -152,8 +175,23 @@ public static class DuckDuckGoDocFetcher
 
     private static IEnumerable<string> SplitFragments(string text, int maxLen)
     {
-        for (int i = 0; i < text.Length; i += maxLen)
-            yield return text.Substring(i, Math.Min(maxLen, text.Length - i));
+        int index = 0;
+        while (index < text.Length)
+        {
+            int length = Math.Min(maxLen, text.Length - index);
+            int nextIndex = index + length;
+            if (nextIndex < text.Length)
+            {
+                int lastBreak = text.LastIndexOfAny(new[] { ' ', '\n', '\r', '\t' }, nextIndex - 1, length);
+                if (lastBreak > index)
+                {
+                    length = lastBreak - index + 1;
+                    nextIndex = lastBreak + 1;
+                }
+            }
+            yield return text.Substring(index, length);
+            index = nextIndex;
+        }
     }
 }
 
