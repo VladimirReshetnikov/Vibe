@@ -37,9 +37,15 @@ public partial class MainWindow : Window
     private void DecompileButton_Click(object sender, RoutedEventArgs e)
     {
         if (_pe == null)
+        {
+            MessageBox.Show(this, "Please open a DLL file first.", "No File Loaded", MessageBoxButton.OK, MessageBoxImage.Information);
             return;
+        }
         if (ExportList.SelectedItem is not string name)
+        {
+            MessageBox.Show(this, "Please select an export to decompile.", "No Export Selected", MessageBoxButton.OK, MessageBoxImage.Information);
             return;
+        }
         try
         {
             var exp = _pe.FindExport(name);
