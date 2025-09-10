@@ -41,9 +41,9 @@ public sealed class ConstantDatabase : IConstantNameProvider
         int bang = sym.IndexOf('!');
         if (bang >= 0 && bang + 1 < sym.Length) sym = sym[(bang + 1)..];
 
-        if (_callArgEnums.TryGetValue(sym, out var map) && map.TryGetValue(argIndex, out enumTypeFullName))
-            return _enums.ContainsKey(enumTypeFullName);
-        return false;
+        return _callArgEnums.TryGetValue(sym, out var map) &&
+               map.TryGetValue(argIndex, out enumTypeFullName) &&
+               _enums.ContainsKey(enumTypeFullName);
     }
 
     public bool TryFormatValue(string enumTypeFullName, ulong value, out string formatted)

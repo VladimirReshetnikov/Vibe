@@ -48,7 +48,7 @@ public static class Program
             }
             finally
             {
-                provider?.Dispose();
+                provider.Dispose();
             }
         }
     }
@@ -160,14 +160,14 @@ public static class Program
             if (dot <= 0 || dot == fwd.Length - 1)
                 throw new FormatException($"Unexpected forwarder string: '{fwd}'");
 
-            string dll = fwd.Substring(0, dot);
-            string sym = fwd.Substring(dot + 1);
+            string dll = fwd[..dot];
+            string sym = fwd[(dot + 1)..];
 
             // Normalize DLL name
             if (!dll.EndsWith(".dll", StringComparison.OrdinalIgnoreCase))
                 dll += ".dll";
 
-            if (sym.StartsWith("#", StringComparison.Ordinal))
+            if (sym.StartsWith('#'))
                 throw new NotSupportedException($"Forwarder by ordinal not supported here: '{fwd}'");
 
             return (dll, sym);
@@ -214,20 +214,18 @@ public static class Program
                         using var zip = ZipFile.OpenRead(nupkg);
                         var entry = zip.Entries.FirstOrDefault(e =>
                             e.FullName.EndsWith("Windows.Win32.winmd", StringComparison.OrdinalIgnoreCase));
-                        if (entry is not null)
+                        if (entry is null) continue;
+                        string tempPath = Path.Combine(Path.GetTempPath(), Path.GetRandomFileName() + ".winmd");
+                        entry.ExtractToFile(tempPath, true);
+                        try
                         {
-                            string tempPath = Path.Combine(Path.GetTempPath(), Path.GetRandomFileName() + ".winmd");
-                            entry.ExtractToFile(tempPath, true);
-                            try
-                            {
-                                db.LoadWin32MetadataFromWinmd(tempPath);
-                            }
-                            finally
-                            {
-                                try { File.Delete(tempPath); } catch { }
-                            }
-                            return;
+                            db.LoadWin32MetadataFromWinmd(tempPath);
                         }
+                        finally
+                        {
+                            try { File.Delete(tempPath); } catch { }
+                        }
+                        return;
                     }
                     catch { }
                 }
