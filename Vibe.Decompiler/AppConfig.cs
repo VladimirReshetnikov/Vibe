@@ -20,7 +20,11 @@ public sealed class AppConfig
                 return new AppConfig();
 
             var json = File.ReadAllText(path);
-            var cfg = JsonSerializer.Deserialize<AppConfig>(json);
+            var options = new JsonSerializerOptions
+            {
+                PropertyNameCaseInsensitive = true
+            };
+            var cfg = JsonSerializer.Deserialize<AppConfig>(json, options);
             return cfg ?? new AppConfig();
         }
         catch
