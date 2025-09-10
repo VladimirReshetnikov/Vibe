@@ -273,53 +273,6 @@ public sealed class PEReaderLite
             uint nameRva = U32(namesOff + (int)(i * 4));
             int nameOff = RvaToOffsetChecked(nameRva);
             yield return ReadAsciiZ(nameOff);
-          
-    private void ParseImports(uint importRva)
-    {
-        int descOff = RvaToOffsetChecked(importRva);
-        while (true)
-        {
-            uint originalFirstThunk = U32(descOff + 0);
-            uint timeDateStamp = U32(descOff + 4);
-            uint forwarderChain = U32(descOff + 8);
-            uint nameRva = U32(descOff + 12);
-            uint firstThunk = U32(descOff + 16);
-
-            if (originalFirstThunk == 0 && timeDateStamp == 0 &&
-                forwarderChain == 0 && nameRva == 0 && firstThunk == 0)
-                break;
-
-            string moduleName = ReadAsciiZ(RvaToOffsetChecked(nameRva));
-            uint thunkRva = originalFirstThunk != 0 ? originalFirstThunk : firstThunk;
-            int thunkOff = RvaToOffsetChecked(thunkRva);
-
-            var module = new ImportModule { Name = moduleName };
-
-            while (true)
-            {
-                ulong entry = U64(thunkOff);
-                if (entry == 0)
-                    break;
-
-                bool byOrdinal = (entry & 0x8000000000000000UL) != 0;
-                if (byOrdinal)
-                {
-                    ushort ord = (ushort)(entry & 0xFFFF);
-                    module.Symbols.Add(ImportSymbol.FromOrdinal(ord));
-                }
-                else
-                {
-                    uint hintNameRva = (uint)entry;
-                    int hnOff = RvaToOffsetChecked(hintNameRva);
-                    string funcName = ReadAsciiZ(hnOff + 2); // skip hint
-                    module.Symbols.Add(ImportSymbol.FromName(funcName));
-                }
-
-                thunkOff += 8;
-            }
-
-            Imports.Add(module);
-            descOff += 20;
         }
     }
 
