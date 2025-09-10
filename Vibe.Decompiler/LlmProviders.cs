@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: MIT-0
 
+using System.Collections.Generic;
 using System.Net.Http.Headers;
 using System.Text;
 using System.Text.Json;
@@ -8,7 +9,10 @@ namespace Vibe.Decompiler;
 
 public interface ILlmProvider : IDisposable
 {
-    Task<string> RefineAsync(string decompiledCode, CancellationToken cancellationToken = default);
+    Task<string> RefineAsync(
+        string decompiledCode,
+        IEnumerable<string>? documentation = null,
+        CancellationToken cancellationToken = default);
 }
 
 public sealed class OpenAiLlmProvider : ILlmProvider
@@ -24,16 +28,27 @@ public sealed class OpenAiLlmProvider : ILlmProvider
         _http.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", ApiKey);
     }
 
-    public async Task<string> RefineAsync(string decompiledCode, CancellationToken cancellationToken = default)
+    public async Task<string> RefineAsync(
+        string decompiledCode,
+        IEnumerable<string>? documentation = null,
+        CancellationToken cancellationToken = default)
     {
+        var messages = new List<object>
+        {
+            new { role = "system", content = "You rewrite decompiled machine code into clear and idiomatic C code." },
+            new { role = "user", content = $"Rewrite the following decompiler output into readable C code, approximating the original source.\n\n{decompiledCode}" }
+        };
+
+        if (documentation is not null)
+        {
+            foreach (var docSnippet in documentation)
+                messages.Add(new { role = "user", content = $"Reference documentation:\n{docSnippet}" });
+        }
+
         var req = new
         {
             model = Model,
-            messages = new object[]
-            {
-                new { role = "system", content = "You rewrite decompiled machine code into clear and idiomatic C code." },
-                new { role = "user", content = $"Rewrite the following decompiler output into readable C code, approximating the original source.\n\n{decompiledCode}" }
-            }
+            messages = messages.ToArray()
         };
 
         var json = JsonSerializer.Serialize(req);
@@ -79,17 +94,28 @@ public sealed class AnthropicLlmProvider : ILlmProvider
         _http.DefaultRequestHeaders.Add("anthropic-version", ApiVersion);
     }
 
-    public async Task<string> RefineAsync(string decompiledCode, CancellationToken cancellationToken = default)
+    public async Task<string> RefineAsync(
+        string decompiledCode,
+        IEnumerable<string>? documentation = null,
+        CancellationToken cancellationToken = default)
     {
+        var messages = new List<object>
+        {
+            new { role = "user", content = $"Rewrite the following decompiler output into readable C code, approximating the original source.\n\n{decompiledCode}" }
+        };
+
+        if (documentation is not null)
+        {
+            foreach (var docSnippet in documentation)
+                messages.Add(new { role = "user", content = $"Reference documentation:\n{docSnippet}" });
+        }
+
         var req = new
         {
             model = Model,
             max_tokens = MaxTokens,
             system = "You rewrite decompiled machine code into clear and idiomatic C code.",
-            messages = new object[]
-            {
-                new { role = "user", content = $"Rewrite the following decompiler output into readable C code, approximating the original source.\n\n{decompiledCode}" }
-            }
+            messages = messages.ToArray()
         };
 
         var json = JsonSerializer.Serialize(req);
