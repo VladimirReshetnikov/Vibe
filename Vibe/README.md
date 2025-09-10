@@ -41,7 +41,7 @@ Quick Start
 ### Prerequisites
 
 *   **Windows x64**
-*   **.NET SDK 9.0** (project targets `net9.0`)
+*   **.NET SDK 8.0** (project targets `net8.0`)
 *   NuGet package: **Iced 1.21.0** (restored automatically by `dotnet`)
 
 ### Build
