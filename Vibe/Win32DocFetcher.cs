@@ -76,7 +76,7 @@ public static class Win32DocFetcher
             if (!result.TryGetProperty("url", out var urlProp))
                 continue;
             string resultUrl = urlProp.GetString() ?? string.Empty;
-            if (!resultUrl.Contains("learn.microsoft.com"))
+            if (resultUrl.IndexOf("learn.microsoft.com", StringComparison.OrdinalIgnoreCase) < 0)
                 continue;
             // Basic heuristic: ensure the URL contains the export name in lowercase.
             if (!resultUrl.ToLowerInvariant().Contains(exportLower))
