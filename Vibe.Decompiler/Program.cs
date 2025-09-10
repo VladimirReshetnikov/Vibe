@@ -11,22 +11,23 @@ public static class Program
 {
     static async Task Main(string[] args)
     {
+        bool webAccess = args.Any(a => a == "--web-access");
         string dllPath = "C:\\Windows\\System32\\Microsoft-Edge-WebView\\msedge.dll";
         string exportName = "CreateTestWebClientProxy";
 
         var disasm = DisassembleExportToPseudo(dllPath, exportName, 256 * 1024);
         Console.WriteLine(disasm);
-
         var docs = new List<string>();
-
-        try
+        if(webAccess)
         {
-            string? msDoc = await Win32DocFetcher.TryDownloadExportDocAsync(Path.GetFileName(dllPath), exportName);
-            if (msDoc is not null)
-                docs.Add(msDoc);
+            try
+            {
+                string? msDoc = await Win32DocFetcher.TryDownloadExportDocAsync(Path.GetFileName(dllPath), exportName);
+                if (msDoc is not null)
+                    docs.Add(msDoc);
+            }
+            catch { }
         }
-        catch { }
-
         ILlmProvider? provider = null;
         string? openAiKey = Environment.GetEnvironmentVariable("OPENAI_API_KEY");
         string? anthropicKey = Environment.GetEnvironmentVariable("ANTHROPIC_API_KEY");
@@ -37,8 +38,11 @@ public static class Program
             try
             {
                 using var evaluator = new OpenAiDocPageEvaluator(openAiKey);
-                var pages = await DuckDuckGoDocFetcher.FindDocumentationPagesAsync(exportName, 2, evaluator);
-                docs.AddRange(pages);
+                if (webAccess)
+                {
+                    var pages = await DuckDuckGoDocFetcher.FindDocumentationPagesAsync(exportName, 2, evaluator);
+                    docs.AddRange(pages);
+                }
             }
             catch { }
         }

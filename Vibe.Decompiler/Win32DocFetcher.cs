@@ -11,11 +11,6 @@ public static class Win32DocFetcher
         Timeout = TimeSpan.FromSeconds(30)
     };
 
-    static Win32DocFetcher()
-    {
-        _http.DefaultRequestHeaders.UserAgent.TryParseAdd("Vibe-Decompiler/1.0");
-    }
-
     /// <summary>
     /// Attempts to download HTML documentation for a given Windows API export.
     /// Uses the learn.microsoft.com search API to locate a documentation page.
