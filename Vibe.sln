@@ -23,12 +23,18 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "docs", "docs", "{91C8EFF0-9
 		docs\transformations-architecture.md = docs\transformations-architecture.md
 	EndProjectSection
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Vibe.Gui", "Vibe.Gui\Vibe.Gui.csproj", "{1440EBD9-4E12-4327-9C11-12BF6F95D060}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
 		Release|Any CPU = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+                {1440EBD9-4E12-4327-9C11-12BF6F95D060}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+                {1440EBD9-4E12-4327-9C11-12BF6F95D060}.Debug|Any CPU.Build.0 = Debug|Any CPU
+                {1440EBD9-4E12-4327-9C11-12BF6F95D060}.Release|Any CPU.ActiveCfg = Release|Any CPU
+                {1440EBD9-4E12-4327-9C11-12BF6F95D060}.Release|Any CPU.Build.0 = Release|Any CPU
 		{4F5F7FF1-14D5-4132-A5B8-62A2C9B82668}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
 		{4F5F7FF1-14D5-4132-A5B8-62A2C9B82668}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{4F5F7FF1-14D5-4132-A5B8-62A2C9B82668}.Release|Any CPU.ActiveCfg = Release|Any CPU
