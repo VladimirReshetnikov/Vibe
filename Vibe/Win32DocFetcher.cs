@@ -38,10 +38,13 @@ public static class Win32DocFetcher
         if (!string.IsNullOrWhiteSpace(dllName))
             query = dllName + " " + exportName;
 
-        string url = "https://learn.microsoft.com/api/search" +
-                     "?" +
-                     "search=" + Uri.EscapeDataString(query) +
-                     "&scope=desktop&locale=en-us";
+        var uriBuilder = new UriBuilder("https://learn.microsoft.com/api/search");
+        var queryParams = System.Web.HttpUtility.ParseQueryString(string.Empty);
+        queryParams["search"] = query;
+        queryParams["scope"] = "desktop";
+        queryParams["locale"] = "en-us";
+        uriBuilder.Query = queryParams.ToString();
+        string url = uriBuilder.ToString();
 
         try
         {
