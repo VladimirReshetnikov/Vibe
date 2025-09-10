@@ -8,7 +8,7 @@ public interface ILlmProvider : IDisposable
     Task<string> RefineAsync(string decompiledCode, CancellationToken cancellationToken = default);
 }
 
-public sealed class OpenAiLlmProvider : ILlmProvider, IDisposable
+public sealed class OpenAiLlmProvider : ILlmProvider
 {
     private readonly HttpClient _http = new();
     public string ApiKey { get; }
@@ -58,7 +58,7 @@ public sealed class OpenAiLlmProvider : ILlmProvider, IDisposable
     public void Dispose() => _http.Dispose();
 }
 
-public sealed class AnthropicLlmProvider : ILlmProvider, IDisposable
+public sealed class AnthropicLlmProvider : ILlmProvider
 {
     private readonly HttpClient _http = new();
     public string ApiKey { get; }
