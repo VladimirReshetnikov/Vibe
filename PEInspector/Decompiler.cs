@@ -1,4 +1,4 @@
-﻿using System.Globalization;
+﻿﻿using System.Globalization;
 using System.Text;
 using Iced.Intel;
 using Decoder = Iced.Intel.Decoder;
@@ -496,8 +496,10 @@ public sealed class Decompiler
 
     private static bool TrySplitBasePlusOffset(IR.Expr addr, out IR.Expr baseExpr, out long off)
     {
-        // Recognize (base + const) or (base - const)
-        baseExpr = addr; off = 0;
+        // Recognize (base + const) or (base - const); allow plain base (offset 0)
+        baseExpr = null!;
+        off = 0;
+
         if (addr is IR.BinOpExpr bop && (bop.Op == IR.BinOp.Add || bop.Op == IR.BinOp.Sub))
         {
             if (bop.Right is IR.Const c)
@@ -506,8 +508,25 @@ public sealed class Decompiler
                 off = bop.Op == IR.BinOp.Add ? c.Value : -c.Value;
                 return true;
             }
+            if (bop.Right is IR.UConst uc)
+            {
+                baseExpr = bop.Left;
+                var v = unchecked((long)uc.Value);
+                off = bop.Op == IR.BinOp.Add ? v : -v;
+                return true;
+            }
+            return false;
         }
-        return true;
+
+        // Accept simple base terms as base+0
+        if (addr is IR.RegExpr || addr is IR.LocalExpr || addr is IR.AddrOfExpr)
+        {
+            baseExpr = addr;
+            off = 0;
+            return true;
+        }
+
+        return false;
     }
 
     private static bool ExprEquals(IR.Expr a, IR.Expr b)

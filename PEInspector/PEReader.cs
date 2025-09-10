@@ -1,4 +1,4 @@
-﻿using System.Text;
+﻿﻿using System.Text;
 
 public sealed class PEReader
 {
@@ -7,6 +7,7 @@ public sealed class PEReader
     public readonly List<Section> Sections = new();
     public readonly uint ExportRva;
     public readonly uint ExportSize;
+    public readonly uint SizeOfHeaders; // NEW: keep SizeOfHeaders for header-range RVA mapping
 
     public PEReader(string path)
     {
@@ -32,6 +33,7 @@ public sealed class PEReader
 
         ImageBase = U64(optOff + 24);
         uint sizeOfHeaders = U32(optOff + 60);
+        SizeOfHeaders = sizeOfHeaders; // capture SizeOfHeaders from optional header
         uint numberOfRvaAndSizes = U32(optOff + 108);
         int dataDirOff = optOff + 112;
 
@@ -81,8 +83,8 @@ public sealed class PEReader
         var s = GetSectionForRva(rva);
         if (s == null)
         {
-            // Could be in the headers
-            if (rva < U32(0x3C)) // extremely small
+            // Allow RVAs that point into headers (e.g., import/export arrays or strings)
+            if (rva < SizeOfHeaders)
                 return (int)rva;
             throw new InvalidOperationException($"RVA 0x{rva:X} not mapped to any section.");
         }

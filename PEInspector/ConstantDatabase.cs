@@ -1,4 +1,4 @@
-﻿using System.Reflection;
+﻿﻿using System.Reflection;
 using System.Reflection.Metadata;
 using System.Reflection.PortableExecutable;
 
@@ -74,7 +74,7 @@ public sealed class ConstantDatabase : IConstantNameProvider
         }
 
         formatted = $"0x{value:X}";
-        return true;
+        return false; // important: hex fallback is not a symbolic match
     }
 
     public void LoadWin32MetadataFromWinmd(string winmdPath)
