@@ -386,7 +386,8 @@
             static bool IsAllOnes(IR.Expr x)
             {
                 if (x is IR.Const c) return c.Value == -1;
-                if (x is IR.UConst uc) return uc.Value == ((1UL << uc.Bits) - 1);
+                if (x is IR.UConst uc)
+                    return uc.Bits >= 64 ? uc.Value == ulong.MaxValue : uc.Value == ((1UL << (int)uc.Bits) - 1);
                 return false;
             }
             static bool ExpressionsEqual(IR.Expr a, IR.Expr b) => a.Equals(b);
@@ -429,7 +430,7 @@
                     if (IsZero(whenTrue) && IsOne(whenFalse))
                         return new IR.UnOpExpr(IR.UnOp.LNot, cond);
                     if (whenTrue.Equals(whenFalse))
-                        return whenTrue;
+                        return IsSideEffectFree(cond) ? whenTrue : new IR.TernaryExpr(cond, whenTrue, whenFalse);
 
                     return new IR.TernaryExpr(cond, whenTrue, whenFalse);
                 }
@@ -458,6 +459,18 @@
 
             static bool IsZero(IR.Expr x) => x is IR.Const c && c.Value == 0 || x is IR.UConst uc && uc.Value == 0;
             static bool IsOne(IR.Expr x) => x is IR.Const c && c.Value == 1 || x is IR.UConst uc && uc.Value == 1;
+            static bool IsSideEffectFree(IR.Expr e) => e switch
+            {
+                IR.Const or IR.UConst or IR.SymConst or IR.RegExpr or IR.ParamExpr or IR.LocalExpr or IR.SegmentBaseExpr => true,
+                IR.AddrOfExpr a => IsSideEffectFree(a.Operand),
+                IR.BinOpExpr b => IsSideEffectFree(b.Left) && IsSideEffectFree(b.Right),
+                IR.UnOpExpr u => IsSideEffectFree(u.Operand),
+                IR.CompareExpr c => IsSideEffectFree(c.Left) && IsSideEffectFree(c.Right),
+                IR.TernaryExpr t => IsSideEffectFree(t.Condition) && IsSideEffectFree(t.WhenTrue) && IsSideEffectFree(t.WhenFalse),
+                IR.CastExpr ce => IsSideEffectFree(ce.Value),
+                IR.LabelRefExpr _ => true,
+                _ => false,
+            };
         }
 
         foreach (var bb in fn.Blocks)
