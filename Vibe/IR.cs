@@ -138,6 +138,8 @@ public static class IR
     public sealed record GotoStmt(LabelSymbol Target) : Stmt;
     public sealed record LabelStmt(LabelSymbol Label) : Stmt;
     public sealed record ReturnStmt(Expr? Value) : Stmt;
+    public sealed record BreakStmt() : Stmt;
+    public sealed record ContinueStmt() : Stmt;
 
     /// <summary>Actual assembly line (address + original mnemonic/operands), shown as comment.</summary>
     public sealed record AsmStmt(string Text) : Stmt;
@@ -158,6 +160,7 @@ public static class IR
     public sealed record IfNode(Expr Condition, HiNode Then, HiNode? Else) : HiNode;
     public sealed record WhileNode(Expr Condition, HiNode Body) : HiNode;
     public sealed record DoWhileNode(Expr Condition, HiNode Body) : HiNode;
+    public sealed record ForNode(IReadOnlyList<Stmt>? Init, Expr? Condition, IReadOnlyList<Stmt>? Post, HiNode Body) : HiNode;
 
     public sealed record SwitchNode(Expr Scrutinee, IReadOnlyList<SwitchCase> Cases, IReadOnlyList<Stmt>? Prologue = null, IReadOnlyList<Stmt>? Epilogue = null) : HiNode;
     public sealed record SwitchCase(Expr? MatchValue, IReadOnlyList<HiNode> Body, bool IsDefault = false);
@@ -367,6 +370,20 @@ public static class IR
                     _sb.AppendLine(");");
                     break;
 
+                case ForNode fn:
+                    Emit("for (");
+                    EmitStmtListInline(fn.Init);
+                    _sb.Append("; ");
+                    if (fn.Condition is not null) EmitExpr(fn.Condition, Precedence.Min);
+                    _sb.Append("; ");
+                    EmitStmtListInline(fn.Post);
+                    _sb.AppendLine(") {");
+                    _indent++;
+                    EmitHiNode(fn.Body);
+                    _indent--;
+                    EmitLine("}");
+                    break;
+
                 case SwitchNode sw:
                     Emit("switch (");
                     EmitExpr(sw.Scrutinee, Precedence.Min);
@@ -393,6 +410,49 @@ public static class IR
 
                 default:
                     EmitLine("/* unsupported structured node */");
+                    break;
+            }
+        }
+
+        private void EmitStmtListInline(IReadOnlyList<Stmt>? stmts)
+        {
+            if (stmts is null) return;
+            for (int i = 0; i < stmts.Count; i++)
+            {
+                if (i > 0) _sb.Append(", ");
+                EmitStmtInline(stmts[i]);
+            }
+        }
+
+        private void EmitStmtInline(Stmt s)
+        {
+            switch (s)
+            {
+                case AssignStmt a:
+                    EmitLValue(a.Lhs);
+                    _sb.Append(" = ");
+                    EmitExpr(a.Rhs, Precedence.Min);
+                    break;
+                case CallStmt cs:
+                    EmitCall(cs.Call);
+                    break;
+                case PseudoStmt ps:
+                    _sb.Append("__pseudo(").Append(ps.Text).Append(')');
+                    break;
+                case CommentStmt c:
+                    _sb.Append("/* ").Append(c.Text).Append(" */");
+                    break;
+                case NopStmt:
+                    _sb.Append("/* nop */");
+                    break;
+                case BreakStmt:
+                    _sb.Append("break");
+                    break;
+                case ContinueStmt:
+                    _sb.Append("continue");
+                    break;
+                default:
+                    _sb.Append("/* unsupported */");
                     break;
             }
         }
@@ -472,6 +532,14 @@ public static class IR
                         EmitExpr(r.Value, Precedence.Min);
                         _sb.AppendLine(";");
                     }
+                    break;
+
+                case BreakStmt:
+                    EmitLine("break;");
+                    break;
+
+                case ContinueStmt:
+                    EmitLine("continue;");
                     break;
 
                 case CommentStmt c:
@@ -815,6 +883,8 @@ public static class IR
 
         public static LoadExpr LD(Expr addr, IrType t, SegmentReg seg = SegmentReg.None) => new(addr, t, seg);
         public static StoreStmt ST(Expr addr, Expr val, IrType t, SegmentReg seg = SegmentReg.None) => new(addr, val, t, seg);
+        public static BreakStmt Break() => new();
+        public static ContinueStmt Continue() => new();
 
         public static BinOpExpr Add(Expr a, Expr b) => new(BinOp.Add, a, b);
         public static BinOpExpr Sub(Expr a, Expr b) => new(BinOp.Sub, a, b);

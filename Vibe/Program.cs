@@ -1,5 +1,6 @@
 ﻿using System.Text;
 using System.IO.Compression;
+using System.Text.RegularExpressions;
 
 public static class Program
 {
@@ -44,8 +45,13 @@ public static class Program
                 Console.WriteLine();
                 Console.WriteLine($"// ---- LLM refinement failed: {ex.Message} ----");
             }
+            finally
+            {
+                provider?.Dispose();
+            }
         }
     }
+
     /// <summary>
     /// Disassembles a Windows exported function (default: ntdll!RtlGetVersion) into C-like pseudocode
     /// by extracting its body from the PE file and passing the bytes to MsvcFunctionPseudoDecompiler.
@@ -261,5 +267,42 @@ public static class Program
         }
 
         return dirs;
+
+    public static Dictionary<string, string> DisassembleExportsToPseudo(
+        string dllName,
+        string exportNamePattern,
+        int maxBytes = 4096)
+    {
+        // Resolve a *64-bit* System32 path even if this process is 32-bit (WOW64).
+        string ResolveSystemDllPath(string name)
+        {
+            if (!name.EndsWith(".dll", StringComparison.OrdinalIgnoreCase))
+                name += ".dll";
+
+            string windows = Environment.GetFolderPath(Environment.SpecialFolder.Windows);
+            string dir = (Environment.Is64BitOperatingSystem && !Environment.Is64BitProcess)
+                ? Path.Combine(windows, "Sysnative") // 32-bit process reaching 64-bit System32
+                : Path.Combine(windows, "System32");
+
+            string path = Path.Combine(dir, name);
+            if (!File.Exists(path))
+                throw new FileNotFoundException($"System DLL not found: {path}");
+            return path;
+        }
+
+        string dllPath = ResolveSystemDllPath(dllName);
+        var regex = new Regex(exportNamePattern);
+        var pe = new PEReaderLite(dllPath);
+        var results = new Dictionary<string, string>(StringComparer.Ordinal);
+
+        foreach (var name in pe.EnumerateExportNames())
+        {
+            if (regex.IsMatch(name))
+            {
+                results[name] = DisassembleExportToPseudo(dllName, name, maxBytes);
+            }
+        }
+
+        return results;
     }
 }

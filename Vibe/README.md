@@ -276,6 +276,10 @@ public static string DisassembleExportToPseudo(
     string dllName,     // e.g., "ntdll.dll"
     string exportName,  // e.g., "RtlGetVersion"
     int maxBytes = 4096)
+public static Dictionary<string,string> DisassembleExportsToPseudo(
+    string dllName,           // e.g., "ntdll.dll",
+    string exportNamePattern, // regex, e.g., "^Rtl.*"
+    int maxBytes = 4096)
 ```
 
 Steps:
@@ -319,7 +323,7 @@ Key Heuristics
 Usage Patterns & Extensibility
 ------------------------------
 
-*   **As a library**: Call `Program.DisassembleExportToPseudo()` from your code.  
+*   **As a library**: Call `Program.DisassembleExportToPseudo()` for a single export or `Program.DisassembleExportsToPseudo()` with a regex pattern string to process all matching exports.
     Or skip `Program` and use `PEReader` + `Decompiler` directly if you already have bytes.
 *   **Change the function under test**: In `Program.Main`, edit the DLL/export name and the `maxBytes` bound. The decompiler will stop at first `RET` anyway.
 *   **Constant naming**:
