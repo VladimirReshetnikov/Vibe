@@ -177,16 +177,18 @@ public abstract class IRRewriter
 
 ## 7. Migration Checklist
 
-- [ ] Create foundational files (`ITransformationPass`, `PassManager`, `IRRewriter`).
-- [ ] Move `SimplifyArithmeticIdentities` into `SimplifyArithmeticPass`.
-- [ ] Add unit tests for `SimplifyArithmeticPass`.
-- [ ] Move `FoldConstants` into `FoldConstantsPass`.
-- [ ] Add unit tests for `FoldConstantsPass`.
-- [ ] Repeat for remaining passes: `DeadCodeEliminationPass`, `CanonicalizeLoopsPass`, etc.
-- [ ] Create `DefaultPassPipeline` with pass ordering derived from current usage.
-- [ ] Update callers to use `DefaultPassPipeline.Create()`.
-- [ ] Remove `Transformations.cs`.
-- [ ] Ensure documentation and comments reference new architecture.
+ - [x] Create foundational files (`ITransformationPass`, `PassManager`, `IRRewriter`).
+ - [x] Move `SimplifyRedundantAssign` into `SimplifyRedundantAssignPass`.
+ - [x] Add unit tests for `SimplifyRedundantAssignPass`.
+ - [ ] Move `SimplifyArithmeticIdentities` into `SimplifyArithmeticPass`.
+ - [ ] Add unit tests for `SimplifyArithmeticPass`.
+ - [ ] Move `FoldConstants` into `FoldConstantsPass`.
+ - [ ] Add unit tests for `FoldConstantsPass`.
+ - [ ] Repeat for remaining passes: `DeadCodeEliminationPass`, `CanonicalizeLoopsPass`, etc.
+ - [x] Create `DefaultPassPipeline` with pass ordering derived from current usage.
+ - [x] Update callers to use `DefaultPassPipeline.Create()`.
+ - [ ] Remove `Transformations.cs`.
+ - [ ] Ensure documentation and comments reference new architecture.
 
 ## 8. Risk Mitigation and Rollout Plan
 
