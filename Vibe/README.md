@@ -41,7 +41,7 @@ Quick Start
 ### Prerequisites
 
 *   **Windows x64**
-*   **.NET SDK 9.0** (project targets `net9.0`)
+*   **.NET SDK 8.0** (project targets `net8.0`)
 *   NuGet package: **Iced 1.21.0** (restored automatically by `dotnet`)
 
 ### Build
@@ -244,12 +244,13 @@ public interface IConstantNameProvider {
 
 ### PEReader (minimal PE32+ reader)
 
-File: **[`PEReader.cs`](PEReader.cs)**
+File: **[`PEReaderLite.cs`](PEReaderLite.cs)**
 
 A tiny **read‑only** PE32+ parser that’s “just enough” for this tool:
 
 *   Validates `"MZ"` and `"PE\0\0"`, checks PE32+ magic.
-*   Parses sections and the **export directory**.
+*   Parses sections, the **export** directory, and the **import** table.
+*   Flags managed images by detecting the .NET metadata directory (CLI header) but does not parse it.
 *   `FindExport(name)`:
     *   Scans export name table to find RVA for the symbol,
     *   Detects **forwarders** (RVAs that point inside the export table) → returns forwarder string (`"DLL.Symbol"`).
