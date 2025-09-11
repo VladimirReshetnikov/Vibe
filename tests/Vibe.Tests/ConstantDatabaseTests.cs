@@ -1,4 +1,6 @@
 using System;
+using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using FsCheck.Xunit;
 using Vibe.Decompiler;
@@ -181,5 +183,96 @@ public class ConstantDatabaseTests
         var ok = db.TryFormatValue("Does.Not.Exist", 1, out var formatted);
         Assert.False(ok);
         Assert.Equal("", formatted);
+    }
+
+    /// <summary>
+    /// Loads Windows metadata and looks up well-known WinAPI constants by their hexadecimal values.
+    /// If the metadata file is not available, the test exits early.
+    /// </summary>
+    [Fact]
+    public void LooksUpWinApiConstantsByHexValue()
+    {
+        string? winmd = FindWindowsWin32Metadata();
+        if (winmd is null)
+            return; // metadata not available; skip test silently
+
+        var db = new ConstantDatabase();
+        db.LoadWin32MetadataFromWinmd(winmd);
+
+        var cases = new (string EnumName, ulong Value, string Expected)[]
+        {
+            (
+                "Windows.Win32.System.Memory.PAGE_PROTECTION_FLAGS",
+                0x04,
+                "Windows.Win32.System.Memory.PAGE_PROTECTION_FLAGS.PAGE_READWRITE"
+            ),
+            (
+                "Windows.Win32.System.Memory.MEMORY_ALLOCATION_TYPE",
+                0x1000,
+                "Windows.Win32.System.Memory.MEMORY_ALLOCATION_TYPE.MEM_COMMIT"
+            ),
+            (
+                "Windows.Win32.System.Threading.PROCESS_ACCESS_RIGHTS",
+                0x001F0FFF,
+                "Windows.Win32.System.Threading.PROCESS_ACCESS_RIGHTS.PROCESS_ALL_ACCESS"
+            )
+        };
+
+        foreach (var (enumName, value, expected) in cases)
+        {
+            Assert.True(db.TryFormatValue(enumName, value, out var formatted));
+            Assert.Equal(expected, formatted);
+        }
+    }
+
+    private static string? FindWindowsWin32Metadata()
+    {
+        try
+        {
+            string? dir = AppContext.BaseDirectory;
+            while (!string.IsNullOrEmpty(dir))
+            {
+                var file = Directory.EnumerateFiles(dir, "Windows.Win32.winmd", SearchOption.AllDirectories)
+                    .FirstOrDefault();
+                if (file is not null)
+                    return file;
+                var parent = Path.GetDirectoryName(dir);
+                if (string.IsNullOrEmpty(parent) || parent == dir)
+                    break;
+                dir = parent;
+            }
+        }
+        catch { }
+
+        var roots = new List<string>();
+        string? env = Environment.GetEnvironmentVariable("NUGET_PACKAGES");
+        if (!string.IsNullOrEmpty(env))
+            roots.Add(env);
+
+        string profile = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
+        if (!string.IsNullOrEmpty(profile))
+            roots.Add(Path.Combine(profile, ".nuget", "packages"));
+
+        string local = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
+        if (!string.IsNullOrEmpty(local))
+        {
+            roots.Add(Path.Combine(local, "NuGet", "Cache"));
+            roots.Add(Path.Combine(local, "NuGet", "v3-cache"));
+        }
+
+        foreach (var root in roots)
+        {
+            if (!Directory.Exists(root))
+                continue;
+            foreach (var pkgDir in Directory.EnumerateDirectories(root, "microsoft.windows.sdk.win32metadata*", SearchOption.TopDirectoryOnly))
+            {
+                var file = Directory.EnumerateFiles(pkgDir, "Windows.Win32.winmd", SearchOption.AllDirectories)
+                    .FirstOrDefault();
+                if (file is not null)
+                    return file;
+            }
+        }
+
+        return null;
     }
 }
