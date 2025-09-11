@@ -8,6 +8,7 @@ This document reviews the evolution of the transformation pipeline since the ori
 - **Constant folding refinements.** `FoldConstantsPass` now sign‑extends unsigned constants during signed comparisons and guards against shift counts that exceed operand bit width.
 - **Expanded test coverage.** New unit tests exercise the constant folding pass and the default pipeline.
 - **Legacy transformation fallback.** Several passes still reside in `LegacyTransformations` and are invoked after the managed pipeline.
+- **Boolean ternary simplification migrated.** `SimplifyBooleanTernaryPass` replaces the legacy helper.
 
 ## 2. Comparison with the Original Plan
 
@@ -26,7 +27,7 @@ This document reviews the evolution of the transformation pipeline since the ori
 ## 3. Updated Plan
 
 1. **Migrate remaining legacy passes.**
-   - Port `SimplifyLogicalNots`, `FrameObjectClusteringAndRspAlias`, and constant‑mapping utilities into dedicated `*Pass` classes.
+   - Port `FrameObjectClusteringAndRspAlias` and constant‑mapping utilities into dedicated `*Pass` classes.
    - Expand the default pipeline to include the new passes and remove direct calls from `Engine`.
 2. **Eliminate `LegacyTransformations`.**
    - After all passes migrate, delete the legacy class and adjust any lingering references.
