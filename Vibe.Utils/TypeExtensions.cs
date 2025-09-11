@@ -2,8 +2,10 @@
 
 using System.Dynamic;
 using System.Linq.Expressions;
+using System.Reflection;
 using System.Runtime.CompilerServices;
 using Microsoft.CSharp.RuntimeBinder;
+using CSharpBinder = Microsoft.CSharp.RuntimeBinder.Binder;
 
 namespace Vibe.Utils;
 
@@ -34,6 +36,7 @@ public static class TypeExtensions
         public override bool TryInvokeMember(InvokeMemberBinder binder, object?[]? args, out object? result)
         {
             result = null;
+
             var argInfo = new List<CSharpArgumentInfo>
             {
                 CSharpArgumentInfo.Create(CSharpArgumentInfoFlags.IsStaticType, null)
@@ -55,13 +58,17 @@ public static class TypeExtensions
                     {
                         var boxType = arg.GetType();
                         var valueType = boxType.GetProperty(nameof(IStrongBox.Value))!.PropertyType;
+
                         var temp = Expression.Variable(valueType, $"arg{i}");
                         variables.Add(temp);
+
                         var boxExpr = Expression.Constant(arg, boxType);
                         var valueExpr = Expression.Property(boxExpr, nameof(IStrongBox.Value));
+
                         preAssign.Add(Expression.Assign(temp, valueExpr));
                         postAssign.Add(Expression.Assign(valueExpr, temp));
-                        // NOTE: We use IsRef here for IStrongBox arguments. Distinguishing between ref and out is not possible without method signature info.
+
+                        // Treat IStrongBox arguments as by-ref at the binder level.
                         argInfo.Add(CSharpArgumentInfo.Create(CSharpArgumentInfoFlags.IsRef, null));
                         argExpr.Add(temp);
                     }
@@ -73,28 +80,57 @@ public static class TypeExtensions
                 }
             }
 
-            var invokeBinder = Binder.InvokeMember(
-                CSharpBinderFlags.None,
-                binder.Name,
-                null,
-                typeof(StaticTypeProxy),
-                argInfo);
+            var isVoid = IsVoidMethod(binder.Name, args);
+            var flags = isVoid ? CSharpBinderFlags.ResultDiscarded : CSharpBinderFlags.None;
 
-            Expression expr = Expression.Dynamic(invokeBinder, typeof(object), argExpr);
+            var invokeBinder = CSharpBinder.InvokeMember(
+                flags,
+                binder.Name,
+                typeArguments: null,
+                context: typeof(StaticTypeProxy),
+                argumentInfo: argInfo);
+
+            // Build the core dynamic call expression (object when value is needed, void when discarded).
+            Expression call = Expression.Dynamic(invokeBinder, isVoid ? typeof(void) : typeof(object), argExpr);
+
+            // If we have by-ref boxes, wrap the call in a block that handles pre/post assignments.
             if (variables.Count > 0)
             {
-                var resultVar = Expression.Variable(typeof(object), "result");
-                variables.Add(resultVar);
                 var block = new List<Expression>();
                 block.AddRange(preAssign);
-                block.Add(Expression.Assign(resultVar, expr));
-                block.AddRange(postAssign);
-                block.Add(resultVar);
-                expr = Expression.Block(variables, block);
+
+                if (isVoid)
+                {
+                    // call; postAssign; (ensure block type is void)
+                    block.Add(call);
+                    block.AddRange(postAssign);
+                    block.Add(Expression.Empty());
+                    call = Expression.Block(variables, block);
+                }
+                else
+                {
+                    // var result; result = call; postAssign; return result;
+                    var resultVar = Expression.Variable(typeof(object), "result");
+                    variables.Add(resultVar);
+
+                    block.Add(Expression.Assign(resultVar, call));
+                    block.AddRange(postAssign);
+                    block.Add(resultVar);
+
+                    call = Expression.Block(variables, block);
+                }
             }
 
-            var lambda = Expression.Lambda<Func<object?>>(expr);
-            result = lambda.Compile().Invoke();
+            if (isVoid)
+            {
+                Expression.Lambda<Action>(call).Compile().Invoke();
+                result = null;
+            }
+            else
+            {
+                result = Expression.Lambda<Func<object?>>(call).Compile().Invoke();
+            }
+
             return true;
         }
 
@@ -104,7 +140,7 @@ public static class TypeExtensions
             {
                 CSharpArgumentInfo.Create(CSharpArgumentInfoFlags.IsStaticType, null)
             };
-            var getBinder = Binder.GetMember(CSharpBinderFlags.None, binder.Name, typeof(StaticTypeProxy), argInfo);
+            var getBinder = CSharpBinder.GetMember(CSharpBinderFlags.None, binder.Name, typeof(StaticTypeProxy), argInfo);
             var expr = Expression.Dynamic(getBinder, typeof(object), Expression.Constant(_type, typeof(object)));
             result = Expression.Lambda<Func<object?>>(expr).Compile().Invoke();
             return true;
@@ -122,10 +158,24 @@ public static class TypeExtensions
                 Expression.Constant(_type, typeof(object)),
                 Expression.Constant(value, typeof(object))
             };
-            var setBinder = Binder.SetMember(CSharpBinderFlags.None, binder.Name, typeof(StaticTypeProxy), argInfo);
+            var setBinder = CSharpBinder.SetMember(CSharpBinderFlags.None, binder.Name, typeof(StaticTypeProxy), argInfo);
             var expr = Expression.Dynamic(setBinder, typeof(object), argExpr);
             Expression.Lambda<Action>(expr).Compile().Invoke();
             return true;
+        }
+
+        private bool IsVoidMethod(string name, object?[]? args)
+        {
+            var argTypes = args is null
+                ? Type.EmptyTypes
+                : args.Select(a => a?.GetType() ?? typeof(object)).ToArray();
+            var method = _type.GetMethod(
+                name,
+                BindingFlags.Static | BindingFlags.Public | BindingFlags.FlattenHierarchy,
+                Type.DefaultBinder,
+                argTypes,
+                null);
+            return method?.ReturnType == typeof(void);
         }
     }
 }
