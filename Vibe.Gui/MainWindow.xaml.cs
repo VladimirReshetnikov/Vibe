@@ -356,12 +356,17 @@ public partial class MainWindow : Window
                         output = await _provider.RefineAsync(code, null, token);
                     OutputBox.Text = output;
                 }
-                catch (OperationCanceledException)
+                catch (OperationCanceledException ex)
                 {
-                    // Operation canceled, ignore
+                    if (!token.IsCancellationRequested)
+                    {
+                        OutputBox.Text = $"Operation canceled: {ex.Message}";
+                        ExceptionManager.Handle(ex);
+                    }
                 }
                 catch (Exception ex)
                 {
+                    OutputBox.Text = $"Error: {ex.Message}";
                     ExceptionManager.Handle(ex);
                 }
                 finally
