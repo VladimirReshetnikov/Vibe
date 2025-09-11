@@ -1,6 +1,7 @@
 using System;
 using System.IO;
 using System.Linq;
+using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Media;
@@ -27,7 +28,13 @@ public partial class MainWindow : Window
         LoadCommonDlls();
     }
 
-    private OpenAiLlmProvider provider = new(Environment.GetEnvironmentVariable("OPENAI_API_KEY")); // TODO: Code this properly
+    private readonly Lazy<ILlmProvider> _provider = new(() =>
+    {
+        var apiKey = Environment.GetEnvironmentVariable("OPENAI_API_KEY");
+        if (string.IsNullOrWhiteSpace(apiKey))
+            throw new InvalidOperationException("OPENAI_API_KEY environment variable is not set.");
+        return new OpenAiLlmProvider(apiKey);
+    });
 
     private void LoadDll(string path, bool showErrors)
     {
@@ -109,7 +116,7 @@ public partial class MainWindow : Window
         }
     }
 
-    private void DllTree_SelectedItemChanged(object sender, RoutedPropertyChangedEventArgs<object> e)
+    private async void DllTree_SelectedItemChanged(object sender, RoutedPropertyChangedEventArgs<object> e)
     {
         if (DllTree.SelectedItem is not TreeViewItem item)
             return;
@@ -120,6 +127,7 @@ public partial class MainWindow : Window
                 OutputBox.Text = pe.GetSummary();
                 return;
             case ExportItem exp:
+                BusyBar.Visibility = Visibility.Visible;
                 try
                 {
                     var pe2 = exp.Pe;
@@ -131,25 +139,40 @@ public partial class MainWindow : Window
                         return;
                     }
 
-                    int off = pe2.RvaToOffsetChecked(export.FunctionRva);
-                    int maxLen = Math.Min(4096, pe2.Data.Length - off);
-                    var bytes = new byte[maxLen];
-                    Array.Copy(pe2.Data, off, bytes, 0, maxLen);
-                    var engine = new Engine();
-                    var code = engine.ToPseudoCode(bytes, new Engine.Options
+                    var code = await Task.Run(() =>
                     {
-                        BaseAddress = pe2.ImageBase + export.FunctionRva,
-                        FunctionName = name
+                        int off = pe2.RvaToOffsetChecked(export.FunctionRva);
+                        int maxLen = Math.Min(4096, pe2.Data.Length - off);
+                        var bytes = new byte[maxLen];
+                        Array.Copy(pe2.Data, off, bytes, 0, maxLen);
+                        var engine = new Engine();
+                        return engine.ToPseudoCode(bytes, new Engine.Options
+                        {
+                            BaseAddress = pe2.ImageBase + export.FunctionRva,
+                            FunctionName = name
+                        });
                     });
-                    string refined = provider.RefineAsync(code, null).Result; // TODO: Make this asynchronous
+
+                    string refined = await _provider.Value.RefineAsync(code, null);
                     OutputBox.Text = refined;
                 }
                 catch (Exception ex)
                 {
                     MessageBox.Show(this, ex.Message, "Error", MessageBoxButton.OK, MessageBoxImage.Error);
                 }
+                finally
+                {
+                    BusyBar.Visibility = Visibility.Collapsed;
+                }
                 break;
         }
+    }
+
+    protected override void OnClosed(EventArgs e)
+    {
+        if (_provider.IsValueCreated)
+            _provider.Value.Dispose();
+        base.OnClosed(e);
     }
 
     private void Exit_Click(object sender, RoutedEventArgs e)

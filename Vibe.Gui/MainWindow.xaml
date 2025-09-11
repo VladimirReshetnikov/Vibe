@@ -16,6 +16,7 @@
                 <MenuItem Header="E_xit" Click="Exit_Click" />
             </MenuItem>
         </Menu>
+        <ProgressBar x:Name="BusyBar" DockPanel.Dock="Bottom" Height="4" IsIndeterminate="True" Visibility="Collapsed"/>
         <Grid>
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="250" />
