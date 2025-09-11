@@ -79,11 +79,11 @@ public partial class MainWindow : Window
     {
         var systemDir = Environment.SystemDirectory;
         string[] dlls =
-        {
+        [
             "kernel32.dll",
             "user32.dll",
             "dbghelp.dll"
-        };
+        ];
 
         foreach (var name in dlls)
         {
@@ -95,15 +95,13 @@ public partial class MainWindow : Window
 
     private async void DllRoot_Expanded(object sender, RoutedEventArgs e)
     {
-        if (sender is not TreeViewItem root)
-            return;
-        if (root.Tag is not DllItem dll)
+        if (sender is not TreeViewItem { Tag: DllItem dll } root)
             return;
         var pe = dll.Pe;
         var token = dll.Cts.Token;
 
         // Only load once when the placeholder is present
-        if (root.Items.Count != 1 || root.Items[0] is not TreeViewItem placeholder || !Equals(placeholder.Tag, "Loading"))
+        if (root.Items is not [TreeViewItem { Tag: "Loading" }])
             return;
 
         root.Items.Clear();
@@ -138,10 +136,7 @@ public partial class MainWindow : Window
     private void OpenDll_Click(object sender, RoutedEventArgs e)
     {
         var dlg = new OpenFileDialog { Filter = "DLL files (*.dll)|*.dll|All files (*.*)|*.*" };
-        if (dlg.ShowDialog() == true)
-        {
-            LoadDll(dlg.FileName, showErrors: true);
-        }
+        if (dlg.ShowDialog() == true) LoadDll(dlg.FileName, showErrors: true);
     }
 
     private async void DllTree_SelectedItemChanged(object sender, RoutedPropertyChangedEventArgs<object> e)
@@ -184,7 +179,7 @@ public partial class MainWindow : Window
                     }, token);
 
                     if (_provider != null && _config.MaxLlmCodeLength > 0 && code.Length > _config.MaxLlmCodeLength)
-                        code = code.Substring(0, _config.MaxLlmCodeLength);
+                        code = code[.._config.MaxLlmCodeLength];
                     string output = code;
                     if (_provider != null)
                         output = await _provider.RefineAsync(code, null, token);
@@ -208,15 +203,14 @@ public partial class MainWindow : Window
 
     private static TreeViewItem GetRootItem(TreeViewItem item)
     {
-        var parent = ItemsControl.ItemsControlFromItemContainer(item) as TreeViewItem;
-        return parent is null ? item : GetRootItem(parent);
+        while (ItemsControl.ItemsControlFromItemContainer(item) is TreeViewItem parent)
+            item = parent;
+        return item;
     }
 
     private void DllTree_KeyDown(object sender, KeyEventArgs e)
     {
-        if (e.Key != Key.Delete)
-            return;
-        if (DllTree.SelectedItem is not TreeViewItem item)
+        if (e.Key != Key.Delete || DllTree.SelectedItem is not TreeViewItem item)
             return;
 
         TreeViewItem root;
@@ -247,10 +241,8 @@ public partial class MainWindow : Window
     {
         // Dispose all DLL items to clean up CancellationTokenSource objects
         foreach (TreeViewItem item in DllTree.Items)
-        {
             if (item.Tag is DllItem dll)
                 dll.Dispose();
-        }
 
         _provider?.Dispose();
         base.OnClosed(e);
