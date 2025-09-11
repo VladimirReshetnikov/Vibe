@@ -11,5 +11,6 @@
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="../../Vibe.Decompiler/Vibe.Decompiler.csproj" />
+    <ProjectReference Include="../../Vibe.Utils/Vibe.Utils.csproj" />
   </ItemGroup>
 </Project>

@@ -2,7 +2,9 @@
 
 using System.Dynamic;
 using System.Linq.Expressions;
+using System.Reflection;
 using Microsoft.CSharp.RuntimeBinder;
+using CSharpBinder = Microsoft.CSharp.RuntimeBinder.Binder;
 
 namespace Vibe.Utils;
 
@@ -42,7 +44,7 @@ public static class TypeExtensions
                 }
             }
 
-            var invokeBinder = Binder.InvokeMember(
+            var invokeBinder = CSharpBinder.InvokeMember(
                 CSharpBinderFlags.None,
                 binder.Name,
                 null,
@@ -57,11 +59,19 @@ public static class TypeExtensions
 
         public override bool TryGetMember(GetMemberBinder binder, out object? result)
         {
+            // If the requested member is a public nested static type, return its proxy directly.
+            var nestedType = type.GetNestedType(binder.Name, BindingFlags.Public);
+            if (nestedType is not null && nestedType.IsAbstract && nestedType.IsSealed)
+            {
+                result = new StaticTypeProxy(nestedType);
+                return true;
+            }
+
             var argInfo = new[]
             {
                 CSharpArgumentInfo.Create(CSharpArgumentInfoFlags.IsStaticType, null)
             };
-            var getBinder = Binder.GetMember(CSharpBinderFlags.None, binder.Name, typeof(StaticTypeProxy), argInfo);
+            var getBinder = CSharpBinder.GetMember(CSharpBinderFlags.None, binder.Name, typeof(StaticTypeProxy), argInfo);
             var expr = Expression.Dynamic(getBinder, typeof(object), Expression.Constant(type, typeof(object)));
             result = Expression.Lambda<Func<object?>>(expr).Compile().Invoke();
             return true;
@@ -79,7 +89,7 @@ public static class TypeExtensions
                 Expression.Constant(type, typeof(object)),
                 Expression.Constant(value, typeof(object))
             };
-            var setBinder = Binder.SetMember(CSharpBinderFlags.None, binder.Name, typeof(StaticTypeProxy), argInfo);
+            var setBinder = CSharpBinder.SetMember(CSharpBinderFlags.None, binder.Name, typeof(StaticTypeProxy), argInfo);
             var expr = Expression.Dynamic(setBinder, typeof(object), argExpr);
             Expression.Lambda<Action>(expr).Compile().Invoke();
             return true;
