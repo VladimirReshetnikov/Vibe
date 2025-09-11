@@ -2,10 +2,10 @@ using System;
 using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
+using System.Threading;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Media;
-using System.Threading.Tasks;
 using System.Windows.Threading;
 using Microsoft.Win32;
 using Vibe.Decompiler;
@@ -35,6 +35,8 @@ public partial class MainWindow : Window
             throw new InvalidOperationException("OPENAI_API_KEY environment variable is not set.");
         return new OpenAiLlmProvider(apiKey);
     });
+
+    private CancellationTokenSource? _decompileCts;
 
     private void LoadDll(string path, bool showErrors)
     {
@@ -124,9 +126,13 @@ public partial class MainWindow : Window
         switch (item.Tag)
         {
             case PEReaderLite pe:
+                _decompileCts?.Cancel();
                 OutputBox.Text = pe.GetSummary();
                 return;
             case ExportItem exp:
+                _decompileCts?.Cancel();
+                var cts = new CancellationTokenSource();
+                _decompileCts = cts;
                 BusyBar.Visibility = Visibility.Visible;
                 try
                 {
@@ -151,10 +157,15 @@ public partial class MainWindow : Window
                             BaseAddress = pe2.ImageBase + export.FunctionRva,
                             FunctionName = name
                         });
-                    });
+                    }, cts.Token);
 
-                    string refined = await _provider.Value.RefineAsync(code, null);
-                    OutputBox.Text = refined;
+                    string refined = await _provider.Value.RefineAsync(code, null, cts.Token);
+                    if (!cts.IsCancellationRequested && _decompileCts == cts)
+                        OutputBox.Text = refined;
+                }
+                catch (OperationCanceledException)
+                {
+                    // Ignore cancellations
                 }
                 catch (Exception ex)
                 {
@@ -162,7 +173,8 @@ public partial class MainWindow : Window
                 }
                 finally
                 {
-                    BusyBar.Visibility = Visibility.Collapsed;
+                    if (_decompileCts == cts)
+                        BusyBar.Visibility = Visibility.Collapsed;
                 }
                 break;
         }
