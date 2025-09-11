@@ -172,10 +172,8 @@ public partial class MainWindow : Window
                         token.ThrowIfCancellationRequested();
                         int off = pe2.RvaToOffsetChecked(export.FunctionRva);
                         int maxLen = Math.Min(4096, pe2.Data.Length - off);
-                        var bytes = new byte[maxLen];
-                        Array.Copy(pe2.Data, off, bytes, 0, maxLen);
                         var engine = new Engine();
-                        return engine.ToPseudoCode(bytes, new Engine.Options
+                        return engine.ToPseudoCode(pe2.Data.AsMemory(off, maxLen), new Engine.Options
                         {
                             BaseAddress = pe2.ImageBase + export.FunctionRva,
                             FunctionName = name

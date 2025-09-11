@@ -179,6 +179,7 @@ File: **[`Engine.cs`](Engine.cs)**
 
 ```csharp
 var engine = new Engine();
+ReadOnlyMemory<byte> bytes = ...;
 var pseudo = engine.ToPseudoCode(bytes, new Engine.Options { ... });
 ```
 

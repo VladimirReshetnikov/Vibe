@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: MIT-0
 
+using System;
 using System.Collections.Generic;
 using System.IO;
 using System.IO.Compression;
@@ -162,8 +163,7 @@ public static class Program
             if (take <= 0)
                 throw new InvalidOperationException("No bytes available for function body.");
 
-            byte[] body = new byte[take];
-            Buffer.BlockCopy(pe.Data, funcOff, body, 0, take);
+            ReadOnlyMemory<byte> body = pe.Data.AsMemory(funcOff, take);
             var db = new ConstantDatabase();
             TryLoadWin32Metadata(db);
 
