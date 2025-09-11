@@ -92,15 +92,20 @@ public static class DuckDuckGoDocFetcher
             throw new ArgumentException("Function name must be provided", nameof(functionName));
         ArgumentOutOfRangeException.ThrowIfNegativeOrZero(maxPages);
         ArgumentNullException.ThrowIfNull(evaluator);
+        ArgumentOutOfRangeException.ThrowIfNegativeOrZero(fragmentSize);
+        ArgumentOutOfRangeException.ThrowIfNegativeOrZero(timeoutSeconds);
 
-        _http.Timeout = TimeSpan.FromSeconds(timeoutSeconds);
+        // Use per-request timeout via CancellationToken instead of modifying static HttpClient
+        using var timeoutCts = new CancellationTokenSource(TimeSpan.FromSeconds(timeoutSeconds));
+        using var combinedCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, timeoutCts.Token);
+        var effectiveToken = combinedCts.Token;
 
         string queryUrl = $"https://duckduckgo.com/html/?q={Uri.EscapeDataString(functionName + " documentation")}&kl=us-en";
 
         string html;
         try
         {
-            html = await _http.GetStringAsync(queryUrl, cancellationToken);
+            html = await _http.GetStringAsync(queryUrl, effectiveToken);
         }
         catch (HttpRequestException)
         {
@@ -130,7 +135,7 @@ public static class DuckDuckGoDocFetcher
             string page;
             try
             {
-                page = await _http.GetStringAsync(link, cancellationToken);
+                page = await _http.GetStringAsync(link, effectiveToken);
             }
             catch (HttpRequestException)
             {
@@ -150,7 +155,7 @@ public static class DuckDuckGoDocFetcher
             {
                 try
                 {
-                    if (await evaluator.IsRelevantAsync(functionName, fragment, cancellationToken))
+                    if (await evaluator.IsRelevantAsync(functionName, fragment, effectiveToken))
                     {
                         relevant = true;
                         break;

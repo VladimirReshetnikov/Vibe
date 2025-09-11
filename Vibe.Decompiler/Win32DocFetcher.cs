@@ -25,8 +25,12 @@ public static class Win32DocFetcher
     {
         if (string.IsNullOrWhiteSpace(exportName))
             throw new ArgumentException("Export name must be provided", nameof(exportName));
+        ArgumentOutOfRangeException.ThrowIfNegativeOrZero(timeoutSeconds);
 
-        _http.Timeout = TimeSpan.FromSeconds(timeoutSeconds);
+        // Use per-request timeout via CancellationToken instead of modifying static HttpClient
+        using var timeoutCts = new CancellationTokenSource(TimeSpan.FromSeconds(timeoutSeconds));
+        using var combinedCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, timeoutCts.Token);
+        var effectiveToken = combinedCts.Token;
 
         string query = exportName;
         if (!string.IsNullOrWhiteSpace(dllName))
@@ -43,8 +47,8 @@ public static class Win32DocFetcher
         JsonElement results;
         try
         {
-            await using var stream = await _http.GetStreamAsync(url, cancellationToken);
-            using var doc = await JsonDocument.ParseAsync(stream, cancellationToken: cancellationToken);
+            await using var stream = await _http.GetStreamAsync(url, effectiveToken);
+            using var doc = await JsonDocument.ParseAsync(stream, cancellationToken: effectiveToken);
             if (!doc.RootElement.TryGetProperty("results", out var resultsElement) || resultsElement.ValueKind != JsonValueKind.Array)
                 return null;
 
@@ -85,7 +89,7 @@ public static class Win32DocFetcher
 
             try
             {
-                return await _http.GetStringAsync(resultUrl, cancellationToken);
+                return await _http.GetStringAsync(resultUrl, effectiveToken);
             }
             catch (HttpRequestException)
             {
