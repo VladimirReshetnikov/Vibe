@@ -48,7 +48,7 @@ public partial class MainWindow : Window
     {
         InitializeComponent();
         OutputBox.TextArea.TextView.LineTransformers.Add(new PseudoCodeColorizer());
-        _config = AppConfig.Load(Path.Combine(AppContext.BaseDirectory, "config.json"));
+        _config = AppConfig.AutoDetect() ?? new AppConfig();
         _recentFiles = LoadRecentFiles();
         UpdateRecentFilesMenu();
         var apiKey = App.ApiKey;
@@ -240,6 +240,70 @@ public partial class MainWindow : Window
     {
         var dlg = new OpenFileDialog { Filter = "DLL files (*.dll)|*.dll|All files (*.*)|*.*" };
         if (dlg.ShowDialog() == true) OpenDll(dlg.FileName);
+    }
+
+    private void Window_PreviewKeyDown(object sender, KeyEventArgs e)
+    {
+        if (e.Key == Key.V && Keyboard.Modifiers.HasFlag(ModifierKeys.Control))
+            if (TryOpenFromClipboard())
+                e.Handled = true;
+    }
+
+    private bool TryOpenFromClipboard()
+    {
+        try
+        {
+            if (Clipboard.ContainsFileDropList())
+            {
+                foreach (string file in Clipboard.GetFileDropList())
+                {
+                    if (IsDll(file))
+                    {
+                        LoadDll(file, showErrors: true);
+                        return true;
+                    }
+                }
+            }
+
+            if (Clipboard.ContainsText())
+            {
+                var text = Clipboard.GetText().Trim('"');
+                if (IsDll(text))
+                {
+                    LoadDll(text, showErrors: true);
+                    return true;
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            ExceptionManager.Handle(ex);
+        }
+
+        return false;
+    }
+
+    private static bool IsDll(string path)
+    {
+        return File.Exists(path) &&
+               string.Equals(Path.GetExtension(path), ".dll", StringComparison.OrdinalIgnoreCase);
+    }
+
+    private void Window_DragOver(object sender, DragEventArgs e)
+    {
+        e.Effects = e.Data.GetDataPresent(DataFormats.FileDrop) ? DragDropEffects.Copy : DragDropEffects.None;
+        e.Handled = true;
+    }
+
+    private void Window_Drop(object sender, DragEventArgs e)
+    {
+        if (!e.Data.GetDataPresent(DataFormats.FileDrop))
+            return;
+
+        var files = (string[])e.Data.GetData(DataFormats.FileDrop);
+        foreach (var file in files)
+            if (IsDll(file))
+                LoadDll(file, showErrors: true);
     }
 
     private async void DllTree_SelectedItemChanged(object sender, RoutedPropertyChangedEventArgs<object> e)

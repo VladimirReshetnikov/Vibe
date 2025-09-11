@@ -14,7 +14,7 @@ public static class Program
     static async Task Main(string[] args)
     {
         var configPath = Path.Combine(AppContext.BaseDirectory, "config.json");
-        var config = AppConfig.Load(configPath);
+        var config = AppConfig.AutoDetect() ?? new AppConfig();
 
         string dllPath = @"C:\Windows\System32\Microsoft-Edge-WebView\msedge.dll";
         string exportName = "CreateTestWebClientProxy";
