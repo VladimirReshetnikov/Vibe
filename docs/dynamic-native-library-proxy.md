@@ -43,7 +43,7 @@ When a member `proxy.Foo` is invoked:
 
 1. `TryInvokeMember` searches the library exports for a symbol named `Foo` (case sensitive).
 2. On the first invocation of a particular `(name, parameter types, return type)` tuple, the proxy obtains the function pointer via `NativeLibrary.GetExport`.
-3. A custom delegate type matching the invocation signature is emitted and decorated with `UnmanagedFunctionPointer(defaultCallingConvention)`. `Marshal.GetDelegateForFunctionPointer` creates an instance of that delegate.
+3. A custom delegate type matching the invocation signature is emitted and decorated with `UnmanagedFunctionPointer(defaultCallingConvention, CharSet = CharSet.Unicode)`. `Marshal.GetDelegateForFunctionPointer` creates an instance of that delegate.
 4. The delegate is cached and invoked with the provided arguments.
 
 Subsequent calls with the same signature reuse the cached delegate.
@@ -74,7 +74,7 @@ var ptr = (IntPtr)proxy.GetHandle();  // binder.ReturnType == typeof(IntPtr)
 1. **Library Loading** – Use `NativeLibrary.Load` and store the handle. Implement `IDisposable` to call `NativeLibrary.Free`.
 2. **Dynamic Object** – Create an internal `DynamicLibraryProxy : DynamicObject` similar to `StaticTypeProxy` used by `TypeExtensions`.
 3. **Invoke Member** – Override `TryInvokeMember` to perform the resolution steps above and invoke the cached delegate.
-4. **Delegate Generation** – Emit delegate types via `TypeBuilder` so they can be decorated with `UnmanagedFunctionPointer` reflecting the selected calling convention. `Marshal.GetDelegateForFunctionPointer` binds the native function to the emitted type.
+4. **Delegate Generation** – Emit delegate types via `TypeBuilder` so they can be decorated with `UnmanagedFunctionPointer` reflecting the selected calling convention and `CharSet.Unicode` for string marshalling. `Marshal.GetDelegateForFunctionPointer` binds the native function to the emitted type.
 5. **Caching** – Maintain a dictionary keyed by `(method name, parameter types, return type)` to store generated delegates.
 6. **String Marshalling** – For `string` parameters, either rely on automatic marshalling by setting `CharSet = CharSet.Unicode` in the `UnmanagedFunctionPointer` attribute, or manually allocate unmanaged memory with `Marshal.StringToHGlobalUni`, pass the pointer, then free it in a `finally` block after the call. Where possible, a `fixed` statement with `Span<char>` may reduce allocations. Future improvements may allow custom encodings.
 7. **Thread Safety** – Guard the delegate cache with `ConcurrentDictionary` to allow concurrent invocations.
