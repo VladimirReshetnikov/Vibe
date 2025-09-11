@@ -36,7 +36,11 @@ public sealed class OpenAiLlmProvider : ILlmProvider
         var messages = new List<object>
         {
             new { role = "system", content = "You rewrite decompiled machine code into clear and idiomatic C code." },
-            new { role = "user", content = $"Rewrite the following decompiler output into readable C code, approximating the original source.\n\n{decompiledCode}" }
+            new { role = "user", content = $"Rewrite the following decompiler output into readable C code, " +
+                                           $"as close to the original source as possible. Output code only, not" +
+                                           $"enclosed in code fences. All your comments should appear only as part " +
+                                           $"of the code as syntactically valid C comments. You may (and should) add " +
+                                           $"auxiliary declarations of structs where it makes sense.\n\n{decompiledCode}" }
         };
 
         if (documentation is not null)

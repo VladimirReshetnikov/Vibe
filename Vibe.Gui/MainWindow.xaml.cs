@@ -25,6 +25,8 @@ public partial class MainWindow : Window
         LoadCommonDlls();
     }
 
+    private OpenAiLlmProvider provider = new(Environment.GetEnvironmentVariable("OPENAI_API_KEY")); // TODO: Code this properly
+
     private void LoadDll(string path, bool showErrors)
     {
         try
@@ -62,12 +64,6 @@ public partial class MainWindow : Window
         {
             "kernel32.dll",
             "user32.dll",
-            "gdi32.dll",
-            "advapi32.dll",
-            "shell32.dll",
-            "ntdll.dll",
-            "ole32.dll",
-            "oleaut32.dll",
             "dbghelp.dll"
         };
 
@@ -120,7 +116,8 @@ public partial class MainWindow : Window
                         BaseAddress = pe2.ImageBase + export.FunctionRva,
                         FunctionName = name
                     });
-                    OutputBox.Text = code;
+                    string refined = provider.RefineAsync(code, null).Result; // TODO: Make this asynchronous
+                    OutputBox.Text = refined;
                 }
                 catch (Exception ex)
                 {
