@@ -35,6 +35,7 @@ public partial class MainWindow : Window
 
     private readonly AppConfig _config;
     private readonly ILlmProvider? _provider;
+    private CancellationTokenSource? _currentRequestCts;
 
     public MainWindow()
     {
@@ -93,6 +94,13 @@ public partial class MainWindow : Window
         }
     }
 
+    private void CancelCurrentRequest()
+    {
+        _currentRequestCts?.Cancel();
+        _currentRequestCts?.Dispose();
+        _currentRequestCts = null;
+    }
+
     private async void DllRoot_Expanded(object sender, RoutedEventArgs e)
     {
         if (sender is not TreeViewItem { Tag: DllItem dll } root)
@@ -141,6 +149,9 @@ public partial class MainWindow : Window
 
     private async void DllTree_SelectedItemChanged(object sender, RoutedPropertyChangedEventArgs<object> e)
     {
+        CancelCurrentRequest();
+        BusyBar.Visibility = Visibility.Collapsed;
+
         if (DllTree.SelectedItem is not TreeViewItem item)
             return;
 
@@ -152,11 +163,12 @@ public partial class MainWindow : Window
             case ExportItem exp:
                 OutputBox.Text = string.Empty;
                 BusyBar.Visibility = Visibility.Visible;
+                var dllItem = exp.Dll;
+                var pe2 = dllItem.Pe;
+                _currentRequestCts = CancellationTokenSource.CreateLinkedTokenSource(dllItem.Cts.Token);
+                var token = _currentRequestCts.Token;
                 try
                 {
-                    var dllItem = exp.Dll;
-                    var pe2 = dllItem.Pe;
-                    var token = dllItem.Cts.Token;
                     var name = exp.Name;
                     var export = pe2.FindExport(name);
                     if (export.IsForwarder)
@@ -195,7 +207,11 @@ public partial class MainWindow : Window
                 }
                 finally
                 {
-                    BusyBar.Visibility = Visibility.Collapsed;
+                    if (_currentRequestCts?.Token == token)
+                    {
+                        BusyBar.Visibility = Visibility.Collapsed;
+                        CancelCurrentRequest();
+                    }
                 }
                 break;
         }
@@ -232,6 +248,8 @@ public partial class MainWindow : Window
         dll.Cts.Cancel();
         dll.Dispose();
         DllTree.Items.Remove(root);
+        CancelCurrentRequest();
+        BusyBar.Visibility = Visibility.Collapsed;
         if (ReferenceEquals(item, DllTree.SelectedItem))
             OutputBox.Text = string.Empty;
         e.Handled = true;
@@ -239,6 +257,7 @@ public partial class MainWindow : Window
 
     protected override void OnClosed(EventArgs e)
     {
+        CancelCurrentRequest();
         // Dispose all DLL items to clean up CancellationTokenSource objects
         foreach (TreeViewItem item in DllTree.Items)
             if (item.Tag is DllItem dll)
