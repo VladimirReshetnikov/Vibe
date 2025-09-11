@@ -231,6 +231,7 @@ public partial class MainWindow : Window
         }
 
         dll.Cts.Cancel();
+        dll.Dispose();
         DllTree.Items.Remove(root);
         if (ReferenceEquals(item, DllTree.SelectedItem))
             OutputBox.Text = string.Empty;
