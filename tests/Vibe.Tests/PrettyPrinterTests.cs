@@ -140,4 +140,23 @@ public class PrettyPrinterTests
         Assert.Contains("unsigned char id(unsigned char a)", text);
         Assert.DoesNotContain("uint8_t", text);
     }
+
+    /// <summary>
+    /// Includes function statistics when available.
+    /// </summary>
+    [Fact]
+    public void EmitsFunctionStatistics()
+    {
+        var fn = new IR.FunctionIR("stats") { ReturnType = Void };
+        var bb = new IR.BasicBlock(Lbl(0));
+        bb.Statements.Add(new IR.ReturnStmt(null));
+        fn.Blocks.Add(bb);
+        fn.Tags["InstructionCount"] = 5;
+        fn.Tags["ByteCount"] = 20;
+
+        var pp = new IR.PrettyPrinter(new IR.PrettyPrinter.Options { EmitHeaderComment = false });
+        var text = pp.Print(fn);
+
+        Assert.Contains("// 20 bytes, 5 asm instructions, 1 blocks", text);
+    }
 }
