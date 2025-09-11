@@ -31,15 +31,19 @@ public partial class MainWindow : Window
         {
             var pe = new PEReaderLite(path);
 
-            var icon = (ImageSource)FindResource("DllIcon");
+            var dllIcon = (ImageSource)FindResource("DllIconImage");
             var headerPanel = new StackPanel { Orientation = Orientation.Horizontal };
-            headerPanel.Children.Add(new Image { Source = icon, Width = 16, Height = 16, Margin = new Thickness(0, 0, 4, 0) });
+            headerPanel.Children.Add(new Image { Source = dllIcon, Width = 16, Height = 16, Margin = new Thickness(0, 0, 4, 0) });
             headerPanel.Children.Add(new TextBlock { Text = Path.GetFileName(path) });
 
             var root = new TreeViewItem { Header = headerPanel, Tag = pe };
+            var funcIcon = (ImageSource)FindResource("ExportedFunctionIconImage");
             foreach (var name in pe.EnumerateExportNames().OrderBy(n => n))
             {
-                root.Items.Add(new TreeViewItem { Header = name, Tag = new ExportItem { Pe = pe, Name = name } });
+                var funcHeader = new StackPanel { Orientation = Orientation.Horizontal };
+                funcHeader.Children.Add(new Image { Source = funcIcon, Width = 16, Height = 16, Margin = new Thickness(0, 0, 4, 0) });
+                funcHeader.Children.Add(new TextBlock { Text = name });
+                root.Items.Add(new TreeViewItem { Header = funcHeader, Tag = new ExportItem { Pe = pe, Name = name } });
             }
             DllTree.Items.Add(root);
             root.IsExpanded = false;
