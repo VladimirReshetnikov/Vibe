@@ -72,4 +72,36 @@ public class ConstantDatabaseTests
 
         Assert.Equal(expected, parts);
     }
+
+    /// <summary>
+    /// Call target lookups should ignore case and module prefixes when mapping enums.
+    /// </summary>
+    [Fact]
+    public void ArgEnumLookupIsCaseInsensitiveAndHandlesModule()
+    {
+        var db = new ConstantDatabase();
+        db.LoadFromAssembly(typeof(TestAccess).Assembly);
+        db.MapArgEnum("FooBar", 2, typeof(TestAccess).FullName!);
+
+        Assert.True(db.TryGetArgExpectedEnumType("foobar", 2, out var name));
+        Assert.Equal(typeof(TestAccess).FullName, name);
+
+        Assert.True(db.TryGetArgExpectedEnumType("mod!FOOBAR", 2, out name));
+        Assert.Equal(typeof(TestAccess).FullName, name);
+    }
+
+    /// <summary>
+    /// Mixing known flags with unknown bits should fall back to hexadecimal formatting.
+    /// </summary>
+    [Fact]
+    public void CombinationWithUnknownBitsFallsBackToHex()
+    {
+        var db = new ConstantDatabase();
+        db.LoadFromAssembly(typeof(TestAccess).Assembly);
+        ulong value = (ulong)(TestAccess.Read | (TestAccess)0x8);
+
+        var ok = db.TryFormatValue(typeof(TestAccess).FullName!, value, out var formatted);
+        Assert.False(ok);
+        Assert.Equal("0x9", formatted);
+    }
 }

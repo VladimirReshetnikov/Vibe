@@ -55,4 +55,21 @@ public class PrettyPrinterTests
 
         Assert.Contains("return (1 + 2) * 3;", text);
     }
+
+    /// <summary>
+    /// Verifies that the pretty printer emits a header comment by default.
+    /// </summary>
+    [Fact]
+    public void EmitsHeaderCommentByDefault()
+    {
+        var fn = new IR.FunctionIR("noop") { ReturnType = Void };
+        var bb = new IR.BasicBlock(Lbl(0));
+        bb.Statements.Add(new IR.ReturnStmt(null));
+        fn.Blocks.Add(bb);
+
+        var pp = new IR.PrettyPrinter();
+        var text = pp.Print(fn);
+
+        Assert.Contains("C-like pseudocode", text);
+    }
 }
