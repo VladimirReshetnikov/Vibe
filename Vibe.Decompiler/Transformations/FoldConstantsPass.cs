@@ -133,7 +133,7 @@ public sealed class FoldConstantsPass : IRRewriter, ITransformationPass
         _ => false,
     };
 
-    private static bool EvalComparisonUnsigned(IR.CmpOp op, ulong l, ulong r) => op switch
+    private static bool EvalComparisonUnsigned(IR.CmpOp op, ulong l, ulong r, int lBits, int rBits) => op switch
     {
         IR.CmpOp.EQ => l == r,
         IR.CmpOp.NE => l != r,
@@ -141,12 +141,21 @@ public sealed class FoldConstantsPass : IRRewriter, ITransformationPass
         IR.CmpOp.ULE => l <= r,
         IR.CmpOp.UGT => l > r,
         IR.CmpOp.UGE => l >= r,
-        IR.CmpOp.SLT => (long)l < (long)r,
-        IR.CmpOp.SLE => (long)l <= (long)r,
-        IR.CmpOp.SGT => (long)l > (long)r,
-        IR.CmpOp.SGE => (long)l >= (long)r,
+        IR.CmpOp.SLT => SignExtend(l, lBits) < SignExtend(r, rBits),
+        IR.CmpOp.SLE => SignExtend(l, lBits) <= SignExtend(r, rBits),
+        IR.CmpOp.SGT => SignExtend(l, lBits) > SignExtend(r, rBits),
+        IR.CmpOp.SGE => SignExtend(l, lBits) >= SignExtend(r, rBits),
         _ => false,
     };
+
+    private static long SignExtend(ulong value, int bits)
+    {
+        if (bits >= 64) return (long)value;
+        ulong mask = (1UL << bits) - 1;
+        value &= mask;
+        ulong sign = 1UL << (bits - 1);
+        return (long)((value ^ sign) - sign);
+    }
 
     private static long FitSigned(long value, int bits)
     {
