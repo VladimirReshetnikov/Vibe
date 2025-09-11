@@ -2,7 +2,7 @@ using Vibe.Decompiler;
 using Xunit;
 using static Vibe.Decompiler.IR.X;
 
-namespace Vibe.Decompiler.Tests;
+namespace Vibe.Tests;
 
 /// <summary>
 /// Tests the <see cref="IR.PrettyPrinter"/> for generating readable IR output.

@@ -28,7 +28,7 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Vibe.Gui", "Vibe.Gui\Vibe.G
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "tests", "tests", "{CF429B5E-D26C-4651-85DF-0E9683DC4824}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Vibe.Decompiler.Tests", "tests\Vibe.Decompiler.Tests\Vibe.Decompiler.Tests.csproj", "{BE0250E1-5682-41BC-87F7-49909668F213}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Vibe.Tests", "tests\Vibe.Tests\Vibe.Tests.csproj", "{BE0250E1-5682-41BC-87F7-49909668F213}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Vibe.Utils", "Vibe.Utils\Vibe.Utils.csproj", "{18D9DD6D-999D-43EC-9EF4-9E61CA12CBC0}"
 EndProject

@@ -1,4 +1,4 @@
-namespace Vibe.Decompiler.Tests;
+namespace Vibe.Tests;
 
 /// <summary>
 /// Provides helper extensions used by test code.

@@ -4,7 +4,7 @@ using FsCheck.Xunit;
 using Vibe.Decompiler;
 using Xunit;
 
-namespace Vibe.Decompiler.Tests;
+namespace Vibe.Tests;
 
 [Flags]
 public enum TestAccess

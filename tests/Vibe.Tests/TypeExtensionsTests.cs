@@ -2,7 +2,7 @@ using System;
 using Vibe.Utils;
 using Xunit;
 
-namespace Vibe.Utils.Tests;
+namespace Vibe.Tests;
 
 /// <summary>
 /// Tests the <see cref="TypeExtensions.ToDynamicObject"/> method for exposing static members dynamically.
@@ -71,7 +71,7 @@ public static class TypeExtensionsTests
 
         Assert.Equal("text", result);
     }
-  
+
     [Fact]
     public static void ProxyProvidesNestedStaticType()
     {
