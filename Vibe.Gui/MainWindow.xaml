@@ -2,29 +2,89 @@
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:avalonEdit="http://icsharpcode.net/sharpdevelop/avalonedit"
-        Title="Vibe Decompiler" Height="450" Width="800" Background="#FFFFFF" Icon="{StaticResource AppIconImage}">
+        Title="Vibe Decompiler"
+        Height="600" Width="980"
+        Icon="{DynamicResource AppIconImage}"
+        Background="{DynamicResource Brush.Window.Background}"
+        Foreground="{DynamicResource Brush.Foreground.Primary}"
+        FontFamily="Segoe UI Variable, Segoe UI, Segoe UI Symbol"
+        SnapsToDevicePixels="True"
+        UseLayoutRounding="True"
+        TextOptions.TextFormattingMode="Display"
+        TextOptions.TextRenderingMode="ClearType">
+
     <Window.Resources>
-        <SolidColorBrush x:Key="AccentBrush" Color="#C6DC1D" />
-        <SolidColorBrush x:Key="PanelBrush" Color="#EEEEEE" />
-        <SolidColorBrush x:Key="TextBrush" Color="#2D4D78" />
+        <ResourceDictionary>
+            <ResourceDictionary.MergedDictionaries>
+                <!-- put the file name you use for the theme dictionary below -->
+                <ResourceDictionary Source="Theme.Olive.xaml"/>
+            </ResourceDictionary.MergedDictionaries>
+        </ResourceDictionary>
     </Window.Resources>
-    <DockPanel>
-        <Menu DockPanel.Dock="Top">
-            <MenuItem Header="_File">
-                <MenuItem Header="_Open..." Click="OpenDll_Click" />
-                <Separator />
-                <MenuItem Header="E_xit" Click="Exit_Click" />
+
+    <DockPanel LastChildFill="True">
+
+        <!-- Top menu -->
+        <Menu DockPanel.Dock="Top"
+              Style="{DynamicResource Style.Menu}">
+            <MenuItem Header="_File" Style="{DynamicResource Style.MenuItem.Top}">
+                <MenuItem Header="_Open..." Click="OpenDll_Click"
+                          Style="{DynamicResource Style.MenuItem}"/>
+                <Separator/>
+                <MenuItem Header="E_xit" Click="Exit_Click"
+                          Style="{DynamicResource Style.MenuItem}"/>
             </MenuItem>
         </Menu>
-        <ProgressBar x:Name="BusyBar" DockPanel.Dock="Bottom" Height="4" IsIndeterminate="True" Visibility="Collapsed"/>
-        <Grid>
+
+        <!-- Indeterminate progress bar turned into a subtle 4px activity line -->
+        <ProgressBar x:Name="BusyBar"
+                     DockPanel.Dock="Bottom"
+                     Height="4"
+                     IsIndeterminate="True"
+                     Visibility="Collapsed"
+                     Style="{DynamicResource Style.ProgressBar.Thin}"/>
+
+        <!-- Main content -->
+        <Grid Background="{DynamicResource Brush.Window.Background}">
             <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="250" />
-                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="280"/>
+                <ColumnDefinition Width="6"/>   <!-- splitter -->
+                <ColumnDefinition Width="*"/>
             </Grid.ColumnDefinitions>
-            <TreeView x:Name="DllTree" Grid.Column="0" Margin="4" Background="{StaticResource PanelBrush}" SelectedItemChanged="DllTree_SelectedItemChanged" />
-            <avalonEdit:TextEditor x:Name="OutputBox" Grid.Column="1" Margin="4" FontFamily="Consolas" IsReadOnly="True" ShowLineNumbers="True"
-                                   VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Auto" Foreground="{StaticResource TextBrush}" Background="#FFFFFF" />
+
+            <!-- Left: tree inside a "card" -->
+            <Border Grid.Column="0"
+                    Style="{DynamicResource Style.Card}">
+                <TreeView x:Name="DllTree"
+                          Background="{DynamicResource Brush.Surface}"
+                          BorderThickness="0"
+                          SelectedItemChanged="DllTree_SelectedItemChanged"
+                          Style="{DynamicResource Style.TreeView}"
+                          ItemContainerStyle="{DynamicResource Style.TreeViewItem}"/>
+            </Border>
+
+            <!-- Splitter -->
+            <GridSplitter Grid.Column="1"
+                          HorizontalAlignment="Stretch"
+                          VerticalAlignment="Stretch"
+                          Background="{DynamicResource Brush.Border.Muted}"
+                          Width="6"
+                          ShowsPreview="True"/>
+
+            <!-- Right: editor inside a "card" -->
+            <Border Grid.Column="2"
+                    Style="{DynamicResource Style.Card}">
+                <avalonEdit:TextEditor x:Name="OutputBox"
+                                       Margin="0"
+                                       FontFamily="Cascadia Code, Consolas, JetBrains Mono, Menlo, Monaco"
+                                       FontSize="13"
+                                       IsReadOnly="True"
+                                       ShowLineNumbers="True"
+                                       Foreground="{DynamicResource Brush.Foreground.Code}"
+                                       Background="{DynamicResource Brush.Surface}"
+                                       HorizontalScrollBarVisibility="Auto"
+                                       VerticalScrollBarVisibility="Auto"/>
+            </Border>
         </Grid>
     </DockPanel>
 </Window>

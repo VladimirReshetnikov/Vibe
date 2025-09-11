@@ -33,7 +33,7 @@ public partial class MainWindow : Window
         var apiKey = Environment.GetEnvironmentVariable("OPENAI_API_KEY");
         if (string.IsNullOrWhiteSpace(apiKey))
             throw new InvalidOperationException("OPENAI_API_KEY environment variable is not set.");
-        return new OpenAiLlmProvider(apiKey);
+        return new OpenAiLlmProvider(apiKey, "gpt-5");
     });
 
     private void LoadDll(string path, bool showErrors)

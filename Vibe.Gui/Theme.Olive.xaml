@@ -1,0 +1,320 @@
+﻿<ResourceDictionary
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+
+  <!-- =========================
+       0) Design tokens (colors)
+       ========================= -->
+  <!-- Olive family (yours) -->
+  <Color x:Key="Color.Olive.Ink">#3E4A33</Color>
+  <Color x:Key="Color.Olive.Bark">#5F6F3B</Color>
+  <Color x:Key="Color.Olive.Olive">#7D9657</Color>
+  <Color x:Key="Color.Olive.Moss">#9DB463</Color>
+  <Color x:Key="Color.Olive.Lichen">#C6DC1D</Color>
+  <Color x:Key="Color.Olive.Khaki">#E9ECCD</Color>
+  <Color x:Key="Color.Olive.Cream">#F4F7E9</Color>
+
+  <!-- Neutralized UI base derived from olive tones -->
+  <Color x:Key="Color.Background">#FAFBF6</Color>    <!-- window bg -->
+  <Color x:Key="Color.Surface">#F3F6EA</Color>       <!-- card/panel -->
+  <Color x:Key="Color.Border">#D8E0C7</Color>        <!-- card outline -->
+  <Color x:Key="Color.Border.Muted">#C9D3B6</Color>
+  <Color x:Key="Color.Foreground">#2F3A2A</Color>    <!-- primary text -->
+  <Color x:Key="Color.Foreground.Muted">#556247</Color>
+  <Color x:Key="Color.Foreground.OnAccent">#FFFFFF</Color>
+
+  <!-- Accents: keep Lichen for highlights, use Moss as primary -->
+  <Color x:Key="Color.Accent">#9DB463</Color>            <!-- calmer primary -->
+  <Color x:Key="Color.Accent.Hover">#90A95A</Color>      <!-- hover/active -->
+  <Color x:Key="Color.Accent.Tint">#E5EFD6</Color>       <!-- hover bg / selection tint -->
+  <Color x:Key="Color.Accent.Highlight">#C6DC1D</Color>  <!-- bright ping -->
+
+  <!-- Syntax colors -->
+  <Color x:Key="Color.Syntax.Keyword">#1F5A96</Color>
+  <Color x:Key="Color.Syntax.String">#9A5A00</Color>
+  <Color x:Key="Color.Syntax.Number">#7A3FA0</Color>
+  <Color x:Key="Color.Syntax.Comment">#4B7A4B</Color>
+  <Color x:Key="Color.Syntax.Identifier">#2F3A2A</Color>
+
+  <!-- =========================
+       1) Brushes
+       ========================= -->
+  <SolidColorBrush x:Key="Brush.Window.Background" Color="{StaticResource Color.Background}"/>
+  <SolidColorBrush x:Key="Brush.Surface"           Color="{StaticResource Color.Surface}"/>
+  <SolidColorBrush x:Key="Brush.Border"            Color="{StaticResource Color.Border}"/>
+  <SolidColorBrush x:Key="Brush.Border.Muted"      Color="{StaticResource Color.Border.Muted}"/>
+
+  <SolidColorBrush x:Key="Brush.Foreground.Primary" Color="{StaticResource Color.Foreground}"/>
+  <SolidColorBrush x:Key="Brush.Foreground.Muted"   Color="{StaticResource Color.Foreground.Muted}"/>
+  <SolidColorBrush x:Key="Brush.Foreground.OnAccent" Color="{StaticResource Color.Foreground.OnAccent}"/>
+
+  <SolidColorBrush x:Key="Brush.Accent"             Color="{StaticResource Color.Accent}"/>
+  <SolidColorBrush x:Key="Brush.Accent.Hover"       Color="{StaticResource Color.Accent.Hover}"/>
+  <SolidColorBrush x:Key="Brush.Accent.Tint"        Color="{StaticResource Color.Accent.Tint}"/>
+  <SolidColorBrush x:Key="Brush.Accent.Highlight"   Color="{StaticResource Color.Accent.Highlight}"/>
+
+  <SolidColorBrush x:Key="Brush.Syntax.Keyword"     Color="{StaticResource Color.Syntax.Keyword}"/>
+  <SolidColorBrush x:Key="Brush.Syntax.String"      Color="{StaticResource Color.Syntax.String}"/>
+  <SolidColorBrush x:Key="Brush.Syntax.Number"      Color="{StaticResource Color.Syntax.Number}"/>
+  <SolidColorBrush x:Key="Brush.Syntax.Comment"     Color="{StaticResource Color.Syntax.Comment}"/>
+  <SolidColorBrush x:Key="Brush.Syntax.Identifier"  Color="{StaticResource Color.Syntax.Identifier}"/>
+  <SolidColorBrush x:Key="Brush.Foreground.Code"    Color="{StaticResource Color.Foreground}"/>
+
+  <!-- =========================
+       2) Metrics (typed correctly)
+       ========================= -->
+  <CornerRadius x:Key="Radius.M">6</CornerRadius>
+  <Thickness x:Key="Space.S">6</Thickness>
+  <Thickness x:Key="Space.M">10</Thickness>
+
+  <!-- Pens for icons -->
+  <Pen x:Key="Pen.Icon.Thin" Brush="{StaticResource Brush.Foreground.Muted}" Thickness="1"
+       StartLineCap="Square" EndLineCap="Square"/>
+  <Pen x:Key="Pen.Icon.Med" Brush="{StaticResource Brush.Foreground.Muted}" Thickness="1.25"
+       StartLineCap="Square" EndLineCap="Square"/>
+
+  <!-- =========================
+       3) Card surface
+       ========================= -->
+  <Style x:Key="Style.Card" TargetType="Border">
+    <Setter Property="Background" Value="{StaticResource Brush.Surface}"/>
+    <Setter Property="BorderBrush" Value="{StaticResource Brush.Border}"/>
+    <Setter Property="BorderThickness" Value="1"/>
+    <Setter Property="CornerRadius" Value="{StaticResource Radius.M}"/>
+    <Setter Property="Padding" Value="{StaticResource Space.M}"/>
+  </Style>
+
+  <!-- =========================
+       4) Menu / MenuItem
+       ========================= -->
+  <Style x:Key="Style.Menu" TargetType="Menu">
+    <Setter Property="Background" Value="{StaticResource Brush.Window.Background}"/>
+    <Setter Property="BorderBrush" Value="{StaticResource Brush.Border}"/>
+    <Setter Property="BorderThickness" Value="0,0,0,1"/>
+    <Setter Property="Padding" Value="10,6"/>
+  </Style>
+
+  <Style x:Key="Style.MenuItem.Top" TargetType="MenuItem" BasedOn="{StaticResource {x:Type MenuItem}}">
+    <Setter Property="Padding" Value="12,8"/>
+    <Setter Property="Foreground" Value="{StaticResource Brush.Foreground.Primary}"/>
+    <Setter Property="Background" Value="Transparent"/>
+    <Style.Triggers>
+      <Trigger Property="IsHighlighted" Value="True">
+        <Setter Property="Background" Value="{StaticResource Brush.Accent.Tint}"/>
+      </Trigger>
+      <Trigger Property="IsSubmenuOpen" Value="True">
+        <Setter Property="Background" Value="{StaticResource Brush.Accent.Tint}"/>
+      </Trigger>
+    </Style.Triggers>
+  </Style>
+
+  <Style x:Key="Style.MenuItem" TargetType="MenuItem" BasedOn="{StaticResource {x:Type MenuItem}}">
+    <Setter Property="Padding" Value="10,6"/>
+    <Setter Property="Foreground" Value="{StaticResource Brush.Foreground.Primary}"/>
+    <Setter Property="Background" Value="Transparent"/>
+    <Style.Triggers>
+      <Trigger Property="IsHighlighted" Value="True">
+        <Setter Property="Background" Value="{StaticResource Brush.Accent.Tint}"/>
+      </Trigger>
+    </Style.Triggers>
+  </Style>
+
+  <!-- =========================
+       5) TreeView
+       ========================= -->
+  <Style x:Key="Style.TreeView" TargetType="TreeView">
+    <Setter Property="BorderThickness" Value="0"/>
+    <Setter Property="Padding" Value="2"/>
+  </Style>
+
+  <Style x:Key="Style.TreeViewItem" TargetType="TreeViewItem" BasedOn="{StaticResource {x:Type TreeViewItem}}">
+    <Setter Property="Padding" Value="4"/>
+    <Setter Property="Margin" Value="0,1,0,1"/>
+    <Setter Property="BorderBrush" Value="Transparent"/>
+    <Setter Property="BorderThickness" Value="1"/>
+    <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
+    <Setter Property="FocusVisualStyle" Value="{x:Null}"/>
+    <Style.Triggers>
+      <Trigger Property="IsSelected" Value="True">
+        <Setter Property="Background" Value="{StaticResource Brush.Accent.Tint}"/>
+        <Setter Property="BorderBrush" Value="{StaticResource Brush.Accent}"/>
+      </Trigger>
+      <Trigger Property="IsMouseOver" Value="True">
+        <Setter Property="BorderBrush" Value="{StaticResource Brush.Border.Muted}"/>
+      </Trigger>
+    </Style.Triggers>
+  </Style>
+
+  <!-- =========================
+       6) ProgressBar (thin track)
+       ========================= -->
+  <Style x:Key="Style.ProgressBar.Thin" TargetType="{x:Type ProgressBar}">
+    <Setter Property="Foreground" Value="{StaticResource Brush.Accent}"/>
+    <Setter Property="Background" Value="{StaticResource Brush.Border}"/>
+    <Setter Property="BorderBrush" Value="{StaticResource Brush.Border}"/>
+    <Setter Property="BorderThickness" Value="0"/>
+    <Setter Property="Height" Value="4"/>
+  </Style>
+
+  <!-- =========================
+       7) Icons (your drawings)
+       ========================= -->
+  <!-- App icon -->
+  <DrawingImage x:Key="AppIconImage">
+    <DrawingImage.Drawing>
+      <DrawingGroup>
+        <!-- Cube -->
+        <GeometryDrawing Brush="{StaticResource Brush.Accent}" Pen="{StaticResource Pen.Icon.Thin}">
+          <GeometryDrawing.Geometry>
+            <RectangleGeometry Rect="3,11,8,8" RadiusX="1" RadiusY="1"/>
+          </GeometryDrawing.Geometry>
+        </GeometryDrawing>
+        <GeometryDrawing Brush="{StaticResource Brush.Surface}" Pen="{StaticResource Pen.Icon.Thin}">
+          <GeometryDrawing.Geometry>
+            <PathGeometry Figures="M3,11 L7,8 L15,8 L11,11 Z"/>
+          </GeometryDrawing.Geometry>
+        </GeometryDrawing>
+        <GeometryDrawing Brush="{StaticResource Brush.Accent.Tint}" Pen="{StaticResource Pen.Icon.Thin}">
+          <GeometryDrawing.Geometry>
+            <PathGeometry Figures="M11,11 L15,8 L15,16 L11,19 Z"/>
+          </GeometryDrawing.Geometry>
+        </GeometryDrawing>
+
+        <GeometryDrawing Brush="{x:Null}" Pen="{StaticResource Pen.Icon.Thin}">
+          <GeometryDrawing.Geometry>
+            <LineGeometry StartPoint="7,8" EndPoint="7,16"/>
+          </GeometryDrawing.Geometry>
+        </GeometryDrawing>
+
+        <!-- Graph -->
+        <GeometryDrawing Brush="{x:Null}" Pen="{StaticResource Pen.Icon.Med}">
+          <GeometryDrawing.Geometry>
+            <GeometryGroup>
+              <LineGeometry StartPoint="11,15" EndPoint="18,12"/>
+              <LineGeometry StartPoint="18,12" EndPoint="21,9"/>
+              <LineGeometry StartPoint="18,12" EndPoint="21,15"/>
+            </GeometryGroup>
+          </GeometryDrawing.Geometry>
+        </GeometryDrawing>
+
+        <GeometryDrawing Brush="{StaticResource Brush.Accent.Highlight}" Pen="{StaticResource Pen.Icon.Thin}">
+          <GeometryDrawing.Geometry>
+            <GeometryGroup>
+              <EllipseGeometry Center="18,12" RadiusX="1.6" RadiusY="1.6"/>
+              <EllipseGeometry Center="21,9"  RadiusX="1.4" RadiusY="1.4"/>
+              <EllipseGeometry Center="21,15" RadiusX="1.4" RadiusY="1.4"/>
+            </GeometryGroup>
+          </GeometryDrawing.Geometry>
+        </GeometryDrawing>
+      </DrawingGroup>
+    </DrawingImage.Drawing>
+  </DrawingImage>
+
+  <!-- DLL icon -->
+<!-- DLL icon → three standing books -->
+<DrawingImage x:Key="DllIconImage">
+  <DrawingImage.Drawing>
+    <DrawingGroup>
+
+      <!-- Shelf baseline for grounding (crisp at 1px) -->
+      <GeometryDrawing Brush="{x:Null}" Pen="{StaticResource Pen.Icon.Thin}">
+        <GeometryDrawing.Geometry>
+          <LineGeometry StartPoint="4,18.5" EndPoint="20.5,18.5"/>
+        </GeometryDrawing.Geometry>
+      </GeometryDrawing>
+
+      <!-- Left book -->
+      <GeometryDrawing Brush="{StaticResource Brush.Accent.Tint}" Pen="{StaticResource Pen.Icon.Thin}">
+        <GeometryDrawing.Geometry>
+          <RectangleGeometry Rect="4,6,5,12" RadiusX="1.2" RadiusY="1.2"/>
+        </GeometryDrawing.Geometry>
+      </GeometryDrawing>
+      <!-- Left spine label -->
+      <GeometryDrawing Brush="{StaticResource Brush.Surface}">
+        <GeometryDrawing.Geometry>
+          <RectangleGeometry Rect="5,11,3,2" RadiusX="0.6" RadiusY="0.6"/>
+        </GeometryDrawing.Geometry>
+      </GeometryDrawing>
+
+      <!-- Center book -->
+      <GeometryDrawing Brush="{StaticResource Brush.Accent}" Pen="{StaticResource Pen.Icon.Thin}">
+        <GeometryDrawing.Geometry>
+          <RectangleGeometry Rect="10,5,5,13" RadiusX="1.2" RadiusY="1.2"/>
+        </GeometryDrawing.Geometry>
+      </GeometryDrawing>
+      <!-- Center spine label -->
+      <GeometryDrawing Brush="{StaticResource Brush.Surface}">
+        <GeometryDrawing.Geometry>
+          <RectangleGeometry Rect="11,10,3,2.2" RadiusX="0.6" RadiusY="0.6"/>
+        </GeometryDrawing.Geometry>
+      </GeometryDrawing>
+      <!-- Center bookmark (small triangular tag) -->
+      <GeometryDrawing Brush="{StaticResource Brush.Accent.Highlight}">
+        <GeometryDrawing.Geometry>
+          <!-- bookmark hangs from the top edge, pointed bottom -->
+          <PathGeometry Figures="M14.5,5 L14.5,8 L12.9,7.2 L11.5,8 L11.5,5 Z"/>
+        </GeometryDrawing.Geometry>
+      </GeometryDrawing>
+
+      <!-- Right book -->
+      <GeometryDrawing Brush="{StaticResource Brush.Accent.Hover}" Pen="{StaticResource Pen.Icon.Thin}">
+        <GeometryDrawing.Geometry>
+          <RectangleGeometry Rect="16,7,4,11" RadiusX="1.2" RadiusY="1.2"/>
+        </GeometryDrawing.Geometry>
+      </GeometryDrawing>
+      <!-- Right spine label -->
+      <GeometryDrawing Brush="{StaticResource Brush.Surface}">
+        <GeometryDrawing.Geometry>
+          <RectangleGeometry Rect="16.8,12,2.4,1.8" RadiusX="0.5" RadiusY="0.5"/>
+        </GeometryDrawing.Geometry>
+      </GeometryDrawing>
+
+      <!-- Subtle inner spine lines (kept very light; crisp at .5 coordinates) -->
+      <GeometryDrawing Brush="{x:Null}" Pen="{StaticResource Pen.Icon.Thin}">
+        <GeometryDrawing.Geometry>
+          <GeometryGroup>
+            <LineGeometry StartPoint="6.5,6.6" EndPoint="6.5,17.8"/>
+            <LineGeometry StartPoint="12.5,5.6" EndPoint="12.5,17.6"/>
+            <LineGeometry StartPoint="18.5,7.6" EndPoint="18.5,17.5"/>
+          </GeometryGroup>
+        </GeometryDrawing.Geometry>
+      </GeometryDrawing>
+
+    </DrawingGroup>
+  </DrawingImage.Drawing>
+</DrawingImage>
+
+  <!-- Exported function icon -->
+  <DrawingImage x:Key="ExportedFunctionIconImage">
+    <DrawingImage.Drawing>
+      <DrawingGroup>
+        <GeometryDrawing Brush="{StaticResource Brush.Surface}" Pen="{StaticResource Pen.Icon.Thin}">
+          <GeometryDrawing.Geometry>
+            <RectangleGeometry Rect="4,5,13,13" RadiusX="2" RadiusY="2"/>
+          </GeometryDrawing.Geometry>
+        </GeometryDrawing>
+        <GeometryDrawing Brush="{StaticResource Brush.Accent}" Pen="{StaticResource Pen.Icon.Thin}">
+          <GeometryDrawing.Geometry>
+            <EllipseGeometry Center="10,11.5" RadiusX="3" RadiusY="3"/>
+          </GeometryDrawing.Geometry>
+        </GeometryDrawing>
+        <GeometryDrawing Brush="{x:Null}" Pen="{StaticResource Pen.Icon.Med}">
+          <GeometryDrawing.Geometry>
+            <LineGeometry StartPoint="11.5,10" EndPoint="18.5,5"/>
+          </GeometryDrawing.Geometry>
+        </GeometryDrawing>
+        <GeometryDrawing Brush="{StaticResource Brush.Accent.Highlight}">
+          <GeometryDrawing.Geometry>
+            <PathGeometry Figures="M18.5,5 L18.2,7.8 L21,6 Z"/>
+          </GeometryDrawing.Geometry>
+        </GeometryDrawing>
+        <GeometryDrawing Brush="{StaticResource Brush.Surface}">
+          <GeometryDrawing.Geometry>
+            <RectangleGeometry Rect="15.5,6.8,2.2,2" RadiusX="0.6" RadiusY="0.6"/>
+          </GeometryDrawing.Geometry>
+        </GeometryDrawing>
+      </DrawingGroup>
+    </DrawingImage.Drawing>
+  </DrawingImage>
+
+</ResourceDictionary>
