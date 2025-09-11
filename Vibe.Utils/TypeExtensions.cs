@@ -44,16 +44,17 @@ public static class TypeExtensions
                 }
             }
 
+            var typeArgsProp = binder.GetType().GetProperty("TypeArguments");
+            var typeArgs = typeArgsProp?.GetValue(binder) as IEnumerable<Type>;
             var invokeBinder = CSharpBinder.InvokeMember(
                 CSharpBinderFlags.None,
                 binder.Name,
-                null,
+                typeArgs,
                 typeof(StaticTypeProxy),
                 argInfo);
 
             var expr = Expression.Dynamic(invokeBinder, typeof(object), argExpr);
-            var lambda = Expression.Lambda<Func<object?>>(expr);
-            result = lambda.Compile().Invoke();
+            result = Expression.Lambda<Func<object?>>(expr).Compile().Invoke();
             return true;
         }
 
@@ -64,6 +65,20 @@ public static class TypeExtensions
             if (nestedType is not null && nestedType.IsAbstract && nestedType.IsSealed)
             {
                 result = new StaticTypeProxy(nestedType);
+                return true;
+            }
+
+            var property = type.GetProperty(binder.Name, BindingFlags.Public | BindingFlags.Static);
+            if (property is not null)
+            {
+                result = property.GetValue(null);
+                return true;
+            }
+
+            var field = type.GetField(binder.Name, BindingFlags.Public | BindingFlags.Static);
+            if (field is not null)
+            {
+                result = field.GetValue(null);
                 return true;
             }
 
@@ -79,6 +94,20 @@ public static class TypeExtensions
 
         public override bool TrySetMember(SetMemberBinder binder, object? value)
         {
+            var property = type.GetProperty(binder.Name, BindingFlags.Public | BindingFlags.Static);
+            if (property is not null)
+            {
+                property.SetValue(null, value);
+                return true;
+            }
+
+            var field = type.GetField(binder.Name, BindingFlags.Public | BindingFlags.Static);
+            if (field is not null)
+            {
+                field.SetValue(null, value);
+                return true;
+            }
+
             var argInfo = new[]
             {
                 CSharpArgumentInfo.Create(CSharpArgumentInfoFlags.IsStaticType, null),
@@ -91,7 +120,7 @@ public static class TypeExtensions
             };
             var setBinder = CSharpBinder.SetMember(CSharpBinderFlags.None, binder.Name, typeof(StaticTypeProxy), argInfo);
             var expr = Expression.Dynamic(setBinder, typeof(object), argExpr);
-            Expression.Lambda<Action>(expr).Compile().Invoke();
+            Expression.Lambda<Func<object?>>(expr).Compile().Invoke();
             return true;
         }
     }
