@@ -68,7 +68,7 @@ public sealed class FoldConstantsPass : IRRewriter, ITransformationPass
         }
         if (l is IR.UConst lu && r is IR.UConst ru)
         {
-            bool res = EvalComparisonUnsigned(c.Op, lu.Value, ru.Value);
+            bool res = EvalComparisonUnsigned(c.Op, lu.Value, ru.Value, (int)lu.Bits, (int)ru.Bits);
             return new IR.Const(res ? 1 : 0, 1);
         }
         return new IR.CompareExpr(c.Op, l, r);
@@ -88,9 +88,9 @@ public sealed class FoldConstantsPass : IRRewriter, ITransformationPass
             IR.BinOp.And => l & r,
             IR.BinOp.Or => l | r,
             IR.BinOp.Xor => l ^ r,
-            IR.BinOp.Shl => l << (int)r,
-            IR.BinOp.Shr => (long)((ulong)l >> (int)r),
-            IR.BinOp.Sar => l >> (int)r,
+            IR.BinOp.Shl => (int)r >= bits ? 0 : l << (int)r,
+            IR.BinOp.Shr => (int)r >= bits ? 0 : (long)((ulong)l >> (int)r),
+            IR.BinOp.Sar => (int)r >= bits ? (l < 0 ? -1 : 0) : l >> (int)r,
             _ => l,
         };
         return FitSigned(res, bits);
@@ -108,9 +108,9 @@ public sealed class FoldConstantsPass : IRRewriter, ITransformationPass
             IR.BinOp.And => l & r,
             IR.BinOp.Or => l | r,
             IR.BinOp.Xor => l ^ r,
-            IR.BinOp.Shl => l << (int)r,
-            IR.BinOp.Shr => l >> (int)r,
-            IR.BinOp.Sar => (ulong)((long)l >> (int)r),
+            IR.BinOp.Shl => (int)r >= bits ? 0 : l << (int)r,
+            IR.BinOp.Shr => (int)r >= bits ? 0 : l >> (int)r,
+            IR.BinOp.Sar => (int)r >= bits ? (((long)l < 0) ? ulong.MaxValue : 0) : (ulong)((long)l >> (int)r),
             IR.BinOp.SDiv => r == 0 ? l : (ulong)((long)l / (long)r),
             IR.BinOp.SRem => r == 0 ? l : (ulong)((long)l % (long)r),
             _ => l,
