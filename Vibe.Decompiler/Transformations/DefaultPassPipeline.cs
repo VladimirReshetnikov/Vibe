@@ -15,6 +15,7 @@ public static class DefaultPassPipeline
             new SimplifyRedundantAssignPass(),
             new FoldConstantsPass(),
             new SimplifyArithmeticPass(),
+            new SimplifyLogicalNotsPass(),
         });
     }
 }
