@@ -1,4 +1,5 @@
 using System;
+using Microsoft.CSharp.RuntimeBinder;
 using Vibe.Utils;
 using Xunit;
 
@@ -132,6 +133,82 @@ public static class TypeExtensionsTests
         Assert.Equal("int:5", proxy.DoWork(5));
         Assert.Equal("string:test", proxy.DoWork("test"));
     }
+
+    /// <summary>
+    /// Reads and writes generic static properties on a closed generic type.
+    /// </summary>
+    [Fact]
+    public static void DynamicGenericTypePropertyAccess()
+    {
+        dynamic proxy = typeof(GenericContainer<int>).ToDynamicObject();
+        proxy.Item = 123;
+        Assert.Equal(123, proxy.Item);
+        Assert.Equal(123, GenericContainer<int>.Item);
+    }
+
+    /// <summary>
+    /// Invokes methods using the generic type parameter of the declaring type.
+    /// </summary>
+    [Fact]
+    public static void DynamicGenericTypeIdentityMethod()
+    {
+        dynamic proxy = typeof(GenericContainer<string>).ToDynamicObject();
+        Assert.Equal("hi", proxy.Identity("hi"));
+    }
+
+    /// <summary>
+    /// Invokes generic methods on a generic type with explicit type arguments.
+    /// </summary>
+    [Fact]
+    public static void DynamicGenericTypeGenericMethodExplicit()
+    {
+        dynamic proxy = typeof(GenericContainer<double>).ToDynamicObject();
+        int result = proxy.Echo<int>(5);
+        Assert.Equal(5, result);
+    }
+
+    /// <summary>
+    /// Invokes generic methods on a generic type using type inference.
+    /// </summary>
+    [Fact]
+    public static void DynamicGenericTypeGenericMethodInference()
+    {
+        dynamic proxy = typeof(GenericContainer<double>).ToDynamicObject();
+        string result = proxy.Echo("hello");
+        Assert.Equal("hello", result);
+    }
+
+    /// <summary>
+    /// Invokes a method with multiple generic arguments.
+    /// </summary>
+    [Fact]
+    public static void DynamicGenericTypeMethodWithMultipleTypeArgs()
+    {
+        dynamic proxy = typeof(GenericContainer<int>).ToDynamicObject();
+        var pair = (ValueTuple<int, double>)proxy.Pair<double>(1, 2.5);
+        Assert.Equal((1, 2.5), pair);
+    }
+
+    /// <summary>
+    /// Explicit type arguments that do not match the provided values cause a runtime binder error.
+    /// </summary>
+    [Fact]
+    public static void DynamicGenericMethodExplicitTypeMismatchThrows()
+    {
+        dynamic proxy = typeof(GenericContainer<int>).ToDynamicObject();
+        Assert.Throws<RuntimeBinderException>(() => proxy.Echo<int>("not an int"));
+    }
+
+    /// <summary>
+    /// Passing an open generic type is currently unsupported and should throw a meaningful exception.
+    /// </summary>
+    [Fact(Skip = "ToDynamicObject should reject open generic types with a clear exception.")]
+    public static void OpenGenericTypeRejected()
+    {
+        Type openType = typeof(GenericContainer<>);
+        Assert.Throws<ArgumentException>(() => openType.ToDynamicObject());
+    }
+
 }
 
 public static class SampleStaticClass
@@ -155,3 +232,12 @@ public static class OverloadedSample
     public static string DoWork(int value) => $"int:{value}";
     public static string DoWork(string value) => $"string:{value}";
 }
+
+public static class GenericContainer<T>
+{
+    public static T Item { get; set; }
+    public static T Identity(T value) => value;
+    public static U Echo<U>(U value) => value;
+    public static (T First, U Second) Pair<U>(T first, U second) => (first, second);
+}
+
