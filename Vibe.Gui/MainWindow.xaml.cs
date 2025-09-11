@@ -32,6 +32,7 @@ public partial class MainWindow : Window
     {
         public required DllItem Dll { get; init; }
         public required string Name { get; init; }
+        public string? CachedSource { get; set; }
     }
 
     private readonly AppConfig _config;
@@ -320,6 +321,11 @@ public partial class MainWindow : Window
                 OutputBox.Text = dll.Pe.GetSummary();
                 return;
             case ExportItem exp:
+                if (exp.CachedSource is string cached)
+                {
+                    OutputBox.Text = cached;
+                    return;
+                }
                 OutputBox.Text = string.Empty;
                 BusyBar.Visibility = Visibility.Visible;
                 var dllItem = exp.Dll;
@@ -332,7 +338,9 @@ public partial class MainWindow : Window
                     var export = pe2.FindExport(name);
                     if (export.IsForwarder)
                     {
-                        OutputBox.Text = $"{name} -> {export.ForwarderString}";
+                        var forwarderText = $"{name} -> {export.ForwarderString}";
+                        exp.CachedSource = forwarderText;
+                        OutputBox.Text = forwarderText;
                         return;
                     }
 
@@ -354,6 +362,7 @@ public partial class MainWindow : Window
                     string output = code;
                     if (_provider != null)
                         output = await _provider.RefineAsync(code, null, token);
+                    exp.CachedSource = output;
                     OutputBox.Text = output;
                 }
                 catch (OperationCanceledException)
