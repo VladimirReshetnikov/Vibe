@@ -7,6 +7,16 @@
         <SolidColorBrush x:Key="AccentBrush" Color="#C6DC1D" />
         <SolidColorBrush x:Key="PanelBrush" Color="#EEEEEE" />
         <SolidColorBrush x:Key="TextBrush" Color="#2D4D78" />
+        <!-- Simple icon representing a library/DLL -->
+        <DrawingImage x:Key="DllIcon">
+            <DrawingImage.Drawing>
+                <DrawingGroup>
+                    <GeometryDrawing Brush="#C6DC1D" Geometry="M1,1 H5 V15 H1 Z" />
+                    <GeometryDrawing Brush="#A4C400" Geometry="M6,1 H10 V15 H6 Z" />
+                    <GeometryDrawing Brush="#8CAB00" Geometry="M11,1 H15 V15 H11 Z" />
+                </DrawingGroup>
+            </DrawingImage.Drawing>
+        </DrawingImage>
     </Window.Resources>
     <DockPanel>
         <Menu DockPanel.Dock="Top">
