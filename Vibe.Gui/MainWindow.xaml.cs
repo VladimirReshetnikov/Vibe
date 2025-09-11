@@ -7,6 +7,7 @@ using System.Windows.Controls;
 using System.Windows.Media;
 using System.Threading.Tasks;
 using System.Windows.Threading;
+using System.Windows.Input;
 using Microsoft.Win32;
 using Vibe.Decompiler;
 using ICSharpCode.AvalonEdit;
@@ -20,6 +21,9 @@ public partial class MainWindow : Window
         public required PEReaderLite Pe { get; init; }
         public required string Name { get; init; }
     }
+
+    private string _searchBuffer = "";
+    private DateTime _lastSearchTime;
 
     public MainWindow()
     {
@@ -166,6 +170,78 @@ public partial class MainWindow : Window
                 }
                 break;
         }
+    }
+
+    private const int SearchTimeoutMs = 1000;
+
+    private void DllTree_PreviewTextInput(object sender, TextCompositionEventArgs e)
+    {
+        if (DateTime.Now - _lastSearchTime > TimeSpan.FromMilliseconds(SearchTimeoutMs))
+            _searchBuffer = string.Empty;
+        _lastSearchTime = DateTime.Now;
+        _searchBuffer += e.Text;
+        e.Handled = true;
+        SearchAndSelect();
+    }
+
+    private void DllTree_PreviewKeyDown(object sender, KeyEventArgs e)
+    {
+        if (e.Key == Key.Back && _searchBuffer.Length > 0)
+        {
+            _searchBuffer = _searchBuffer.Substring(0, _searchBuffer.Length - 1);
+            e.Handled = true;
+            SearchAndSelect();
+        }
+    }
+
+    private void SearchAndSelect()
+    {
+        if (string.IsNullOrEmpty(_searchBuffer))
+            return;
+
+        TreeViewItem? root = null;
+        if (DllTree.SelectedItem is TreeViewItem selected)
+        {
+            if (selected.Tag is PEReaderLite)
+                root = selected;
+            else
+                root = GetParent(selected);
+        }
+        root ??= DllTree.Items.Count > 0 ? DllTree.Items[0] as TreeViewItem : null;
+        if (root == null)
+            return;
+
+        int startIndex = 0;
+        if (DllTree.SelectedItem is TreeViewItem sel && GetParent(sel) == root)
+            startIndex = root.Items.IndexOf(sel) + 1;
+
+        int idx = FindMatch(root, _searchBuffer, startIndex);
+        if (idx == -1)
+            idx = FindMatch(root, _searchBuffer, 0);
+        if (idx == -1)
+            return;
+
+        if (root.Items[idx] is TreeViewItem match)
+        {
+            match.IsSelected = true;
+            match.BringIntoView();
+        }
+    }
+
+    private static TreeViewItem? GetParent(TreeViewItem item)
+    {
+        return ItemsControl.ItemsControlFromItemContainer(item) as TreeViewItem;
+    }
+
+    private static int FindMatch(TreeViewItem root, string prefix, int startIndex)
+    {
+        for (int i = startIndex; i < root.Items.Count; i++)
+        {
+            if (root.Items[i] is TreeViewItem child && child.Tag is ExportItem exp &&
+                exp.Name.StartsWith(prefix, StringComparison.OrdinalIgnoreCase))
+                return i;
+        }
+        return -1;
     }
 
     protected override void OnClosed(EventArgs e)
