@@ -21,10 +21,13 @@ public partial class MainWindow : Window
         public required string Name { get; init; }
     }
 
+    private readonly AppConfig _config;
+
     public MainWindow()
     {
         InitializeComponent();
         OutputBox.TextArea.TextView.LineTransformers.Add(new PseudoCodeColorizer());
+        _config = AppConfig.Load(Path.Combine(AppContext.BaseDirectory, "config.json"));
         LoadCommonDlls();
     }
 
@@ -153,6 +156,8 @@ public partial class MainWindow : Window
                         });
                     });
 
+                    if (_config.MaxLlmCodeLength > 0 && code.Length > _config.MaxLlmCodeLength)
+                        code = code.Substring(0, _config.MaxLlmCodeLength);
                     string refined = await _provider.Value.RefineAsync(code, null);
                     OutputBox.Text = refined;
                 }
