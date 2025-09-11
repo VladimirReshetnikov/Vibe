@@ -16,4 +16,18 @@ public class InvocationTests
         proxy.WriteLine("Hello");
         Assert.Equal("Hello" + Environment.NewLine, writer.ToString());
     }
+
+    [Fact]
+    public void InvokesNonVoidOverload()
+    {
+        dynamic proxy = typeof(OverloadedMethods).ToDynamicObject();
+        var result = proxy.Foo("bar");
+        Assert.Equal("bar", result);
+    }
+}
+
+public static class OverloadedMethods
+{
+    public static void Foo(int _) { }
+    public static string Foo(string value) => value;
 }
