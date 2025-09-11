@@ -1,9 +1,11 @@
 // SPDX-License-Identifier: MIT-0
 
+using System;
 using System.Globalization;
 using System.Text;
 using Iced.Intel;
 using Decoder = Iced.Intel.Decoder;
+using System.Runtime.InteropServices;
 using Vibe.Decompiler.Transformations;
 
 namespace Vibe.Decompiler;
@@ -85,7 +87,7 @@ public sealed class Engine
     }
 
     /// <summary>Entry point: build IR and pretty-print.</summary>
-    public string ToPseudoCode(byte[] code, Options? options = null)
+    public string ToPseudoCode(ReadOnlyMemory<byte> code, Options? options = null)
     {
         var opt = options ?? new Options();
         var ctx = new Ctx(opt);
@@ -128,9 +130,34 @@ public sealed class Engine
 
     // --------- Decode --------------------------------------------------------
 
-    private static void DecodeFunction(byte[] code, Ctx ctx)
+    private sealed class MemoryCodeReader : CodeReader
     {
-        var reader = new ByteArrayCodeReader(code);
+        private readonly byte[] _data;
+        private readonly int _end;
+        private int _index;
+
+        public MemoryCodeReader(ReadOnlyMemory<byte> memory)
+        {
+            if (MemoryMarshal.TryGetArray(memory, out ArraySegment<byte> seg) && seg.Array is not null)
+            {
+                _data = seg.Array;
+                _index = seg.Offset;
+                _end = seg.Offset + seg.Count;
+            }
+            else
+            {
+                _data = memory.ToArray();
+                _index = 0;
+                _end = _data.Length;
+            }
+        }
+
+        public override int ReadByte() => _index < _end ? _data[_index++] : -1;
+    }
+
+    private static void DecodeFunction(ReadOnlyMemory<byte> code, Ctx ctx)
+    {
+        var reader = new MemoryCodeReader(code);
         var decoder = Decoder.Create(64, reader, ip: ctx.Opt.BaseAddress);
         var instr = default(Instruction);
 

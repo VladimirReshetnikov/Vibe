@@ -49,11 +49,11 @@ public sealed class OpenAiLlmProvider : ILlmProvider
                 messages.Add(new { role = "user", content = $"Reference documentation:\n{docSnippet}" });
         }
 
-        var req = new
-        {
-            model = Model,
-            messages = messages.ToArray()
-        };
+            var req = new
+            {
+                model = Model,
+                messages
+            };
 
         var json = JsonSerializer.Serialize(req);
         using var content = new StringContent(json, Encoding.UTF8, "application/json");
@@ -119,7 +119,7 @@ public sealed class AnthropicLlmProvider : ILlmProvider
             model = Model,
             max_tokens = MaxTokens,
             system = "You rewrite decompiled machine code into clear and idiomatic C code.",
-            messages = messages.ToArray()
+            messages
         };
 
         var json = JsonSerializer.Serialize(req);
