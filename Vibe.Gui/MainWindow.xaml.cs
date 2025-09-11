@@ -47,7 +47,7 @@ public partial class MainWindow : Window
             if (string.IsNullOrWhiteSpace(apiKey))
                 throw new InvalidOperationException("OPENAI_API_KEY environment variable is not set.");
             string model = string.IsNullOrWhiteSpace(_config.LlmVersion) ? "gpt-4o-mini" : _config.LlmVersion;
-            return new OpenAiLlmProvider(apiKey, model);
+            return new OpenAiLlmProvider(apiKey, model, _config.LlmMaxTokens);
         });
         LoadCommonDlls();
     }

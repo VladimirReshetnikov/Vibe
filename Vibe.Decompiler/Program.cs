@@ -45,7 +45,7 @@ public static class Program
             case "openai" when !string.IsNullOrWhiteSpace(openAiKey):
                 {
                     string model = string.IsNullOrWhiteSpace(config.LlmVersion) ? "gpt-4o-mini" : config.LlmVersion;
-                    provider = new OpenAiLlmProvider(openAiKey, model);
+                    provider = new OpenAiLlmProvider(openAiKey, model, config.LlmMaxTokens);
                     if (config.UseWebSearch)
                     {
                         try

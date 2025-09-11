@@ -20,11 +20,14 @@ public sealed class OpenAiLlmProvider : ILlmProvider
     private readonly HttpClient _http = new();
     public string ApiKey { get; }
     public string Model { get; }
+    public int MaxTokens { get; }
 
-    public OpenAiLlmProvider(string apiKey, string model = "gpt-4o-mini")
+    public OpenAiLlmProvider(string apiKey, string model = "gpt-4o-mini", int maxTokens = 4096)
     {
         ApiKey = apiKey;
         Model = model;
+        ArgumentOutOfRangeException.ThrowIfNegativeOrZero(maxTokens);
+        MaxTokens = maxTokens;
         _http.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", ApiKey);
     }
 
@@ -49,11 +52,12 @@ public sealed class OpenAiLlmProvider : ILlmProvider
                 messages.Add(new { role = "user", content = $"Reference documentation:\n{docSnippet}" });
         }
 
-            var req = new
-            {
-                model = Model,
-                messages
-            };
+        var req = new
+        {
+            model = Model,
+            max_tokens = MaxTokens,
+            messages
+        };
 
         var json = JsonSerializer.Serialize(req);
         using var content = new StringContent(json, Encoding.UTF8, "application/json");
