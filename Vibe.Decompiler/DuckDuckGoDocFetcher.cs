@@ -64,28 +64,36 @@ public sealed class OpenAiDocPageEvaluator : IDocPageEvaluator
 
 public static class DuckDuckGoDocFetcher
 {
-    private static readonly HttpClient _http = new()
-    {
-        Timeout = TimeSpan.FromSeconds(30)
-    };
+    private static readonly HttpClient _http = new();
 
     private const string ResultLinkPattern =
         """<a[^>]*(?:class="result__a"[^>]*href="(?<url>[^"]*)"|href="(?<url>[^"]*)"[^>]*class="result__a")[^>]*>""";
 
     private static readonly char[] WordBreakChars = [' ', '\n', '\r', '\t'];
 
-    private const int FragmentSize = 4000;
-
+    /// <summary>
+    /// Searches DuckDuckGo for documentation related to a function and filters pages using the provided evaluator.
+    /// </summary>
+    /// <param name="functionName">Function name to search for.</param>
+    /// <param name="maxPages">Maximum number of search results to inspect.</param>
+    /// <param name="evaluator">Evaluator that determines if a page is relevant.</param>
+    /// <param name="fragmentSize">Maximum size of page fragments passed to the evaluator.</param>
+    /// <param name="timeoutSeconds">HTTP request timeout in seconds.</param>
+    /// <param name="cancellationToken">Optional cancellation token.</param>
     public static async Task<List<string>> FindDocumentationPagesAsync(
         string functionName,
         int maxPages,
         IDocPageEvaluator evaluator,
+        int fragmentSize = 4000,
+        int timeoutSeconds = 30,
         CancellationToken cancellationToken = default)
     {
         if (string.IsNullOrWhiteSpace(functionName))
             throw new ArgumentException("Function name must be provided", nameof(functionName));
         ArgumentOutOfRangeException.ThrowIfNegativeOrZero(maxPages);
         ArgumentNullException.ThrowIfNull(evaluator);
+
+        _http.Timeout = TimeSpan.FromSeconds(timeoutSeconds);
 
         string queryUrl = $"https://duckduckgo.com/html/?q={Uri.EscapeDataString(functionName + " documentation")}&kl=us-en";
 
@@ -138,7 +146,7 @@ public static class DuckDuckGoDocFetcher
             }
 
             bool relevant = false;
-            foreach (var fragment in SplitFragments(page, FragmentSize))
+            foreach (var fragment in SplitFragments(page, fragmentSize))
             {
                 try
                 {

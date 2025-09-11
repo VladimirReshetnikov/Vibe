@@ -12,6 +12,11 @@ public sealed class AppConfig
     public string LlmVersion { get; set; } = "";
     public int MaxDataSizeBytes { get; set; } = 256 * 1024;
     public int MaxLlmCodeLength { get; set; } = 16 * 1024;
+    public int DocTimeoutSeconds { get; set; } = 30;
+    public int DocFragmentSize { get; set; } = 4000;
+    public int DocSearchMaxPages { get; set; } = 2;
+    public int LlmMaxTokens { get; set; } = 4096;
+    public int MaxForwarderHops { get; set; } = 8;
 
     public static AppConfig Load(string path)
     {
