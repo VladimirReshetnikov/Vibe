@@ -68,7 +68,7 @@ public sealed class FoldConstantsPass : IRRewriter, ITransformationPass
         }
         if (l is IR.UConst lu && r is IR.UConst ru)
         {
-            bool res = EvalComparisonUnsigned(c.Op, lu.Value, ru.Value);
+            bool res = EvalComparisonUnsigned(c.Op, lu.Value, ru.Value, (int)lu.Bits, (int)ru.Bits);
             return new IR.Const(res ? 1 : 0, 1);
         }
         return new IR.CompareExpr(c.Op, l, r);
