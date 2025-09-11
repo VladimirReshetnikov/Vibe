@@ -30,23 +30,15 @@ public partial class MainWindow : Window
         try
         {
             var pe = new PEReaderLite(path);
-            var root = new TreeViewItem { Header = Path.GetFileName(path), Tag = pe };
+
+            var icon = (ImageSource)FindResource("DllIcon");
+            var headerPanel = new StackPanel { Orientation = Orientation.Horizontal };
+            headerPanel.Children.Add(new Image { Source = icon, Width = 16, Height = 16, Margin = new Thickness(0, 0, 4, 0) });
+            headerPanel.Children.Add(new TextBlock { Text = Path.GetFileName(path) });
+
+            var root = new TreeViewItem { Header = headerPanel, Tag = pe };
             foreach (var name in pe.EnumerateExportNames().OrderBy(n => n))
             {
-                var pe = new PEReaderLite(dlg.FileName);
-
-                var icon = (ImageSource)FindResource("DllIcon");
-                var headerPanel = new StackPanel { Orientation = Orientation.Horizontal };
-                headerPanel.Children.Add(new Image { Source = icon, Width = 16, Height = 16, Margin = new Thickness(0, 0, 4, 0) });
-                headerPanel.Children.Add(new TextBlock { Text = System.IO.Path.GetFileName(dlg.FileName) });
-
-                var root = new TreeViewItem { Header = headerPanel, Tag = pe };
-                foreach (var name in pe.EnumerateExportNames().OrderBy(n => n))
-                {
-                    root.Items.Add(new TreeViewItem { Header = name, Tag = new ExportItem { Pe = pe, Name = name } });
-                }
-                DllTree.Items.Add(root);
-                root.IsExpanded = true;
                 root.Items.Add(new TreeViewItem { Header = name, Tag = new ExportItem { Pe = pe, Name = name } });
             }
             DllTree.Items.Add(root);
