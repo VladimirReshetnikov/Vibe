@@ -3,8 +3,14 @@ using Xunit;
 
 namespace Vibe.Decompiler.Tests.Transformations;
 
+/// <summary>
+/// Tests for the <see cref="SimplifyRedundantAssignPass"/> transformation.
+/// </summary>
 public class SimplifyRedundantAssignPassTests
 {
+    /// <summary>
+    /// Replaces assignments of a register to itself with a no-op statement.
+    /// </summary>
     [Fact]
     public void RemovesSelfAssignments()
     {

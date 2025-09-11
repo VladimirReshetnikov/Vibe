@@ -1,10 +1,12 @@
 using System;
+using System.IO;
 using System.Linq;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Media;
 using Microsoft.Win32;
 using Vibe.Decompiler;
+using ICSharpCode.AvalonEdit;
 
 namespace Vibe.Gui;
 
@@ -19,14 +21,17 @@ public partial class MainWindow : Window
     public MainWindow()
     {
         InitializeComponent();
+        OutputBox.TextArea.TextView.LineTransformers.Add(new PseudoCodeColorizer());
+        LoadCommonDlls();
     }
 
-    private void OpenDll_Click(object sender, RoutedEventArgs e)
+    private void LoadDll(string path, bool showErrors)
     {
-        var dlg = new OpenFileDialog { Filter = "DLL files (*.dll)|*.dll|All files (*.*)|*.*" };
-        if (dlg.ShowDialog() == true)
+        try
         {
-            try
+            var pe = new PEReaderLite(path);
+            var root = new TreeViewItem { Header = Path.GetFileName(path), Tag = pe };
+            foreach (var name in pe.EnumerateExportNames().OrderBy(n => n))
             {
                 var pe = new PEReaderLite(dlg.FileName);
 
@@ -42,11 +47,48 @@ public partial class MainWindow : Window
                 }
                 DllTree.Items.Add(root);
                 root.IsExpanded = true;
+                root.Items.Add(new TreeViewItem { Header = name, Tag = new ExportItem { Pe = pe, Name = name } });
             }
-            catch (Exception ex)
-            {
+            DllTree.Items.Add(root);
+            root.IsExpanded = true;
+        }
+        catch (Exception ex)
+        {
+            if (showErrors)
                 MessageBox.Show(this, ex.Message, "Error", MessageBoxButton.OK, MessageBoxImage.Error);
-            }
+        }
+    }
+
+    private void LoadCommonDlls()
+    {
+        var systemDir = Environment.SystemDirectory;
+        string[] dlls =
+        {
+            "kernel32.dll",
+            "user32.dll",
+            "gdi32.dll",
+            "advapi32.dll",
+            "shell32.dll",
+            "ntdll.dll",
+            "ole32.dll",
+            "oleaut32.dll",
+            "dbghelp.dll"
+        };
+
+        foreach (var name in dlls)
+        {
+            var path = Path.Combine(systemDir, name);
+            if (File.Exists(path))
+                LoadDll(path, showErrors: false);
+        }
+    }
+
+    private void OpenDll_Click(object sender, RoutedEventArgs e)
+    {
+        var dlg = new OpenFileDialog { Filter = "DLL files (*.dll)|*.dll|All files (*.*)|*.*" };
+        if (dlg.ShowDialog() == true)
+        {
+            LoadDll(dlg.FileName, showErrors: true);
         }
     }
 
