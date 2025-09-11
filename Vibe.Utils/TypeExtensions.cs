@@ -61,7 +61,8 @@ public static class TypeExtensions
                         var valueExpr = Expression.Property(boxExpr, nameof(IStrongBox.Value));
                         preAssign.Add(Expression.Assign(temp, valueExpr));
                         postAssign.Add(Expression.Assign(valueExpr, temp));
-                        argInfo.Add(CSharpArgumentInfo.Create(CSharpArgumentInfoFlags.IsRef | CSharpArgumentInfoFlags.IsOut, null));
+                        // NOTE: We use IsRef here for IStrongBox arguments. Distinguishing between ref and out is not possible without method signature info.
+                        argInfo.Add(CSharpArgumentInfo.Create(CSharpArgumentInfoFlags.IsRef, null));
                         argExpr.Add(temp);
                     }
                     else
