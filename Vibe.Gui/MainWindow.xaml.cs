@@ -157,6 +157,7 @@ public partial class MainWindow : Window
                 OutputBox.Text = dll.Pe.GetSummary();
                 return;
             case ExportItem exp:
+                OutputBox.Text = string.Empty;
                 BusyBar.Visibility = Visibility.Visible;
                 try
                 {
