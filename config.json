@@ -9,5 +9,6 @@
   "docFragmentSize": 4000,
   "docSearchMaxPages": 2,
   "llmMaxTokens": 4096,
-  "maxForwarderHops": 8
+  "maxForwarderHops": 8,
+  "maxRecentFiles": 10
 }

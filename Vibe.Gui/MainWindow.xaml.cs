@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Threading;
@@ -40,12 +41,16 @@ public partial class MainWindow : Window
     private DateTime _lastKeyTime;
     // Cancellation for the currently running decompile/refine task
     private CancellationTokenSource? _currentRequestCts;
+    private const string RecentFilesKey = @"Software\\Vibe\\RecentFiles";
+    private readonly List<string> _recentFiles;
 
     public MainWindow()
     {
         InitializeComponent();
         OutputBox.TextArea.TextView.LineTransformers.Add(new PseudoCodeColorizer());
         _config = AppConfig.AutoDetect() ?? new AppConfig();
+        _recentFiles = LoadRecentFiles();
+        UpdateRecentFilesMenu();
         var apiKey = App.ApiKey;
         if (!string.IsNullOrWhiteSpace(apiKey))
         {
@@ -98,6 +103,92 @@ public partial class MainWindow : Window
         }
     }
 
+    private List<string> LoadRecentFiles()
+    {
+        var list = new List<string>();
+        try
+        {
+            using var key = Registry.CurrentUser.OpenSubKey(RecentFilesKey);
+            if (key != null)
+            {
+                foreach (var name in key.GetValueNames().OrderBy(n => n))
+                {
+                    if (key.GetValue(name) is string path && File.Exists(path))
+                        list.Add(path);
+                }
+            }
+        }
+        catch
+        {
+        }
+        return list;
+    }
+
+    private void SaveRecentFiles()
+    {
+        try
+        {
+            using var key = Registry.CurrentUser.CreateSubKey(RecentFilesKey);
+            if (key != null)
+            {
+                foreach (var name in key.GetValueNames())
+                    key.DeleteValue(name, false);
+                for (int i = 0; i < _recentFiles.Count; i++)
+                    key.SetValue($"File{i}", _recentFiles[i]);
+            }
+        }
+        catch
+        {
+        }
+    }
+
+    private void AddRecentFile(string path)
+    {
+        _recentFiles.Remove(path);
+        _recentFiles.Insert(0, path);
+        if (_recentFiles.Count > _config.MaxRecentFiles)
+            _recentFiles.RemoveRange(_config.MaxRecentFiles, _recentFiles.Count - _config.MaxRecentFiles);
+        SaveRecentFiles();
+        UpdateRecentFilesMenu();
+    }
+
+    private void UpdateRecentFilesMenu()
+    {
+        RecentFilesMenu.Items.Clear();
+        if (_recentFiles.Count == 0)
+        {
+            RecentFilesMenu.IsEnabled = false;
+            return;
+        }
+        RecentFilesMenu.IsEnabled = true;
+        foreach (var file in _recentFiles)
+        {
+            var item = new MenuItem { Header = file, Tag = file };
+            item.Click += RecentFile_Click;
+            RecentFilesMenu.Items.Add(item);
+        }
+    }
+
+    private void RecentFile_Click(object sender, RoutedEventArgs e)
+    {
+        if (sender is MenuItem { Tag: string path })
+            OpenDll(path);
+    }
+
+    private void OpenDll(string path)
+    {
+        if (!File.Exists(path))
+        {
+            MessageBox.Show(this, $"File not found: {path}", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
+            _recentFiles.Remove(path);
+            UpdateRecentFilesMenu();
+            SaveRecentFiles();
+            return;
+        }
+        LoadDll(path, showErrors: true);
+        AddRecentFile(path);
+    }
+
     private void CancelCurrentRequest()
     {
         _currentRequestCts?.Cancel();
@@ -148,7 +239,7 @@ public partial class MainWindow : Window
     private void OpenDll_Click(object sender, RoutedEventArgs e)
     {
         var dlg = new OpenFileDialog { Filter = "DLL files (*.dll)|*.dll|All files (*.*)|*.*" };
-        if (dlg.ShowDialog() == true) LoadDll(dlg.FileName, showErrors: true);
+        if (dlg.ShowDialog() == true) OpenDll(dlg.FileName);
     }
 
     private void Window_PreviewKeyDown(object sender, KeyEventArgs e)
