@@ -35,8 +35,11 @@ public partial class MainWindow : Window
 
     private readonly AppConfig _config;
     private readonly ILlmProvider? _provider;
+    // Quick-search state (type-to-select export by prefix)
     private string _searchText = string.Empty;
     private DateTime _lastKeyTime;
+    // Cancellation for the currently running decompile/refine task
+    private CancellationTokenSource? _currentRequestCts;
 
     public MainWindow()
     {
@@ -81,11 +84,11 @@ public partial class MainWindow : Window
     {
         var systemDir = Environment.SystemDirectory;
         string[] dlls =
-        {
+        [
             "kernel32.dll",
             "user32.dll",
             "dbghelp.dll"
-        };
+        ];
 
         foreach (var name in dlls)
         {
@@ -95,17 +98,22 @@ public partial class MainWindow : Window
         }
     }
 
+    private void CancelCurrentRequest()
+    {
+        _currentRequestCts?.Cancel();
+        _currentRequestCts?.Dispose();
+        _currentRequestCts = null;
+    }
+
     private async void DllRoot_Expanded(object sender, RoutedEventArgs e)
     {
-        if (sender is not TreeViewItem root)
-            return;
-        if (root.Tag is not DllItem dll)
+        if (sender is not TreeViewItem { Tag: DllItem dll } root)
             return;
         var pe = dll.Pe;
         var token = dll.Cts.Token;
 
         // Only load once when the placeholder is present
-        if (root.Items.Count != 1 || root.Items[0] is not TreeViewItem placeholder || !Equals(placeholder.Tag, "Loading"))
+        if (root.Items is not [TreeViewItem { Tag: "Loading" }])
             return;
 
         root.Items.Clear();
@@ -140,14 +148,14 @@ public partial class MainWindow : Window
     private void OpenDll_Click(object sender, RoutedEventArgs e)
     {
         var dlg = new OpenFileDialog { Filter = "DLL files (*.dll)|*.dll|All files (*.*)|*.*" };
-        if (dlg.ShowDialog() == true)
-        {
-            LoadDll(dlg.FileName, showErrors: true);
-        }
+        if (dlg.ShowDialog() == true) LoadDll(dlg.FileName, showErrors: true);
     }
 
     private async void DllTree_SelectedItemChanged(object sender, RoutedPropertyChangedEventArgs<object> e)
     {
+        CancelCurrentRequest();
+        BusyBar.Visibility = Visibility.Collapsed;
+
         if (DllTree.SelectedItem is not TreeViewItem item)
             return;
 
@@ -159,11 +167,12 @@ public partial class MainWindow : Window
             case ExportItem exp:
                 OutputBox.Text = string.Empty;
                 BusyBar.Visibility = Visibility.Visible;
+                var dllItem = exp.Dll;
+                var pe2 = dllItem.Pe;
+                _currentRequestCts = CancellationTokenSource.CreateLinkedTokenSource(dllItem.Cts.Token);
+                var token = _currentRequestCts.Token;
                 try
                 {
-                    var dllItem = exp.Dll;
-                    var pe2 = dllItem.Pe;
-                    var token = dllItem.Cts.Token;
                     var name = exp.Name;
                     var export = pe2.FindExport(name);
                     if (export.IsForwarder)
@@ -186,7 +195,7 @@ public partial class MainWindow : Window
                     }, token);
 
                     if (_provider != null && _config.MaxLlmCodeLength > 0 && code.Length > _config.MaxLlmCodeLength)
-                        code = code.Substring(0, _config.MaxLlmCodeLength);
+                        code = code[.._config.MaxLlmCodeLength];
                     string output = code;
                     if (_provider != null)
                         output = await _provider.RefineAsync(code, null, token);
@@ -202,7 +211,11 @@ public partial class MainWindow : Window
                 }
                 finally
                 {
-                    BusyBar.Visibility = Visibility.Collapsed;
+                    if (_currentRequestCts?.Token == token)
+                    {
+                        BusyBar.Visibility = Visibility.Collapsed;
+                        CancelCurrentRequest();
+                    }
                 }
                 break;
         }
@@ -210,19 +223,21 @@ public partial class MainWindow : Window
 
     private static TreeViewItem GetRootItem(TreeViewItem item)
     {
-        var parent = ItemsControl.ItemsControlFromItemContainer(item) as TreeViewItem;
-        return parent is null ? item : GetRootItem(parent);
+        while (ItemsControl.ItemsControlFromItemContainer(item) is TreeViewItem parent)
+            item = parent;
+        return item;
     }
 
     private void DllTree_KeyDown(object sender, KeyEventArgs e)
     {
+        // Delete: remove the selected DLL (or an export under it)
         if (e.Key == Key.Delete)
         {
             if (DllTree.SelectedItem is not TreeViewItem item)
                 return;
 
             TreeViewItem root;
-            DllItem? dll;
+            DllItem dll;
             switch (item.Tag)
             {
                 case DllItem di:
@@ -240,12 +255,15 @@ public partial class MainWindow : Window
             dll.Cts.Cancel();
             dll.Dispose();
             DllTree.Items.Remove(root);
+            CancelCurrentRequest();
+            BusyBar.Visibility = Visibility.Collapsed;
             if (ReferenceEquals(item, DllTree.SelectedItem))
                 OutputBox.Text = string.Empty;
             e.Handled = true;
             return;
         }
 
+        // Type-to-search: select first export under the current DLL whose name starts with the typed prefix
         var ch = KeyToChar(e.Key);
         if (ch is null)
             return;
@@ -274,6 +292,7 @@ public partial class MainWindow : Window
             match.IsSelected = true;
             match.BringIntoView();
         }
+
         e.Handled = true;
     }
 
@@ -290,12 +309,11 @@ public partial class MainWindow : Window
 
     protected override void OnClosed(EventArgs e)
     {
+        CancelCurrentRequest();
         // Dispose all DLL items to clean up CancellationTokenSource objects
         foreach (TreeViewItem item in DllTree.Items)
-        {
             if (item.Tag is DllItem dll)
                 dll.Dispose();
-        }
 
         _provider?.Dispose();
         base.OnClosed(e);

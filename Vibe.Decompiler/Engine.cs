@@ -114,7 +114,6 @@ public sealed class Engine
         var passManager = DefaultPassPipeline.Create();
         passManager.Run(fn);
         LegacyTransformations.SimplifyArithmeticIdentities(fn);
-        LegacyTransformations.SimplifyBooleanTernary(fn);
 
         // Pretty print IR
         var pp = new IR.PrettyPrinter(new IR.PrettyPrinter.Options
