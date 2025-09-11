@@ -115,7 +115,6 @@ public sealed class Engine
         passManager.Run(fn);
         LegacyTransformations.SimplifyArithmeticIdentities(fn);
         LegacyTransformations.SimplifyBooleanTernary(fn);
-        LegacyTransformations.SimplifyLogicalNots(fn);
 
         // Pretty print IR
         var pp = new IR.PrettyPrinter(new IR.PrettyPrinter.Options

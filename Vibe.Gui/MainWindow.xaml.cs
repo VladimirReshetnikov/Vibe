@@ -71,7 +71,7 @@ public partial class MainWindow : Window
         catch (Exception ex)
         {
             if (showErrors)
-                MessageBox.Show(this, ex.Message, "Error", MessageBoxButton.OK, MessageBoxImage.Error);
+                ExceptionManager.Handle(ex);
         }
     }
 
@@ -195,7 +195,7 @@ public partial class MainWindow : Window
                 }
                 catch (Exception ex)
                 {
-                    MessageBox.Show(this, ex.Message, "Error", MessageBoxButton.OK, MessageBoxImage.Error);
+                    ExceptionManager.Handle(ex);
                 }
                 finally
                 {
