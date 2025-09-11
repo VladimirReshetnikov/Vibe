@@ -5,6 +5,7 @@ using System.Windows;
 using System.Windows.Controls;
 using Microsoft.Win32;
 using Vibe.Decompiler;
+using ICSharpCode.AvalonEdit;
 
 namespace Vibe.Gui;
 
@@ -19,6 +20,7 @@ public partial class MainWindow : Window
     public MainWindow()
     {
         InitializeComponent();
+        OutputBox.TextArea.TextView.LineTransformers.Add(new PseudoCodeColorizer());
         LoadCommonDlls();
     }
 
@@ -55,7 +57,6 @@ public partial class MainWindow : Window
             "ntdll.dll",
             "ole32.dll",
             "oleaut32.dll",
-            "ws2_32.dll",
             "dbghelp.dll"
         };
 
