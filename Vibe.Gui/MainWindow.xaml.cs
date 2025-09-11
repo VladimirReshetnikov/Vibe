@@ -4,6 +4,8 @@ using System.Linq;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Media;
+using System.Threading.Tasks;
+using System.Windows.Threading;
 using Microsoft.Win32;
 using Vibe.Decompiler;
 using ICSharpCode.AvalonEdit;
@@ -39,14 +41,9 @@ public partial class MainWindow : Window
             headerPanel.Children.Add(new TextBlock { Text = Path.GetFileName(path) });
 
             var root = new TreeViewItem { Header = headerPanel, Tag = pe };
-            var funcIcon = (ImageSource)FindResource("ExportedFunctionIconImage");
-            foreach (var name in pe.EnumerateExportNames().OrderBy(n => n))
-            {
-                var funcHeader = new StackPanel { Orientation = Orientation.Horizontal };
-                funcHeader.Children.Add(new Image { Source = funcIcon, Width = 16, Height = 16, Margin = new Thickness(0, 0, 4, 0) });
-                funcHeader.Children.Add(new TextBlock { Text = name });
-                root.Items.Add(new TreeViewItem { Header = funcHeader, Tag = new ExportItem { Pe = pe, Name = name } });
-            }
+            // Add a dummy child so the expand arrow appears and load exports on demand
+            root.Items.Add(new TreeViewItem { Header = "Loading...", Tag = "Loading" });
+            root.Expanded += DllRoot_Expanded;
             DllTree.Items.Add(root);
             root.IsExpanded = false;
         }
@@ -72,6 +69,34 @@ public partial class MainWindow : Window
             var path = Path.Combine(systemDir, name);
             if (File.Exists(path))
                 LoadDll(path, showErrors: false);
+        }
+    }
+
+    private async void DllRoot_Expanded(object sender, RoutedEventArgs e)
+    {
+        if (sender is not TreeViewItem root)
+            return;
+        if (root.Tag is not PEReaderLite pe)
+            return;
+
+        // Only load once when the placeholder is present
+        if (root.Items.Count != 1 || root.Items[0] is not TreeViewItem placeholder || !Equals(placeholder.Tag, "Loading"))
+            return;
+
+        root.Items.Clear();
+        var funcIcon = (ImageSource)FindResource("ExportedFunctionIconImage");
+        var names = await Task.Run(() => pe.EnumerateExportNames().OrderBy(n => n).ToList());
+
+        int i = 0;
+        foreach (var name in names)
+        {
+            var funcHeader = new StackPanel { Orientation = Orientation.Horizontal };
+            funcHeader.Children.Add(new Image { Source = funcIcon, Width = 16, Height = 16, Margin = new Thickness(0, 0, 4, 0) });
+            funcHeader.Children.Add(new TextBlock { Text = name });
+            root.Items.Add(new TreeViewItem { Header = funcHeader, Tag = new ExportItem { Pe = pe, Name = name } });
+
+            if (++i % 20 == 0)
+                await Dispatcher.Yield();
         }
     }
 
