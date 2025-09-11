@@ -24,6 +24,12 @@ public sealed class Engine
         /// <summary>Emit original labels for branch targets (L1, L2, ...)</summary>
         public bool EmitLabels { get; set; } = true;
 
+        /// <summary>
+        /// When true, skip IR translation and emit a C-like function body containing only
+        /// an <c>__asm__</c> block with the raw disassembly mnemonics.
+        /// </summary>
+        public bool TrivialAsm { get; set; } = false;
+
         /// <summary>Try to detect MSVC prologue/epilogue and hide low-level stack chaff (semantic), but assembly still printed</summary>
         public bool DetectPrologue { get; set; } = true;
 
@@ -93,8 +99,22 @@ public sealed class Engine
         var opt = options ?? new Options();
         var ctx = new Ctx(opt);
 
-        // Decode and analyze
+        // Decode first so we always have the instruction stream available
         DecodeFunction(code, ctx);
+
+        // Trivial mode: just dump the disassembly inside a C-style function wrapper
+        if (opt.TrivialAsm)
+        {
+            var asmFn = BuildTrivialFunctionIr(ctx);
+            var asmPrinter = new IR.PrettyPrinter(new IR.PrettyPrinter.Options
+            {
+                EmitHeaderComment = true,
+                BodyAsAsm = true
+            });
+            return asmPrinter.Print(asmFn);
+        }
+
+        // Otherwise continue with full IR based decompilation
         AnalyzeLabels(ctx);
 
         // Build IR
@@ -396,6 +416,30 @@ public sealed class Engine
             foreach (var s in TranslateInstructionToStmts(i, ctx))
                 block.Statements.Add(s);
         }
+
+        return fn;
+    }
+
+    private IR.FunctionIR BuildTrivialFunctionIr(Ctx ctx)
+    {
+        var fn = new IR.FunctionIR(ctx.Opt.FunctionName, ctx.Opt.BaseAddress, ctx.StartIp)
+        {
+            ReturnType = new IR.VoidType()
+        };
+
+        // Basic signature mirroring the normal mode (p1..p4 parameters)
+        fn.Parameters.Add(new IR.Parameter("p1", IR.X.U64, 0));
+        fn.Parameters.Add(new IR.Parameter("p2", IR.X.U64, 1));
+        fn.Parameters.Add(new IR.Parameter("p3", IR.X.U64, 2));
+        fn.Parameters.Add(new IR.Parameter("p4", IR.X.U64, 3));
+
+        fn.Tags["InstructionCount"] = ctx.Insns.Count;
+        fn.Tags["ByteCount"] = ctx.Insns.Sum(i => i.Length);
+
+        var block = new IR.BasicBlock(new IR.LabelSymbol("entry", 0));
+        foreach (var i in ctx.Insns)
+            block.Statements.Add(new IR.AsmStmt(QuickAsmWithIp(i)));
+        fn.Blocks.Add(block);
 
         return fn;
     }

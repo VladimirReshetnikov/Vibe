@@ -234,6 +234,7 @@ public static class IR
             public bool EmitBlockLabels { get; set; } = false; // we print label statements explicitly; no need for block headers
             public bool CommentSignednessOnCmp { get; set; } = true;
             public bool UseStdIntNames { get; set; } = true; // uint8_t/uint16_t/...
+            public bool BodyAsAsm { get; set; } = false; // emit body as __asm__ block only
             public string Indent { get; set; } = "    ";
         }
 
@@ -273,6 +274,13 @@ public static class IR
 
             EmitLine($"{ret} {fn.Name}({paramList}) {{");
             _indent++;
+            if (_opt.BodyAsAsm)
+            {
+                EmitAsmBody(fn);
+                _indent--;
+                EmitLine("}");
+                return _sb.ToString();
+            }
 
             // Prologue comments
             bool usesFp = GetTag(fn, "UsesFramePointer", false);
@@ -329,6 +337,27 @@ public static class IR
                 foreach (var s in bb.Statements)
                     EmitStmt(s);
             }
+        }
+
+        private void EmitAsmBody(FunctionIR fn)
+        {
+            EmitIndent();
+            _sb.AppendLine("__asm__(");
+            _indent++;
+            foreach (var bb in fn.Blocks)
+            {
+                foreach (var s in bb.Statements)
+                {
+                    if (s is AsmStmt a)
+                    {
+                        EmitIndent();
+                        _sb.Append('"').Append(EscapeAsm(a.Text)).Append("\\n").Append('"').AppendLine();
+                    }
+                }
+            }
+            _indent--;
+            EmitIndent();
+            _sb.AppendLine(");");
         }
 
         private void EmitHiNode(HiNode n)
@@ -863,6 +892,7 @@ public static class IR
         private void Emit(string s) => _sb.Append(s);
         private void EmitLine(string s) { EmitIndent(); _sb.AppendLine(s); }
         private void EmitIndent() { for (int i = 0; i < _indent; i++) _sb.Append(_opt.Indent); }
+        private static string EscapeAsm(string s) => s.Replace("\\", "\\\\").Replace("\"", "\\\"");
     }
 
     // ============================================================
