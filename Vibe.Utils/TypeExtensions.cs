@@ -16,20 +16,12 @@ public static class TypeExtensions
     /// <exception cref="ArgumentNullException">Thrown when <paramref name="staticType"/> is <c>null</c>.</exception>
     public static dynamic ToDynamicObject(this Type staticType)
     {
-        if (staticType is null)
-            throw new ArgumentNullException(nameof(staticType));
+        ArgumentNullException.ThrowIfNull(staticType);
         return new StaticTypeProxy(staticType);
     }
 
-    private sealed class StaticTypeProxy : DynamicObject
+    private sealed class StaticTypeProxy(Type type) : DynamicObject
     {
-        private readonly Type _type;
-
-        public StaticTypeProxy(Type type)
-        {
-            _type = type;
-        }
-
         public override bool TryInvokeMember(InvokeMemberBinder binder, object?[]? args, out object? result)
         {
             result = null;
@@ -39,7 +31,7 @@ public static class TypeExtensions
             };
             var argExpr = new List<Expression>
             {
-                Expression.Constant(_type, typeof(object))
+                Expression.Constant(type, typeof(object))
             };
             if (args is not null)
             {
@@ -70,7 +62,7 @@ public static class TypeExtensions
                 CSharpArgumentInfo.Create(CSharpArgumentInfoFlags.IsStaticType, null)
             };
             var getBinder = Binder.GetMember(CSharpBinderFlags.None, binder.Name, typeof(StaticTypeProxy), argInfo);
-            var expr = Expression.Dynamic(getBinder, typeof(object), Expression.Constant(_type, typeof(object)));
+            var expr = Expression.Dynamic(getBinder, typeof(object), Expression.Constant(type, typeof(object)));
             result = Expression.Lambda<Func<object?>>(expr).Compile().Invoke();
             return true;
         }
@@ -84,7 +76,7 @@ public static class TypeExtensions
             };
             var argExpr = new Expression[]
             {
-                Expression.Constant(_type, typeof(object)),
+                Expression.Constant(type, typeof(object)),
                 Expression.Constant(value, typeof(object))
             };
             var setBinder = Binder.SetMember(CSharpBinderFlags.None, binder.Name, typeof(StaticTypeProxy), argInfo);
