@@ -2,7 +2,9 @@
 
 using System.Dynamic;
 using System.Linq.Expressions;
+using System.Reflection;
 using Microsoft.CSharp.RuntimeBinder;
+using CSharpBinder = Microsoft.CSharp.RuntimeBinder.Binder;
 
 namespace Vibe.Utils;
 
@@ -50,16 +52,26 @@ public static class TypeExtensions
                 }
             }
 
-            var invokeBinder = Binder.InvokeMember(
-                CSharpBinderFlags.None,
+            var isVoid = IsVoidMethod(binder.Name, args);
+            var flags = isVoid ? CSharpBinderFlags.ResultDiscarded : CSharpBinderFlags.None;
+            var invokeBinder = CSharpBinder.InvokeMember(
+                flags,
                 binder.Name,
                 null,
                 typeof(StaticTypeProxy),
                 argInfo);
 
-            var expr = Expression.Dynamic(invokeBinder, typeof(object), argExpr);
-            var lambda = Expression.Lambda<Func<object?>>(expr);
-            result = lambda.Compile().Invoke();
+            if (isVoid)
+            {
+                var expr = Expression.Dynamic(invokeBinder, typeof(void), argExpr);
+                Expression.Lambda<Action>(expr).Compile().Invoke();
+                result = null;
+            }
+            else
+            {
+                var expr = Expression.Dynamic(invokeBinder, typeof(object), argExpr);
+                result = Expression.Lambda<Func<object?>>(expr).Compile().Invoke();
+            }
             return true;
         }
 
@@ -69,7 +81,7 @@ public static class TypeExtensions
             {
                 CSharpArgumentInfo.Create(CSharpArgumentInfoFlags.IsStaticType, null)
             };
-            var getBinder = Binder.GetMember(CSharpBinderFlags.None, binder.Name, typeof(StaticTypeProxy), argInfo);
+            var getBinder = CSharpBinder.GetMember(CSharpBinderFlags.None, binder.Name, typeof(StaticTypeProxy), argInfo);
             var expr = Expression.Dynamic(getBinder, typeof(object), Expression.Constant(_type, typeof(object)));
             result = Expression.Lambda<Func<object?>>(expr).Compile().Invoke();
             return true;
@@ -87,10 +99,20 @@ public static class TypeExtensions
                 Expression.Constant(_type, typeof(object)),
                 Expression.Constant(value, typeof(object))
             };
-            var setBinder = Binder.SetMember(CSharpBinderFlags.None, binder.Name, typeof(StaticTypeProxy), argInfo);
+            var setBinder = CSharpBinder.SetMember(CSharpBinderFlags.None, binder.Name, typeof(StaticTypeProxy), argInfo);
             var expr = Expression.Dynamic(setBinder, typeof(object), argExpr);
             Expression.Lambda<Action>(expr).Compile().Invoke();
             return true;
+        }
+
+        private bool IsVoidMethod(string name, object?[]? args)
+        {
+            var argTypes = args is null
+                ? Type.EmptyTypes
+                : args.Select(a => a?.GetType() ?? typeof(object)).ToArray();
+            return _type
+                .GetMethods(BindingFlags.Static | BindingFlags.Public | BindingFlags.NonPublic)
+                .Any(m => m.Name == name && m.GetParameters().Length == argTypes.Length && m.ReturnType == typeof(void));
         }
     }
 }
