@@ -16,10 +16,15 @@ namespace Vibe.Gui;
 
 public partial class MainWindow : Window
 {
-    private sealed class DllItem
+    private sealed class DllItem : IDisposable
     {
         public required PEReaderLite Pe { get; init; }
         public required CancellationTokenSource Cts { get; init; }
+
+        public void Dispose()
+        {
+            Cts.Dispose();
+        }
     }
 
     private sealed class ExportItem
