@@ -77,7 +77,7 @@ internal sealed class PseudoCodeColorizer : DocumentColorizingTransformer
                 int i = start + 1;
                 while (i < text.Length)
                 {
-                    if (text[i] == '\\') i += 2;
+                if (text[i] == '\\' && i + 1 < text.Length) i += 2;
                     else if (text[i] == '"') { i++; break; }
                     else i++;
                 }
