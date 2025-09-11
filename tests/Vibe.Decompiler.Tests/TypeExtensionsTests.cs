@@ -71,6 +71,14 @@ public static class TypeExtensionsTests
 
         Assert.Equal("text", result);
     }
+  
+    [Fact]
+    public static void ProxyProvidesNestedStaticType()
+    {
+        dynamic proxy = typeof(Outer).ToDynamicObject();
+        int result = proxy.Inner.AddOne(1);
+        Assert.Equal(2, result);
+    }
 }
 
 public static class SampleStaticClass
@@ -81,3 +89,10 @@ public static class SampleStaticClass
     public static T GenericEcho<T>(T value) => value;
 }
 
+public static class Outer
+{
+    public static class Inner
+    {
+        public static int AddOne(int value) => value + 1;
+    }
+}
