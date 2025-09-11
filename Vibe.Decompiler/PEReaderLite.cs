@@ -2,6 +2,8 @@
 
 using System.Text;
 
+using System;
+
 namespace Vibe.Decompiler;
 
 public sealed class PEReaderLite
@@ -18,8 +20,22 @@ public sealed class PEReaderLite
     public readonly List<ImportModule> Imports = new();
     public readonly uint SizeOfHeaders; // NEW: keep SizeOfHeaders for header-range RVA mapping
 
+    // Basic information about the module
+    public readonly string FilePath;
+    public readonly ushort Machine;
+    public readonly uint TimeDateStamp;
+    public readonly ushort Characteristics;
+    public readonly uint SizeOfImage;
+    public readonly ushort Subsystem;
+    public readonly ushort DllCharacteristics;
+    public readonly ushort MajorImageVersion;
+    public readonly ushort MinorImageVersion;
+    public readonly ushort MajorSubsystemVersion;
+    public readonly ushort MinorSubsystemVersion;
+
     public PEReaderLite(string path)
     {
+        FilePath = path;
         Data = File.ReadAllBytes(path);
         // DOS header
         if (U16(0) != 0x5A4D) // "MZ"
@@ -31,7 +47,10 @@ public sealed class PEReaderLite
             throw new BadImageFormatException("PE signature missing.");
 
         int coffOff = peOff + 4;
+        Machine = U16(coffOff);
         ushort numSections = U16(coffOff + 2);
+        TimeDateStamp = U32(coffOff + 4);
+        Characteristics = U16(coffOff + 18);
         ushort optHeaderSize = U16(coffOff + 16);
         int optOff = coffOff + 20;
 
@@ -41,8 +60,15 @@ public sealed class PEReaderLite
             throw new NotSupportedException($"Not PE32+ (x64). Magic=0x{magic:X}");
 
         ImageBase = U64(optOff + 24);
+        MajorImageVersion = U16(optOff + 44);
+        MinorImageVersion = U16(optOff + 46);
+        MajorSubsystemVersion = U16(optOff + 48);
+        MinorSubsystemVersion = U16(optOff + 50);
+        SizeOfImage = U32(optOff + 56);
         uint sizeOfHeaders = U32(optOff + 60);
         SizeOfHeaders = sizeOfHeaders; // capture SizeOfHeaders from optional header
+        Subsystem = U16(optOff + 68);
+        DllCharacteristics = U16(optOff + 70);
         uint numberOfRvaAndSizes = U32(optOff + 108);
         int dataDirOff = optOff + 112;
 
@@ -278,6 +304,55 @@ public sealed class PEReaderLite
             int nameOff = RvaToOffsetChecked(nameRva);
             yield return ReadAsciiZ(nameOff);
         }
+    }
+
+    public string GetSummary()
+    {
+        var sb = new StringBuilder();
+        sb.AppendLine($"File: {FilePath}");
+        sb.AppendLine($"Machine: 0x{Machine:X4} {MachineToString(Machine)}");
+        sb.AppendLine($"TimeDateStamp: 0x{TimeDateStamp:X8} ({DateTimeOffset.FromUnixTimeSeconds(TimeDateStamp).UtcDateTime:u})");
+        sb.AppendLine($"Characteristics: 0x{Characteristics:X4} {FormatCharacteristics(Characteristics)}");
+        sb.AppendLine($"ImageBase: 0x{ImageBase:X}");
+        sb.AppendLine($"ImageVersion: {MajorImageVersion}.{MinorImageVersion}");
+        sb.AppendLine($"SubsystemVersion: {MajorSubsystemVersion}.{MinorSubsystemVersion}");
+        sb.AppendLine($"Subsystem: {Subsystem} {SubsystemToString(Subsystem)}");
+        sb.AppendLine($"DllCharacteristics: 0x{DllCharacteristics:X4}");
+        sb.AppendLine($"Number of Sections: {Sections.Count}");
+        sb.AppendLine("Sections:");
+        foreach (var s in Sections)
+        {
+            sb.AppendLine($"  {s.Name,-8} RVA 0x{s.VirtualAddress:X8} VSz 0x{s.VirtualSize:X8} File 0x{s.PointerToRawData:X8} Size 0x{s.SizeOfRawData:X8}");
+        }
+        return sb.ToString();
+    }
+
+    private static string MachineToString(ushort m) => m switch
+    {
+        0x8664 => "x64",
+        0x14C => "x86",
+        0x1C0 => "ARM",
+        0xAA64 => "ARM64",
+        _ => "unknown"
+    };
+
+    private static string SubsystemToString(ushort s) => s switch
+    {
+        2 => "Windows GUI",
+        3 => "Windows CUI",
+        _ => "unknown"
+    };
+
+    private static string FormatCharacteristics(ushort c)
+    {
+        var flags = new List<string>();
+        if ((c & 0x0002) != 0) flags.Add("EXECUTABLE");
+        if ((c & 0x2000) != 0) flags.Add("DLL");
+        if ((c & 0x0020) != 0) flags.Add("LARGE_ADDRESS_AWARE");
+        if ((c & 0x0004) != 0) flags.Add("LINE_NUMS_STRIPPED");
+        if ((c & 0x0008) != 0) flags.Add("LOCAL_SYMS_STRIPPED");
+        if ((c & 0x0100) != 0) flags.Add("32BIT");
+        return string.Join(", ", flags);
     }
 
     // ------------------ local data helpers ------------------

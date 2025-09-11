@@ -94,35 +94,43 @@ public partial class MainWindow : Window
 
     private void DllTree_SelectedItemChanged(object sender, RoutedPropertyChangedEventArgs<object> e)
     {
-        if (DllTree.SelectedItem is not TreeViewItem item || item.Tag is not ExportItem exp)
+        if (DllTree.SelectedItem is not TreeViewItem item)
             return;
 
-        try
+        switch (item.Tag)
         {
-            var pe = exp.Pe;
-            var name = exp.Name;
-            var export = pe.FindExport(name);
-            if (export.IsForwarder)
-            {
-                OutputBox.Text = $"{name} -> {export.ForwarderString}";
+            case PEReaderLite pe:
+                OutputBox.Text = pe.GetSummary();
                 return;
-            }
+            case ExportItem exp:
+                try
+                {
+                    var pe2 = exp.Pe;
+                    var name = exp.Name;
+                    var export = pe2.FindExport(name);
+                    if (export.IsForwarder)
+                    {
+                        OutputBox.Text = $"{name} -> {export.ForwarderString}";
+                        return;
+                    }
 
-            int off = pe.RvaToOffsetChecked(export.FunctionRva);
-            int maxLen = Math.Min(4096, pe.Data.Length - off);
-            var bytes = new byte[maxLen];
-            Array.Copy(pe.Data, off, bytes, 0, maxLen);
-            var engine = new Engine();
-            var code = engine.ToPseudoCode(bytes, new Engine.Options
-            {
-                BaseAddress = pe.ImageBase + export.FunctionRva,
-                FunctionName = name
-            });
-            OutputBox.Text = code;
-        }
-        catch (Exception ex)
-        {
-            MessageBox.Show(this, ex.Message, "Error", MessageBoxButton.OK, MessageBoxImage.Error);
+                    int off = pe2.RvaToOffsetChecked(export.FunctionRva);
+                    int maxLen = Math.Min(4096, pe2.Data.Length - off);
+                    var bytes = new byte[maxLen];
+                    Array.Copy(pe2.Data, off, bytes, 0, maxLen);
+                    var engine = new Engine();
+                    var code = engine.ToPseudoCode(bytes, new Engine.Options
+                    {
+                        BaseAddress = pe2.ImageBase + export.FunctionRva,
+                        FunctionName = name
+                    });
+                    OutputBox.Text = code;
+                }
+                catch (Exception ex)
+                {
+                    MessageBox.Show(this, ex.Message, "Error", MessageBoxButton.OK, MessageBoxImage.Error);
+                }
+                break;
         }
     }
 
