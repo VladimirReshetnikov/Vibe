@@ -2,6 +2,7 @@
 
 using System.Dynamic;
 using System.Linq.Expressions;
+using System.Runtime.CompilerServices;
 using Microsoft.CSharp.RuntimeBinder;
 
 namespace Vibe.Utils;
@@ -41,12 +42,34 @@ public static class TypeExtensions
             {
                 Expression.Constant(_type, typeof(object))
             };
+            var variables = new List<ParameterExpression>();
+            var preAssign = new List<Expression>();
+            var postAssign = new List<Expression>();
+
             if (args is not null)
             {
-                foreach (var arg in args)
+                for (var i = 0; i < args.Length; i++)
                 {
-                    argInfo.Add(CSharpArgumentInfo.Create(CSharpArgumentInfoFlags.None, null));
-                    argExpr.Add(Expression.Constant(arg, typeof(object)));
+                    var arg = args[i];
+                    if (arg is IStrongBox)
+                    {
+                        var boxType = arg.GetType();
+                        var valueType = boxType.GetProperty(nameof(IStrongBox.Value))!.PropertyType;
+                        var temp = Expression.Variable(valueType, $"arg{i}");
+                        variables.Add(temp);
+                        var boxExpr = Expression.Constant(arg, boxType);
+                        var valueExpr = Expression.Property(boxExpr, nameof(IStrongBox.Value));
+                        preAssign.Add(Expression.Assign(temp, valueExpr));
+                        postAssign.Add(Expression.Assign(valueExpr, temp));
+                        // NOTE: We use IsRef here for IStrongBox arguments. Distinguishing between ref and out is not possible without method signature info.
+                        argInfo.Add(CSharpArgumentInfo.Create(CSharpArgumentInfoFlags.IsRef, null));
+                        argExpr.Add(temp);
+                    }
+                    else
+                    {
+                        argInfo.Add(CSharpArgumentInfo.Create(CSharpArgumentInfoFlags.None, null));
+                        argExpr.Add(Expression.Constant(arg, typeof(object)));
+                    }
                 }
             }
 
@@ -57,7 +80,19 @@ public static class TypeExtensions
                 typeof(StaticTypeProxy),
                 argInfo);
 
-            var expr = Expression.Dynamic(invokeBinder, typeof(object), argExpr);
+            Expression expr = Expression.Dynamic(invokeBinder, typeof(object), argExpr);
+            if (variables.Count > 0)
+            {
+                var resultVar = Expression.Variable(typeof(object), "result");
+                variables.Add(resultVar);
+                var block = new List<Expression>();
+                block.AddRange(preAssign);
+                block.Add(Expression.Assign(resultVar, expr));
+                block.AddRange(postAssign);
+                block.Add(resultVar);
+                expr = Expression.Block(variables, block);
+            }
+
             var lambda = Expression.Lambda<Func<object?>>(expr);
             result = lambda.Compile().Invoke();
             return true;
