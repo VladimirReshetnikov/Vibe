@@ -17,7 +17,7 @@ public partial class MainWindow : Window
         public required PEReaderLite Pe { get; init; }
         public required string Name { get; init; }
     }
-    
+
     public MainWindow()
     {
         InitializeComponent();
@@ -42,7 +42,7 @@ public partial class MainWindow : Window
                 root.Items.Add(new TreeViewItem { Header = name, Tag = new ExportItem { Pe = pe, Name = name } });
             }
             DllTree.Items.Add(root);
-            root.IsExpanded = true;
+            root.IsExpanded = false;
         }
         catch (Exception ex)
         {
