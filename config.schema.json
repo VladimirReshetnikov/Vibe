@@ -1,0 +1,66 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://example.com/config.schema.json",
+  "title": "Vibe Configuration",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "useWin32DocsLookup": {
+      "type": "boolean",
+      "description": "Whether to download Win32 API documentation from Microsoft when available."
+    },
+    "useWebSearch": {
+      "type": "boolean",
+      "description": "Enable web search for additional documentation using the configured LLM provider."
+    },
+    "llmProvider": {
+      "type": "string",
+      "description": "Name of the LLM provider to use (e.g., 'openai', 'anthropic')."
+    },
+    "llmVersion": {
+      "type": "string",
+      "description": "Model or version identifier for the LLM provider."
+    },
+    "maxDataSizeBytes": {
+      "type": "integer",
+      "description": "Maximum number of bytes to read from the target function during decompilation."
+    },
+    "maxLlmCodeLength": {
+      "type": "integer",
+      "description": "Maximum length of code sent to the LLM; longer code is truncated."
+    },
+    "docTimeoutSeconds": {
+      "type": "integer",
+      "description": "Timeout in seconds for downloading or searching documentation."
+    },
+    "docFragmentSize": {
+      "type": "integer",
+      "description": "Size in characters of documentation fragments evaluated by the LLM."
+    },
+    "docSearchMaxPages": {
+      "type": "integer",
+      "description": "Maximum number of result pages to fetch during documentation search."
+    },
+    "llmMaxTokens": {
+      "type": "integer",
+      "description": "Maximum number of tokens that the LLM may generate in a single response."
+    },
+    "maxForwarderHops": {
+      "type": "integer",
+      "description": "Maximum number of forwarded export hops followed when resolving a function."
+    }
+  },
+  "required": [
+    "useWin32DocsLookup",
+    "useWebSearch",
+    "llmProvider",
+    "llmVersion",
+    "maxDataSizeBytes",
+    "maxLlmCodeLength",
+    "docTimeoutSeconds",
+    "docFragmentSize",
+    "docSearchMaxPages",
+    "llmMaxTokens",
+    "maxForwarderHops"
+  ]
+}
