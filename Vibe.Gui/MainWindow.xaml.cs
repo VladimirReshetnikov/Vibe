@@ -323,4 +323,10 @@ public partial class MainWindow : Window
     {
         Close();
     }
+
+    private void About_Click(object sender, RoutedEventArgs e)
+    {
+        var dlg = new AboutWindow { Owner = this };
+        dlg.ShowDialog();
+    }
 }
