@@ -3,5 +3,6 @@
   "useWebSearch": true,
   "llmProvider": "openai",
   "llmVersion": "gpt-4o-mini",
-  "maxDataSizeBytes": 10240
+  "maxDataSizeBytes": 10240,
+  "maxLlmCodeLength": 4096
 }

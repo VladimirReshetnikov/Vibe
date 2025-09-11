@@ -65,13 +65,17 @@ public static class Program
 
         if (provider is not null)
         {
+            string truncated = disasm;
+            if (config.MaxLlmCodeLength > 0 && truncated.Length > config.MaxLlmCodeLength)
+                truncated = truncated.Substring(0, config.MaxLlmCodeLength);
+
             try
             {
                 if (provider is IDisposable disposable)
                 {
                     using (disposable)
                     {
-                        string refined = await provider.RefineAsync(disasm, docs);
+                        string refined = await provider.RefineAsync(truncated, docs);
                         Console.WriteLine();
                         Console.WriteLine("// ---- Refined by LLM ----");
                         Console.WriteLine(refined);
@@ -79,7 +83,7 @@ public static class Program
                 }
                 else
                 {
-                    string refined = await provider.RefineAsync(disasm, docs);
+                    string refined = await provider.RefineAsync(truncated, docs);
                     Console.WriteLine();
                     Console.WriteLine("// ---- Refined by LLM ----");
                     Console.WriteLine(refined);
