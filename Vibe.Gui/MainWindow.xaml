@@ -22,7 +22,7 @@
                 <ColumnDefinition Width="250" />
                 <ColumnDefinition Width="*" />
             </Grid.ColumnDefinitions>
-            <TreeView x:Name="DllTree" Grid.Column="0" Margin="4" Background="{StaticResource PanelBrush}" SelectedItemChanged="DllTree_SelectedItemChanged" />
+            <TreeView x:Name="DllTree" Grid.Column="0" Margin="4" Background="{StaticResource PanelBrush}" SelectedItemChanged="DllTree_SelectedItemChanged" KeyDown="DllTree_KeyDown" />
             <avalonEdit:TextEditor x:Name="OutputBox" Grid.Column="1" Margin="4" FontFamily="Consolas" IsReadOnly="True" ShowLineNumbers="True"
                                    VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Auto" Foreground="{StaticResource TextBrush}" Background="#FFFFFF" />
         </Grid>
