@@ -4,6 +4,7 @@ using System.Windows;
 using System.Windows.Controls;
 using Microsoft.Win32;
 using Vibe.Decompiler;
+using ICSharpCode.AvalonEdit;
 
 namespace Vibe.Gui;
 
@@ -18,6 +19,7 @@ public partial class MainWindow : Window
     public MainWindow()
     {
         InitializeComponent();
+        OutputBox.TextArea.TextView.LineTransformers.Add(new PseudoCodeColorizer());
     }
 
     private void OpenDll_Click(object sender, RoutedEventArgs e)
