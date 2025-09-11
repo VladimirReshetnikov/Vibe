@@ -17,6 +17,7 @@ public sealed class AppConfig
     public int DocSearchMaxPages { get; set; } = 2;
     public int LlmMaxTokens { get; set; } = 4096;
     public int MaxForwarderHops { get; set; } = 8;
+    public int MaxRecentFiles { get; set; } = 10;
 
     public static AppConfig Load(string path)
     {

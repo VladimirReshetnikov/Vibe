@@ -48,6 +48,10 @@
     "maxForwarderHops": {
       "type": "integer",
       "description": "Maximum number of forwarded export hops followed when resolving a function."
+    },
+    "maxRecentFiles": {
+      "type": "integer",
+      "description": "Maximum number of recent files to track in the GUI."
     }
   },
   "required": [
@@ -61,6 +65,7 @@
     "docFragmentSize",
     "docSearchMaxPages",
     "llmMaxTokens",
-    "maxForwarderHops"
+    "maxForwarderHops",
+    "maxRecentFiles"
   ]
 }
