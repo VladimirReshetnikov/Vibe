@@ -1,6 +1,9 @@
+using System;
 using System.Diagnostics;
+using System.IO;
 using System.Reflection;
 using System.Windows;
+using System.Windows.Media;
 using System.Windows.Navigation;
 
 namespace Vibe.Gui;
@@ -30,6 +33,30 @@ public partial class AboutWindow : Window
     private void Close_Click(object sender, RoutedEventArgs e)
     {
         Close();
+    }
+
+    private void ConfigHyperlink_Click(object sender, RoutedEventArgs e)
+    {
+        try
+        {
+            var path = Path.Combine(AppContext.BaseDirectory, "config.json");
+            var text = File.ReadAllText(path);
+            var dialog = new MemoDialog(
+                text,
+                800,
+                600,
+                Brushes.Black,
+                new SolidColorBrush(Color.FromRgb(255, 255, 240)))
+            {
+                Owner = this
+            };
+            dialog.ShowDialog();
+        }
+        catch (Exception ex)
+        {
+            MessageBox.Show(this, $"Unable to open config.json: {ex.Message}", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
+        }
+        e.Handled = true;
     }
 }
 
