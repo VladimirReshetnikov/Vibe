@@ -17,6 +17,21 @@ public static class TypeExtensionsTests
     [Fact]
     public static void DynamicFieldAccess()
     {
+        /* THIS TEST FAILS:
+         Microsoft.CSharp.RuntimeBinder.RuntimeBinderException
+'Vibe.Tests.SampleStaticClass' does not contain a definition for 'Field'
+   at CallSite.Target(Closure, CallSite, Object, Object)
+   at System.Dynamic.UpdateDelegates.UpdateAndExecute2[T0,T1,TRet](CallSite site, T0 arg0, T1 arg1)
+   at lambda_method50(Closure)
+   at Vibe.Utils.TypeExtensions.StaticTypeProxy.TrySetMember(SetMemberBinder binder, Object value) in C:\Users\vresh\source\repos\Vibe\Vibe.Utils\TypeExtensions.cs:line 94
+   at CallSite.Target(Closure, CallSite, Object, Int32)
+   at System.Dynamic.UpdateDelegates.UpdateAndExecute2[T0,T1,TRet](CallSite site, T0 arg0, T1 arg1)
+   at Vibe.Tests.TypeExtensionsTests.DynamicFieldAccess() in C:\Users\vresh\source\repos\Vibe\tests\Vibe.Tests\TypeExtensionsTests.cs:line 21
+   at System.RuntimeMethodHandle.InvokeMethod(Object target, Void** arguments, Signature sig, Boolean isConstructor)
+   at System.Reflection.MethodBaseInvoker.InvokeWithNoArgs(Object obj, BindingFlags invokeAttr)
+
+   TODO: Fix it. Implement missing parts in `ToDynamicObject`
+   */
         dynamic proxy = CreateProxy();
         proxy.Field = 42;
 
@@ -30,6 +45,21 @@ public static class TypeExtensionsTests
     [Fact]
     public static void DynamicPropertyAccess()
     {
+        /* THIS TEST FAILS:
+         Microsoft.CSharp.RuntimeBinder.RuntimeBinderException
+'Vibe.Tests.SampleStaticClass' does not contain a definition for 'Property'
+   at CallSite.Target(Closure, CallSite, Object, Object)
+   at System.Dynamic.UpdateDelegates.UpdateAndExecute2[T0,T1,TRet](CallSite site, T0 arg0, T1 arg1)
+   at lambda_method53(Closure)
+   at Vibe.Utils.TypeExtensions.StaticTypeProxy.TrySetMember(SetMemberBinder binder, Object value) in C:\Users\vresh\source\repos\Vibe\Vibe.Utils\TypeExtensions.cs:line 94
+   at CallSite.Target(Closure, CallSite, Object, String)
+   at System.Dynamic.UpdateDelegates.UpdateAndExecute2[T0,T1,TRet](CallSite site, T0 arg0, T1 arg1)
+   at Vibe.Tests.TypeExtensionsTests.DynamicPropertyAccess() in C:\Users\vresh\source\repos\Vibe\tests\Vibe.Tests\TypeExtensionsTests.cs:line 49
+   at System.RuntimeMethodHandle.InvokeMethod(Object target, Void** arguments, Signature sig, Boolean isConstructor)
+   at System.Reflection.MethodBaseInvoker.InvokeWithNoArgs(Object obj, BindingFlags invokeAttr)
+
+    TODO: Fix it. Implement missing parts in `ToDynamicObject`
+*/
         dynamic proxy = CreateProxy();
         proxy.Property = "changed";
 
