@@ -12,27 +12,29 @@ public static class TypeExtensionsTests
     private static dynamic CreateProxy() => typeof(SampleStaticClass).ToDynamicObject();
 
     /// <summary>
-    /// Attempts to read a static field. This should work but is currently not supported.
+    /// Reads and writes a static field through the dynamic proxy.
     /// </summary>
-    [Fact(Skip = "Static field access not yet supported")]
+    [Fact]
     public static void DynamicFieldAccess()
     {
-        SampleStaticClass.Field = 42;
         dynamic proxy = CreateProxy();
+        proxy.Field = 42;
 
         Assert.Equal(42, proxy.Field);
+        Assert.Equal(42, SampleStaticClass.Field);
     }
 
     /// <summary>
-    /// Attempts to read a static property. This should work but is currently not supported.
+    /// Reads and writes a static property through the dynamic proxy.
     /// </summary>
-    [Fact(Skip = "Static property access not yet supported")]
+    [Fact]
     public static void DynamicPropertyAccess()
     {
-        SampleStaticClass.Property = "changed";
         dynamic proxy = CreateProxy();
+        proxy.Property = "changed";
 
         Assert.Equal("changed", proxy.Property);
+        Assert.Equal("changed", SampleStaticClass.Property);
     }
 
     /// <summary>
@@ -79,6 +81,27 @@ public static class TypeExtensionsTests
         int result = proxy.Inner.AddOne(1);
         Assert.Equal(2, result);
     }
+
+    /// <summary>
+    /// Ensures that providing a null type throws an <see cref="ArgumentNullException"/>.
+    /// </summary>
+    [Fact]
+    public static void NullTypeThrowsArgumentNullException()
+    {
+        Type? type = null;
+        Assert.Throws<ArgumentNullException>(() => type!.ToDynamicObject());
+    }
+
+    /// <summary>
+    /// Invokes overloaded static methods through the dynamic proxy.
+    /// </summary>
+    [Fact]
+    public static void DynamicMethodOverloads()
+    {
+        dynamic proxy = typeof(OverloadedSample).ToDynamicObject();
+        Assert.Equal("int:5", proxy.DoWork(5));
+        Assert.Equal("string:test", proxy.DoWork("test"));
+    }
 }
 
 public static class SampleStaticClass
@@ -95,4 +118,10 @@ public static class Outer
     {
         public static int AddOne(int value) => value + 1;
     }
+}
+
+public static class OverloadedSample
+{
+    public static string DoWork(int value) => $"int:{value}";
+    public static string DoWork(string value) => $"string:{value}";
 }
