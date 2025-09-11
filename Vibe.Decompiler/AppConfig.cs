@@ -11,6 +11,7 @@ public sealed class AppConfig
     public bool UseWebSearch { get; set; } = true;
     public string LlmProvider { get; set; } = "";
     public string LlmVersion { get; set; } = "";
+    public string LlmReasoningEffort { get; set; } = "";
     public int MaxDataSizeBytes { get; set; } = 256 * 1024;
     public int MaxLlmCodeLength { get; set; } = 16 * 1024;
     public int DocTimeoutSeconds { get; set; } = 30;

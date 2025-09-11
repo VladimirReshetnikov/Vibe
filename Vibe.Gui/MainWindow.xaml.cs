@@ -56,7 +56,7 @@ public partial class MainWindow : Window
         if (!string.IsNullOrWhiteSpace(apiKey))
         {
             string model = string.IsNullOrWhiteSpace(_config.LlmVersion) ? "gpt-4o-mini" : _config.LlmVersion;
-            _provider = new OpenAiLlmProvider(apiKey, model);
+            _provider = new OpenAiLlmProvider(apiKey, model, reasoningEffort: _config.LlmReasoningEffort);
         }
         LoadCommonDlls();
     }

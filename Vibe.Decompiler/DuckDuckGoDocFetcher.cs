@@ -3,6 +3,7 @@
 using System.Net.Http.Headers;
 using System.Text;
 using System.Text.Json;
+using System.Text.Json.Serialization;
 using System.Text.RegularExpressions;
 
 namespace Vibe.Decompiler;
@@ -17,11 +18,13 @@ public sealed class OpenAiDocPageEvaluator : IDocPageEvaluator
     private readonly HttpClient _http = new();
     public string ApiKey { get; }
     public string Model { get; }
+    public string? ReasoningEffort { get; }
 
-    public OpenAiDocPageEvaluator(string apiKey, string model = "gpt-4o-mini")
+    public OpenAiDocPageEvaluator(string apiKey, string model = "gpt-4o-mini", string? reasoningEffort = null)
     {
         ApiKey = apiKey;
         Model = model;
+        ReasoningEffort = reasoningEffort;
         _http.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", ApiKey);
     }
 
@@ -30,6 +33,7 @@ public sealed class OpenAiDocPageEvaluator : IDocPageEvaluator
         var req = new
         {
             model = Model,
+            reasoning = string.IsNullOrWhiteSpace(ReasoningEffort) ? null : new { effort = ReasoningEffort },
             messages = new object[]
             {
                 new { role = "system", content = "You are a classifier that answers yes or no." },
@@ -37,7 +41,8 @@ public sealed class OpenAiDocPageEvaluator : IDocPageEvaluator
             }
         };
 
-        var json = JsonSerializer.Serialize(req);
+        var options = new JsonSerializerOptions { DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull };
+        var json = JsonSerializer.Serialize(req, options);
         using var httpContent = new StringContent(json, Encoding.UTF8, "application/json");
         using var resp = await _http.PostAsync("https://api.openai.com/v1/chat/completions", httpContent, cancellationToken);
 
