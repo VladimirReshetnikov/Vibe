@@ -14,8 +14,11 @@ Create a key at https://platform.openai.com/account/api-keys and set it as the O
 PowerShell: setx OPENAI_API_KEY "your_key"
 Bash: export OPENAI_API_KEY=your_key
         </TextBlock>
+        <TextBlock Text="Temporary API Key:" Margin="0,0,0,5" />
+        <TextBox x:Name="ApiKeyBox" Margin="0,0,0,20" />
         <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
             <Button Content="Exit" Width="75" Margin="0,0,10,0" Click="Exit_Click" />
+            <Button Content="Use Key" Width="75" Margin="0,0,10,0" Click="UseKey_Click" />
             <Button Content="Ignore" Width="75" Click="Ignore_Click" />
         </StackPanel>
     </StackPanel>

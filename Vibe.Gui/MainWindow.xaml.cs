@@ -46,7 +46,7 @@ public partial class MainWindow : Window
         InitializeComponent();
         OutputBox.TextArea.TextView.LineTransformers.Add(new PseudoCodeColorizer());
         _config = AppConfig.Load(Path.Combine(AppContext.BaseDirectory, "config.json"));
-        var apiKey = Environment.GetEnvironmentVariable("OPENAI_API_KEY");
+        var apiKey = App.ApiKey;
         if (!string.IsNullOrWhiteSpace(apiKey))
         {
             string model = string.IsNullOrWhiteSpace(_config.LlmVersion) ? "gpt-4o-mini" : _config.LlmVersion;

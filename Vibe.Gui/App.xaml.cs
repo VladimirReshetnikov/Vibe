@@ -6,10 +6,12 @@ namespace Vibe.Gui;
 
 public partial class App : Application
 {
+    public static string? ApiKey { get; private set; }
+
     protected override void OnStartup(StartupEventArgs e)
     {
-        var apiKey = Environment.GetEnvironmentVariable("OPENAI_API_KEY");
-        if (string.IsNullOrWhiteSpace(apiKey))
+        var envApiKey = Environment.GetEnvironmentVariable("OPENAI_API_KEY");
+        if (string.IsNullOrWhiteSpace(envApiKey))
         {
             var dlg = new MissingApiKeyWindow();
             if (dlg.ShowDialog() != true)
@@ -17,6 +19,12 @@ public partial class App : Application
                 Shutdown();
                 return;
             }
+
+            ApiKey = dlg.ApiKey;
+        }
+        else
+        {
+            ApiKey = envApiKey;
         }
 
         base.OnStartup(e);
