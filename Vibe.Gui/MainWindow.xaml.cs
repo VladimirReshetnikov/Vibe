@@ -34,21 +34,19 @@ public partial class MainWindow : Window
     }
 
     private readonly AppConfig _config;
-    private readonly Lazy<ILlmProvider> _provider;
+    private readonly ILlmProvider? _provider;
 
     public MainWindow()
     {
         InitializeComponent();
         OutputBox.TextArea.TextView.LineTransformers.Add(new PseudoCodeColorizer());
         _config = AppConfig.Load(Path.Combine(AppContext.BaseDirectory, "config.json"));
-        _provider = new(() =>
+        var apiKey = Environment.GetEnvironmentVariable("OPENAI_API_KEY");
+        if (!string.IsNullOrWhiteSpace(apiKey))
         {
-            var apiKey = Environment.GetEnvironmentVariable("OPENAI_API_KEY");
-            if (string.IsNullOrWhiteSpace(apiKey))
-                throw new InvalidOperationException("OPENAI_API_KEY environment variable is not set.");
             string model = string.IsNullOrWhiteSpace(_config.LlmVersion) ? "gpt-4o-mini" : _config.LlmVersion;
-            return new OpenAiLlmProvider(apiKey, model);
-        });
+            _provider = new OpenAiLlmProvider(apiKey, model);
+        }
         LoadCommonDlls();
     }
 
@@ -184,10 +182,12 @@ public partial class MainWindow : Window
                         });
                     }, token);
 
-                    if (_config.MaxLlmCodeLength > 0 && code.Length > _config.MaxLlmCodeLength)
+                    if (_provider != null && _config.MaxLlmCodeLength > 0 && code.Length > _config.MaxLlmCodeLength)
                         code = code.Substring(0, _config.MaxLlmCodeLength);
-                    string refined = await _provider.Value.RefineAsync(code, null, token);
-                    OutputBox.Text = refined;
+                    string output = code;
+                    if (_provider != null)
+                        output = await _provider.RefineAsync(code, null, token);
+                    OutputBox.Text = output;
                 }
                 catch (OperationCanceledException)
                 {
@@ -251,8 +251,7 @@ public partial class MainWindow : Window
                 dll.Dispose();
         }
 
-        if (_provider.IsValueCreated)
-            _provider.Value.Dispose();
+        _provider?.Dispose();
         base.OnClosed(e);
     }
 
