@@ -34,22 +34,23 @@ public partial class MainWindow : Window
     }
 
     private readonly AppConfig _config;
+    private readonly Lazy<ILlmProvider> _provider;
 
     public MainWindow()
     {
         InitializeComponent();
         OutputBox.TextArea.TextView.LineTransformers.Add(new PseudoCodeColorizer());
         _config = AppConfig.Load(Path.Combine(AppContext.BaseDirectory, "config.json"));
+        _provider = new(() =>
+        {
+            var apiKey = Environment.GetEnvironmentVariable("OPENAI_API_KEY");
+            if (string.IsNullOrWhiteSpace(apiKey))
+                throw new InvalidOperationException("OPENAI_API_KEY environment variable is not set.");
+            string model = string.IsNullOrWhiteSpace(_config.LlmVersion) ? "gpt-4o-mini" : _config.LlmVersion;
+            return new OpenAiLlmProvider(apiKey, model);
+        });
         LoadCommonDlls();
     }
-
-    private readonly Lazy<ILlmProvider> _provider = new(() =>
-    {
-        var apiKey = Environment.GetEnvironmentVariable("OPENAI_API_KEY");
-        if (string.IsNullOrWhiteSpace(apiKey))
-            throw new InvalidOperationException("OPENAI_API_KEY environment variable is not set.");
-        return new OpenAiLlmProvider(apiKey);
-    });
 
     private void LoadDll(string path, bool showErrors)
     {
@@ -174,7 +175,7 @@ public partial class MainWindow : Window
                     {
                         token.ThrowIfCancellationRequested();
                         int off = pe2.RvaToOffsetChecked(export.FunctionRva);
-                        int maxLen = Math.Min(4096, pe2.Data.Length - off);
+                        int maxLen = Math.Min(_config.MaxDataSizeBytes, pe2.Data.Length - off);
                         var engine = new Engine();
                         return engine.ToPseudoCode(pe2.Data.AsMemory(off, maxLen), new Engine.Options
                         {

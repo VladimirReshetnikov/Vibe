@@ -6,10 +6,7 @@ namespace Vibe.Decompiler;
 
 public static class Win32DocFetcher
 {
-    private static readonly HttpClient _http = new()
-    {
-        Timeout = TimeSpan.FromSeconds(30)
-    };
+    private static readonly HttpClient _http = new();
 
     /// <summary>
     /// Attempts to download HTML documentation for a given Windows API export.
@@ -17,15 +14,19 @@ public static class Win32DocFetcher
     /// </summary>
     /// <param name="dllName">Name of the DLL that exports the function (optional filter).</param>
     /// <param name="exportName">Exported function name (e.g. "CreateFileW").</param>
+    /// <param name="timeoutSeconds">HTTP request timeout in seconds.</param>
     /// <param name="cancellationToken">Optional cancellation token.</param>
     /// <returns>The HTML string if found; otherwise <c>null</c>.</returns>
     public static async Task<string?> TryDownloadExportDocAsync(
         string dllName,
         string exportName,
+        int timeoutSeconds = 30,
         CancellationToken cancellationToken = default)
     {
         if (string.IsNullOrWhiteSpace(exportName))
             throw new ArgumentException("Export name must be provided", nameof(exportName));
+
+        _http.Timeout = TimeSpan.FromSeconds(timeoutSeconds);
 
         string query = exportName;
         if (!string.IsNullOrWhiteSpace(dllName))

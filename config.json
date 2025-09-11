@@ -4,5 +4,10 @@
   "llmProvider": "openai",
   "llmVersion": "gpt-4o-mini",
   "maxDataSizeBytes": 10240,
-  "maxLlmCodeLength": 4096
+  "maxLlmCodeLength": 4096,
+  "docTimeoutSeconds": 30,
+  "docFragmentSize": 4000,
+  "docSearchMaxPages": 2,
+  "llmMaxTokens": 4096,
+  "maxForwarderHops": 8
 }

@@ -18,7 +18,7 @@ public static class Program
         string dllPath = "C:\\Windows\\System32\\Microsoft-Edge-WebView\\msedge.dll";
         string exportName = "CreateTestWebClientProxy";
 
-        var disasm = DisassembleExportToPseudo(dllPath, exportName, config.MaxDataSizeBytes);
+        var disasm = DisassembleExportToPseudo(dllPath, exportName, config.MaxDataSizeBytes, config.MaxForwarderHops);
         Console.WriteLine(disasm);
 
         var docs = new List<string>();
@@ -26,7 +26,10 @@ public static class Program
         {
             try
             {
-                string? msDoc = await Win32DocFetcher.TryDownloadExportDocAsync(Path.GetFileName(dllPath), exportName);
+                string? msDoc = await Win32DocFetcher.TryDownloadExportDocAsync(
+                    Path.GetFileName(dllPath),
+                    exportName,
+                    config.DocTimeoutSeconds);
                 if (msDoc is not null)
                     docs.Add(msDoc);
             }
@@ -48,7 +51,12 @@ public static class Program
                         try
                         {
                             using var evaluator = new OpenAiDocPageEvaluator(openAiKey, model);
-                            var pages = await DuckDuckGoDocFetcher.FindDocumentationPagesAsync(exportName, 2, evaluator);
+                            var pages = await DuckDuckGoDocFetcher.FindDocumentationPagesAsync(
+                                exportName,
+                                config.DocSearchMaxPages,
+                                evaluator,
+                                config.DocFragmentSize,
+                                config.DocTimeoutSeconds);
                             docs.AddRange(pages);
                         }
                         catch { }
@@ -58,7 +66,7 @@ public static class Program
             case "anthropic" when !string.IsNullOrWhiteSpace(anthropicKey):
                 {
                     string model = string.IsNullOrWhiteSpace(config.LlmVersion) ? "claude-3-5-sonnet-20240620" : config.LlmVersion;
-                    provider = new AnthropicLlmProvider(anthropicKey, model);
+                    provider = new AnthropicLlmProvider(anthropicKey, model, maxTokens: config.LlmMaxTokens);
                     break;
                 }
         }
@@ -115,7 +123,8 @@ public static class Program
     public static string DisassembleExportToPseudo(
         string dllName,
         string exportName,
-        int maxBytes = 4096)
+        int maxBytes = 4096,
+        int maxForwarderHops = 8)
     {
         // Resolve a *64-bit* System32 path even if this process is 32-bit (WOW64).
         string ResolveSystemDllPath(string name)
@@ -140,7 +149,7 @@ public static class Program
         string curDllPath = ResolveSystemDllPath(dllName);
         string curExport = exportName;
 
-        for (int hop = 0; hop < 8; hop++)
+        for (int hop = 0; hop < maxForwarderHops; hop++)
         {
             if (!visited.Add($"{curDllPath}!{curExport}"))
                 throw new InvalidOperationException("Forwarder loop detected.");
