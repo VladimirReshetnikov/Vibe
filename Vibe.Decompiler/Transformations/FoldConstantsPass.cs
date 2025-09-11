@@ -110,7 +110,7 @@ public sealed class FoldConstantsPass : IRRewriter, ITransformationPass
             IR.BinOp.Xor => l ^ r,
             IR.BinOp.Shl => (int)r >= bits ? 0 : l << (int)r,
             IR.BinOp.Shr => (int)r >= bits ? 0 : l >> (int)r,
-            IR.BinOp.Sar => (int)r >= bits ? ((l & (1UL << (bits - 1))) != 0 ? ulong.MaxValue : 0) : (ulong)((long)l >> (int)r),
+            IR.BinOp.Sar => (int)r >= bits ? ((l & (1UL << (bits - 1))) != 0 ? ulong.MaxValue : 0) : (ulong)(SignExtend(l, bits) >> (int)r),
             IR.BinOp.SDiv => r == 0 ? l : (ulong)((long)l / (long)r),
             IR.BinOp.SRem => r == 0 ? l : (ulong)((long)l % (long)r),
             _ => l,

@@ -92,4 +92,48 @@ public class FoldConstantsPassTests
         var c = Assert.IsType<IR.UConst>(stmt.Rhs);
         Assert.Equal((ulong)0, c.Value);
     }
+
+    /// <summary>
+    /// Folds arithmetic right shifts on unsigned constants with the sign bit set.
+    /// </summary>
+    [Fact]
+    public void FoldsSarOnUConsts()
+    {
+        var fn = new IR.FunctionIR("test");
+        var bb = new IR.BasicBlock(new IR.LabelSymbol("L0", 0));
+        bb.Statements.Add(new IR.AssignStmt(new IR.RegExpr("rdx"),
+            new IR.BinOpExpr(IR.BinOp.Sar,
+                new IR.UConst(0x80000000, 32),
+                new IR.UConst(1, 32))));
+        fn.Blocks.Add(bb);
+
+        var pass = new FoldConstantsPass();
+        pass.Run(fn);
+
+        var stmt = Assert.IsType<IR.AssignStmt>(fn.Blocks[0].Statements[0]);
+        var c = Assert.IsType<IR.UConst>(stmt.Rhs);
+        Assert.Equal((ulong)0xC0000000, c.Value);
+    }
+
+    /// <summary>
+    /// Handles arithmetic right shift amounts greater than or equal to the bit width on unsigned constants.
+    /// </summary>
+    [Fact]
+    public void FoldsSarLargeShiftAmountsOnUConsts()
+    {
+        var fn = new IR.FunctionIR("test");
+        var bb = new IR.BasicBlock(new IR.LabelSymbol("L0", 0));
+        bb.Statements.Add(new IR.AssignStmt(new IR.RegExpr("rdx"),
+            new IR.BinOpExpr(IR.BinOp.Sar,
+                new IR.UConst(0x80000000, 32),
+                new IR.UConst(32, 32))));
+        fn.Blocks.Add(bb);
+
+        var pass = new FoldConstantsPass();
+        pass.Run(fn);
+
+        var stmt = Assert.IsType<IR.AssignStmt>(fn.Blocks[0].Statements[0]);
+        var c = Assert.IsType<IR.UConst>(stmt.Rhs);
+        Assert.Equal((ulong)0xFFFFFFFF, c.Value);
+    }
 }
