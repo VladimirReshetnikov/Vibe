@@ -1,7 +1,8 @@
 // SPDX-License-Identifier: MIT-0
 
 using System.Text;
-
+using System.Diagnostics;
+using System.IO;
 using System;
 
 namespace Vibe.Decompiler;
@@ -310,6 +311,19 @@ public sealed class PEReaderLite
     {
         var sb = new StringBuilder();
         sb.AppendLine($"File: {FilePath}");
+        var fi = new FileInfo(FilePath);
+        sb.AppendLine($"Size: {fi.Length} bytes");
+        sb.AppendLine($"Date modified: {fi.LastWriteTimeUtc:u}");
+        var vi = FileVersionInfo.GetVersionInfo(FilePath);
+        sb.AppendLine($"File description: {vi.FileDescription}");
+        var type = Path.GetExtension(FilePath).Equals(".dll", StringComparison.OrdinalIgnoreCase) ? "DLL File" : "Unknown";
+        sb.AppendLine($"Type: {type}");
+        sb.AppendLine($"File version: {vi.FileVersion}");
+        sb.AppendLine($"Product name: {vi.ProductName}");
+        sb.AppendLine($"Product version: {vi.ProductVersion}");
+        sb.AppendLine($"Copyright: {vi.LegalCopyright}");
+        sb.AppendLine($"Language: {vi.Language}");
+        sb.AppendLine($"Original filename: {vi.OriginalFilename}");
         sb.AppendLine($"Machine: 0x{Machine:X4} {MachineToString(Machine)}");
         sb.AppendLine($"TimeDateStamp: 0x{TimeDateStamp:X8} ({DateTimeOffset.FromUnixTimeSeconds(TimeDateStamp).UtcDateTime:u})");
         sb.AppendLine($"Characteristics: 0x{Characteristics:X4} {FormatCharacteristics(Characteristics)}");
@@ -342,6 +356,7 @@ public sealed class PEReaderLite
         3 => "Windows CUI",
         _ => "unknown"
     };
+
 
     private static string FormatCharacteristics(ushort c)
     {
