@@ -12,6 +12,7 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Solution Items", "Solution 
 		LICENSE = LICENSE
 		README.md = README.md
 		config.json = config.json
+		config.schema.json = config.schema.json
 	EndProjectSection
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "docs", "docs", "{91C8EFF0-9B09-4F83-A2CC-D8FB0BC694D3}"
@@ -27,6 +28,7 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "docs", "docs", "{91C8EFF0-9
 		docs\heuristics.md = docs\heuristics.md
 		docs\architecture.md = docs\architecture.md
 		docs\dynamic-native-library-proxy.md = docs\dynamic-native-library-proxy.md
+		docs\transformations-architecture-2.md = docs\transformations-architecture-2.md
 	EndProjectSection
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Vibe.Gui", "Vibe.Gui\Vibe.Gui.csproj", "{1440EBD9-4E12-4327-9C11-12BF6F95D060}"
