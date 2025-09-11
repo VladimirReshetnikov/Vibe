@@ -30,6 +30,8 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "tests", "tests", "{CF429B5E
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Vibe.Decompiler.Tests", "tests\Vibe.Decompiler.Tests\Vibe.Decompiler.Tests.csproj", "{BE0250E1-5682-41BC-87F7-49909668F213}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Vibe.Utils", "Vibe.Utils\Vibe.Utils.csproj", "{18D9DD6D-999D-43EC-9EF4-9E61CA12CBC0}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -48,6 +50,10 @@ Global
 		{BE0250E1-5682-41BC-87F7-49909668F213}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{BE0250E1-5682-41BC-87F7-49909668F213}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{BE0250E1-5682-41BC-87F7-49909668F213}.Release|Any CPU.Build.0 = Release|Any CPU
+		{18D9DD6D-999D-43EC-9EF4-9E61CA12CBC0}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{18D9DD6D-999D-43EC-9EF4-9E61CA12CBC0}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{18D9DD6D-999D-43EC-9EF4-9E61CA12CBC0}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{18D9DD6D-999D-43EC-9EF4-9E61CA12CBC0}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
