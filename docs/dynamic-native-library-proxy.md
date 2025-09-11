@@ -76,7 +76,7 @@ var ptr = (IntPtr)proxy.GetHandle();  // binder.ReturnType == typeof(IntPtr)
 3. **Invoke Member** – Override `TryInvokeMember` to perform the resolution steps above and invoke the cached delegate.
 4. **Delegate Generation** – Emit delegate types via `TypeBuilder` so they can be decorated with `UnmanagedFunctionPointer` reflecting the selected calling convention. `Marshal.GetDelegateForFunctionPointer` binds the native function to the emitted type.
 5. **Caching** – Maintain a dictionary keyed by `(method name, parameter types, return type)` to store generated delegates.
-6. **String Marshalling** – For `string` parameters, allocate unmanaged memory with `Marshal.StringToHGlobalUni`, pass the pointer, then free it in a `finally` block after the call. Where possible, a `fixed` statement with `Span<char>` may reduce allocations. Future improvements may allow custom encodings.
+6. **String Marshalling** – For `string` parameters, either rely on automatic marshalling by setting `CharSet = CharSet.Unicode` in the `UnmanagedFunctionPointer` attribute, or manually allocate unmanaged memory with `Marshal.StringToHGlobalUni`, pass the pointer, then free it in a `finally` block after the call. Where possible, a `fixed` statement with `Span<char>` may reduce allocations. Future improvements may allow custom encodings.
 7. **Thread Safety** – Guard the delegate cache with `ConcurrentDictionary` to allow concurrent invocations.
 8. **Disposal** – Free all allocated delegates and release the library handle when the proxy is disposed. Delegates are managed objects; unloading the library while delegates remain in use is undefined and documented as caller responsibility.
 
