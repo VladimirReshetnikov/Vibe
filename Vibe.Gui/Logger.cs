@@ -10,9 +10,16 @@ public static class Logger
 
     public static void Log(string message)
     {
-        lock (_lock)
+        try
         {
-            File.AppendAllText(_logPath, $"{DateTime.Now:O} {message}{Environment.NewLine}");
+            lock (_lock)
+            {
+                File.AppendAllText(_logPath, $"{DateTime.Now:O} {message}{Environment.NewLine}");
+            }
+        }
+        catch
+        {
+            // Suppress all logging failures to avoid recursive exceptions
         }
     }
 

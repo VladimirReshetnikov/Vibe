@@ -11,7 +11,14 @@ public static class ExceptionManager
 
     public static void Handle(Exception ex)
     {
-        Logger.LogException(ex);
+        try
+        {
+            Logger.LogException(ex);
+        }
+        catch
+        {
+            // Suppress logging failures to avoid recursive exceptions
+        }
         Application.Current.Dispatcher.Invoke(() =>
         {
             _exceptions.Add(ex.ToString());
