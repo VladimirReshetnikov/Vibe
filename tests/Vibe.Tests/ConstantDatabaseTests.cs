@@ -14,6 +14,22 @@ public enum TestAccess
     Execute = 4
 }
 
+// Enum without [Flags] that still looks like a flags enum.
+public enum ImplicitFlags
+{
+    None = 0,
+    A = 1,
+    B = 2,
+    C = 4
+}
+
+// Static class with const fields, treated like an enum by ConstantDatabase.
+public static class StatusCodes
+{
+    public const int Success = 0;
+    public const int Failure = 1;
+}
+
 /// <summary>
 /// Tests functionality of <see cref="ConstantDatabase"/> for mapping and
 /// formatting constant values.
@@ -103,5 +119,67 @@ public class ConstantDatabaseTests
         var ok = db.TryFormatValue(typeof(TestAccess).FullName!, value, out var formatted);
         Assert.False(ok);
         Assert.Equal("0x9", formatted);
+    }
+
+    /// <summary>
+    /// Formats combinations of enums that look like flags even without a [Flags] attribute.
+    /// </summary>
+    [Fact]
+    public void FormatsImplicitFlagCombinations()
+    {
+        var db = new ConstantDatabase();
+        db.LoadFromAssembly(typeof(ImplicitFlags).Assembly);
+        ulong value = (ulong)(ImplicitFlags.A | ImplicitFlags.C);
+
+        var ok = db.TryFormatValue(typeof(ImplicitFlags).FullName!, value, out var formatted);
+        Assert.True(ok);
+
+        var expected = new[]
+        {
+            $"{typeof(ImplicitFlags).FullName}.A",
+            $"{typeof(ImplicitFlags).FullName}.C"
+        }.OrderBy(x => x);
+        var parts = formatted.Split(" | ", StringSplitOptions.RemoveEmptyEntries).OrderBy(x => x);
+        Assert.Equal(expected, parts);
+    }
+
+    /// <summary>
+    /// Value zero is formatted when the enum defines it explicitly.
+    /// </summary>
+    [Fact]
+    public void FormatsZeroValueWhenDefined()
+    {
+        var db = new ConstantDatabase();
+        db.LoadFromAssembly(typeof(ImplicitFlags).Assembly);
+
+        var ok = db.TryFormatValue(typeof(ImplicitFlags).FullName!, 0, out var formatted);
+        Assert.True(ok);
+        Assert.Equal($"{typeof(ImplicitFlags).FullName}.None", formatted);
+    }
+
+    /// <summary>
+    /// Static classes with constants are treated like enums for formatting.
+    /// </summary>
+    [Fact]
+    public void FormatsValuesFromStaticConstantClasses()
+    {
+        var db = new ConstantDatabase();
+        db.LoadFromAssembly(typeof(StatusCodes).Assembly);
+
+        var ok = db.TryFormatValue(typeof(StatusCodes).FullName!, 1, out var formatted);
+        Assert.True(ok);
+        Assert.Equal($"{typeof(StatusCodes).FullName}.Failure", formatted);
+    }
+
+    /// <summary>
+    /// Formatting with an unknown enum type returns false and an empty string.
+    /// </summary>
+    [Fact]
+    public void UnknownEnumTypeReturnsFalse()
+    {
+        var db = new ConstantDatabase();
+        var ok = db.TryFormatValue("Does.Not.Exist", 1, out var formatted);
+        Assert.False(ok);
+        Assert.Equal("", formatted);
     }
 }
