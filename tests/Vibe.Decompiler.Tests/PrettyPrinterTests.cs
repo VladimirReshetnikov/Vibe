@@ -4,8 +4,14 @@ using static Vibe.Decompiler.IR.X;
 
 namespace Vibe.Decompiler.Tests;
 
+/// <summary>
+/// Tests the <see cref="IR.PrettyPrinter"/> for generating readable IR output.
+/// </summary>
 public class PrettyPrinterTests
 {
+    /// <summary>
+    /// Pretty-prints a simple function containing a local variable and return statement.
+    /// </summary>
     [Fact]
     public void PrintsSimpleFunction()
     {
@@ -33,6 +39,9 @@ public class PrettyPrinterTests
         Assert.Equal(expected, text);
     }
 
+    /// <summary>
+    /// Ensures binary expressions are parenthesized according to precedence rules.
+    /// </summary>
     [Fact]
     public void RespectsExpressionPrecedence()
     {

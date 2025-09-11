@@ -14,8 +14,15 @@ public enum TestAccess
     Execute = 4
 }
 
+/// <summary>
+/// Tests functionality of <see cref="ConstantDatabase"/> for mapping and
+/// formatting constant values.
+/// </summary>
 public class ConstantDatabaseTests
 {
+    /// <summary>
+    /// Maps an argument enum value and retrieves its expected enum type.
+    /// </summary>
     [Fact]
     public void MapAndLookupArgEnum()
     {
@@ -27,6 +34,9 @@ public class ConstantDatabaseTests
         Assert.Equal(typeof(TestAccess).FullName, name);
     }
 
+    /// <summary>
+    /// Formats an unknown constant value as hexadecimal.
+    /// </summary>
     [Fact]
     public void UnknownValueFallsBackToHex()
     {
@@ -37,6 +47,9 @@ public class ConstantDatabaseTests
         Assert.Equal("0x80", formatted);
     }
 
+    /// <summary>
+    /// Formats combinations of flags as pipe-separated enum names.
+    /// </summary>
     [Property]
     public void FormatsFlagCombinationsCorrectly(TestAccess[] flags)
     {

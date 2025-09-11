@@ -3,8 +3,14 @@ using Xunit;
 
 namespace Vibe.Decompiler.Tests.Transformations;
 
+/// <summary>
+/// Verifies simplifications performed by <see cref="SimplifyArithmeticPass"/>.
+/// </summary>
 public class SimplifyArithmeticPassTests
 {
+    /// <summary>
+    /// Removes additions by zero from arithmetic expressions.
+    /// </summary>
     [Fact]
     public void SimplifiesAdditionWithZero()
     {
@@ -22,6 +28,9 @@ public class SimplifyArithmeticPassTests
         Assert.Equal("rax", rhs.Name);
     }
 
+    /// <summary>
+    /// Eliminates multiplications by one.
+    /// </summary>
     [Fact]
     public void SimplifiesMultiplicationByOne()
     {
@@ -39,6 +48,9 @@ public class SimplifyArithmeticPassTests
         Assert.Equal("rax", rhs.Name);
     }
 
+    /// <summary>
+    /// Simplifies an XOR of a register with itself to a constant zero.
+    /// </summary>
     [Fact]
     public void SimplifiesXorWithItselfToZero()
     {

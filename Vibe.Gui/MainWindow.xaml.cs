@@ -1,4 +1,5 @@
 using System;
+using System.IO;
 using System.Linq;
 using System.Windows;
 using System.Windows.Controls;
@@ -20,6 +21,51 @@ public partial class MainWindow : Window
     {
         InitializeComponent();
         OutputBox.TextArea.TextView.LineTransformers.Add(new PseudoCodeColorizer());
+        LoadCommonDlls();
+    }
+
+    private void LoadDll(string path, bool showErrors)
+    {
+        try
+        {
+            var pe = new PEReaderLite(path);
+            var root = new TreeViewItem { Header = Path.GetFileName(path), Tag = pe };
+            foreach (var name in pe.EnumerateExportNames().OrderBy(n => n))
+            {
+                root.Items.Add(new TreeViewItem { Header = name, Tag = new ExportItem { Pe = pe, Name = name } });
+            }
+            DllTree.Items.Add(root);
+            root.IsExpanded = true;
+        }
+        catch (Exception ex)
+        {
+            if (showErrors)
+                MessageBox.Show(this, ex.Message, "Error", MessageBoxButton.OK, MessageBoxImage.Error);
+        }
+    }
+
+    private void LoadCommonDlls()
+    {
+        var systemDir = Environment.SystemDirectory;
+        string[] dlls =
+        {
+            "kernel32.dll",
+            "user32.dll",
+            "gdi32.dll",
+            "advapi32.dll",
+            "shell32.dll",
+            "ntdll.dll",
+            "ole32.dll",
+            "oleaut32.dll",
+            "dbghelp.dll"
+        };
+
+        foreach (var name in dlls)
+        {
+            var path = Path.Combine(systemDir, name);
+            if (File.Exists(path))
+                LoadDll(path, showErrors: false);
+        }
     }
 
     private void OpenDll_Click(object sender, RoutedEventArgs e)
@@ -27,21 +73,7 @@ public partial class MainWindow : Window
         var dlg = new OpenFileDialog { Filter = "DLL files (*.dll)|*.dll|All files (*.*)|*.*" };
         if (dlg.ShowDialog() == true)
         {
-            try
-            {
-                var pe = new PEReaderLite(dlg.FileName);
-                var root = new TreeViewItem { Header = System.IO.Path.GetFileName(dlg.FileName), Tag = pe };
-                foreach (var name in pe.EnumerateExportNames().OrderBy(n => n))
-                {
-                    root.Items.Add(new TreeViewItem { Header = name, Tag = new ExportItem { Pe = pe, Name = name } });
-                }
-                DllTree.Items.Add(root);
-                root.IsExpanded = true;
-            }
-            catch (Exception ex)
-            {
-                MessageBox.Show(this, ex.Message, "Error", MessageBoxButton.OK, MessageBoxImage.Error);
-            }
+            LoadDll(dlg.FileName, showErrors: true);
         }
     }
 
