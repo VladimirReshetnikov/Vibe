@@ -35,6 +35,8 @@ public partial class MainWindow : Window
 
     private readonly AppConfig _config;
     private readonly ILlmProvider? _provider;
+    private string _searchText = string.Empty;
+    private DateTime _lastKeyTime;
 
     public MainWindow()
     {
@@ -214,33 +216,76 @@ public partial class MainWindow : Window
 
     private void DllTree_KeyDown(object sender, KeyEventArgs e)
     {
-        if (e.Key != Key.Delete)
-            return;
-        if (DllTree.SelectedItem is not TreeViewItem item)
-            return;
-
-        TreeViewItem root;
-        DllItem? dll;
-        switch (item.Tag)
+        if (e.Key == Key.Delete)
         {
-            case DllItem di:
-                dll = di;
-                root = item;
-                break;
-            case ExportItem exp:
-                dll = exp.Dll;
-                root = GetRootItem(item);
-                break;
-            default:
+            if (DllTree.SelectedItem is not TreeViewItem item)
                 return;
+
+            TreeViewItem root;
+            DllItem? dll;
+            switch (item.Tag)
+            {
+                case DllItem di:
+                    dll = di;
+                    root = item;
+                    break;
+                case ExportItem exp:
+                    dll = exp.Dll;
+                    root = GetRootItem(item);
+                    break;
+                default:
+                    return;
+            }
+
+            dll.Cts.Cancel();
+            dll.Dispose();
+            DllTree.Items.Remove(root);
+            if (ReferenceEquals(item, DllTree.SelectedItem))
+                OutputBox.Text = string.Empty;
+            e.Handled = true;
+            return;
         }
 
-        dll.Cts.Cancel();
-        dll.Dispose();
-        DllTree.Items.Remove(root);
-        if (ReferenceEquals(item, DllTree.SelectedItem))
-            OutputBox.Text = string.Empty;
+        var ch = KeyToChar(e.Key);
+        if (ch is null)
+            return;
+
+        var now = DateTime.UtcNow;
+        if ((now - _lastKeyTime).TotalSeconds > 1)
+            _searchText = string.Empty;
+        _lastKeyTime = now;
+        _searchText += ch.Value;
+
+        TreeViewItem? rootItem = null;
+        if (DllTree.SelectedItem is TreeViewItem current)
+            rootItem = GetRootItem(current);
+        else if (DllTree.Items.Count > 0)
+            rootItem = DllTree.Items[0] as TreeViewItem;
+
+        if (rootItem is null)
+            return;
+
+        var match = rootItem.Items
+            .OfType<TreeViewItem>()
+            .FirstOrDefault(t => t.Tag is ExportItem exp &&
+                                 exp.Name.StartsWith(_searchText, StringComparison.OrdinalIgnoreCase));
+        if (match != null)
+        {
+            match.IsSelected = true;
+            match.BringIntoView();
+        }
         e.Handled = true;
+    }
+
+    private static char? KeyToChar(Key key)
+    {
+        if (key >= Key.A && key <= Key.Z)
+            return (char)('a' + (key - Key.A));
+        if (key >= Key.D0 && key <= Key.D9)
+            return (char)('0' + (key - Key.D0));
+        if (key >= Key.NumPad0 && key <= Key.NumPad9)
+            return (char)('0' + (key - Key.NumPad0));
+        return null;
     }
 
     protected override void OnClosed(EventArgs e)
