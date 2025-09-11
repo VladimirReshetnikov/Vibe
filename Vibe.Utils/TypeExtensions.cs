@@ -53,11 +53,14 @@ public static class TypeExtensions
                     var arg = args[i];
                     if (arg is IStrongBox)
                     {
-                        var temp = Expression.Variable(typeof(object), $"arg{i}");
+                        var boxType = arg.GetType();
+                        var valueType = boxType.GetProperty(nameof(IStrongBox.Value))!.PropertyType;
+                        var temp = Expression.Variable(valueType, $"arg{i}");
                         variables.Add(temp);
-                        var boxExpr = Expression.Convert(Expression.Constant(arg), typeof(IStrongBox));
-                        preAssign.Add(Expression.Assign(temp, Expression.Property(boxExpr, nameof(IStrongBox.Value))));
-                        postAssign.Add(Expression.Assign(Expression.Property(boxExpr, nameof(IStrongBox.Value)), temp));
+                        var boxExpr = Expression.Constant(arg, boxType);
+                        var valueExpr = Expression.Property(boxExpr, nameof(IStrongBox.Value));
+                        preAssign.Add(Expression.Assign(temp, valueExpr));
+                        postAssign.Add(Expression.Assign(valueExpr, temp));
                         argInfo.Add(CSharpArgumentInfo.Create(CSharpArgumentInfoFlags.IsRef | CSharpArgumentInfoFlags.IsOut, null));
                         argExpr.Add(temp);
                     }
