@@ -15,6 +15,9 @@
                 <Separator />
                 <MenuItem Header="E_xit" Click="Exit_Click" />
             </MenuItem>
+            <MenuItem Header="_Help">
+                <MenuItem Header="_About" Click="About_Click" />
+            </MenuItem>
         </Menu>
         <ProgressBar x:Name="BusyBar" DockPanel.Dock="Bottom" Height="4" IsIndeterminate="True" Visibility="Collapsed"/>
         <Grid>
