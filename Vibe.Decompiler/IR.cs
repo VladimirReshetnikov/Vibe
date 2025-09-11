@@ -259,6 +259,13 @@ public static class IR
                 _sb.AppendLine();
             }
 
+            if (fn.Tags.ContainsKey("ByteCount") || fn.Tags.ContainsKey("InstructionCount"))
+            {
+                var bytes = GetTag(fn, "ByteCount", 0);
+                var insnCount = GetTag(fn, "InstructionCount", 0);
+                EmitLine($"// {bytes} bytes, {insnCount} asm instructions, {fn.Blocks.Count} blocks");
+            }
+
             // Signature
             var ret = RenderType(fn.ReturnType);
             var paramList = string.Join(", ",

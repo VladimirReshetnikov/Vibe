@@ -3,6 +3,7 @@
 using System;
 using System.Globalization;
 using System.Text;
+using System.Linq;
 using Iced.Intel;
 using Decoder = Iced.Intel.Decoder;
 using System.Runtime.InteropServices;
@@ -339,6 +340,8 @@ public sealed class Engine
         // Set tags used by pretty-printer for header/body comments
         fn.Tags["UsesFramePointer"] = ctx.UsesFramePointer;
         fn.Tags["LocalSize"] = ctx.LocalSize;
+        fn.Tags["InstructionCount"] = ctx.Insns.Count;
+        fn.Tags["ByteCount"] = ctx.Insns.Sum(i => i.Length);
 
         // Optional PEB alias local with initializer
         if (ctx.UsesGsPeb)
