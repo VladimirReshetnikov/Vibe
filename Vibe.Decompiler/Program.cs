@@ -46,12 +46,12 @@ public static class Program
             case "openai" when !string.IsNullOrWhiteSpace(openAiKey):
                 {
                     string model = string.IsNullOrWhiteSpace(config.LlmVersion) ? "gpt-4o-mini" : config.LlmVersion;
-                    provider = new OpenAiLlmProvider(openAiKey, model);
+                    provider = new OpenAiLlmProvider(openAiKey, model, reasoningEffort: config.LlmReasoningEffort);
                     if (config.UseWebSearch)
                     {
                         try
                         {
-                            using var evaluator = new OpenAiDocPageEvaluator(openAiKey, model);
+                            using var evaluator = new OpenAiDocPageEvaluator(openAiKey, model, reasoningEffort: config.LlmReasoningEffort);
                             var pages = await DuckDuckGoDocFetcher.FindDocumentationPagesAsync(
                                 exportName,
                                 config.DocSearchMaxPages,

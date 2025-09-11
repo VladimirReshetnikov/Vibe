@@ -21,6 +21,11 @@
       "type": "string",
       "description": "Model or version identifier for the LLM provider."
     },
+    "llmReasoningEffort": {
+      "type": "string",
+      "description": "Reasoning effort for models that support it (e.g., 'medium', 'high').",
+      "enum": ["medium", "high"]
+    },
     "maxDataSizeBytes": {
       "type": "integer",
       "description": "Maximum number of bytes to read from the target function during decompilation."
