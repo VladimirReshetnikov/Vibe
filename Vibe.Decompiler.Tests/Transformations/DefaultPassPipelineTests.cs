@@ -39,4 +39,20 @@ public class DefaultPassPipelineTests
         var c = Assert.IsType<IR.Const>(stmt.Rhs);
         Assert.Equal(5, c.Value);
     }
+
+    [Fact]
+    public void CreateIncludesSimplifyBooleanTernaryPass()
+    {
+        var pm = DefaultPassPipeline.Create();
+        var fn = new IR.FunctionIR("test");
+        var bb = new IR.BasicBlock(new IR.LabelSymbol("L0", 0));
+        bb.Statements.Add(new IR.AssignStmt(new IR.RegExpr("rax"),
+            new IR.TernaryExpr(new IR.RegExpr("rcx"), new IR.Const(1, 1), new IR.Const(0, 1))));
+        fn.Blocks.Add(bb);
+
+        pm.Run(fn);
+
+        var stmt = Assert.IsType<IR.AssignStmt>(fn.Blocks[0].Statements[0]);
+        Assert.IsType<IR.RegExpr>(stmt.Rhs);
+    }
 }

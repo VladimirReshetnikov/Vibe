@@ -16,6 +16,7 @@ public static class DefaultPassPipeline
             new FoldConstantsPass(),
             new SimplifyArithmeticPass(),
             new SimplifyLogicalNotsPass(),
+            new SimplifyBooleanTernaryPass(),
         });
     }
 }
