@@ -83,20 +83,30 @@ public partial class MainWindow : Window
         if (root.Items.Count != 1 || root.Items[0] is not TreeViewItem placeholder || !Equals(placeholder.Tag, "Loading"))
             return;
 
-        root.Items.Clear();
-        var funcIcon = (ImageSource)FindResource("ExportedFunctionIconImage");
-        var names = await Task.Run(() => pe.EnumerateExportNames().OrderBy(n => n).ToList());
-
-        int i = 0;
-        foreach (var name in names)
+        try
         {
-            var funcHeader = new StackPanel { Orientation = Orientation.Horizontal };
-            funcHeader.Children.Add(new Image { Source = funcIcon, Width = 16, Height = 16, Margin = new Thickness(0, 0, 4, 0) });
-            funcHeader.Children.Add(new TextBlock { Text = name });
-            root.Items.Add(new TreeViewItem { Header = funcHeader, Tag = new ExportItem { Pe = pe, Name = name } });
+            root.Items.Clear();
+            var funcIcon = (ImageSource)FindResource("ExportedFunctionIconImage");
+            var names = await Task.Run(() => pe.EnumerateExportNames().OrderBy(n => n).ToList());
 
-            if (++i % 20 == 0)
-                await Dispatcher.Yield();
+            int i = 0;
+            foreach (var name in names)
+            {
+                var funcHeader = new StackPanel { Orientation = Orientation.Horizontal };
+                funcHeader.Children.Add(new Image { Source = funcIcon, Width = 16, Height = 16, Margin = new Thickness(0, 0, 4, 0) });
+                funcHeader.Children.Add(new TextBlock { Text = name });
+                root.Items.Add(new TreeViewItem { Header = funcHeader, Tag = new ExportItem { Pe = pe, Name = name } });
+
+                if (++i % 20 == 0)
+                    await Dispatcher.Yield();
+            }
+        }
+        catch (Exception ex)
+        {
+            // Clear any partial results and show error
+            root.Items.Clear();
+            root.Items.Add(new TreeViewItem { Header = $"Error: {ex.Message}", Tag = "Error" });
+            MessageBox.Show(this, ex.Message, "Error", MessageBoxButton.OK, MessageBoxImage.Error);
         }
     }
 
