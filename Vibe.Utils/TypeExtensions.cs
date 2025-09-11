@@ -2,6 +2,7 @@
 
 using System.Dynamic;
 using System.Linq.Expressions;
+using System.Runtime.CompilerServices;
 using Microsoft.CSharp.RuntimeBinder;
 
 namespace Vibe.Utils;
@@ -41,12 +42,30 @@ public static class TypeExtensions
             {
                 Expression.Constant(_type, typeof(object))
             };
+            var variables = new List<ParameterExpression>();
+            var preAssign = new List<Expression>();
+            var postAssign = new List<Expression>();
+
             if (args is not null)
             {
-                foreach (var arg in args)
+                for (var i = 0; i < args.Length; i++)
                 {
-                    argInfo.Add(CSharpArgumentInfo.Create(CSharpArgumentInfoFlags.None, null));
-                    argExpr.Add(Expression.Constant(arg, typeof(object)));
+                    var arg = args[i];
+                    if (arg is IStrongBox)
+                    {
+                        var temp = Expression.Variable(typeof(object), $"arg{i}");
+                        variables.Add(temp);
+                        var boxExpr = Expression.Convert(Expression.Constant(arg), typeof(IStrongBox));
+                        preAssign.Add(Expression.Assign(temp, Expression.Property(boxExpr, nameof(IStrongBox.Value))));
+                        postAssign.Add(Expression.Assign(Expression.Property(boxExpr, nameof(IStrongBox.Value)), temp));
+                        argInfo.Add(CSharpArgumentInfo.Create(CSharpArgumentInfoFlags.IsRef | CSharpArgumentInfoFlags.IsOut, null));
+                        argExpr.Add(temp);
+                    }
+                    else
+                    {
+                        argInfo.Add(CSharpArgumentInfo.Create(CSharpArgumentInfoFlags.None, null));
+                        argExpr.Add(Expression.Constant(arg, typeof(object)));
+                    }
                 }
             }
 
@@ -57,7 +76,19 @@ public static class TypeExtensions
                 typeof(StaticTypeProxy),
                 argInfo);
 
-            var expr = Expression.Dynamic(invokeBinder, typeof(object), argExpr);
+            Expression expr = Expression.Dynamic(invokeBinder, typeof(object), argExpr);
+            if (variables.Count > 0)
+            {
+                var resultVar = Expression.Variable(typeof(object), "result");
+                variables.Add(resultVar);
+                var block = new List<Expression>();
+                block.AddRange(preAssign);
+                block.Add(Expression.Assign(resultVar, expr));
+                block.AddRange(postAssign);
+                block.Add(resultVar);
+                expr = Expression.Block(variables, block);
+            }
+
             var lambda = Expression.Lambda<Func<object?>>(expr);
             result = lambda.Compile().Invoke();
             return true;
