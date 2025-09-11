@@ -45,7 +45,7 @@ public partial class MainWindow : Window
     {
         InitializeComponent();
         OutputBox.TextArea.TextView.LineTransformers.Add(new PseudoCodeColorizer());
-        _config = AppConfig.Load(Path.Combine(AppContext.BaseDirectory, "config.json"));
+        _config = AppConfig.AutoDetect() ?? new AppConfig();
         var apiKey = App.ApiKey;
         if (!string.IsNullOrWhiteSpace(apiKey))
         {

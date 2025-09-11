@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT-0
 
 using System.Text.Json;
+using Vibe.Utils;
 
 namespace Vibe.Decompiler;
 
@@ -17,6 +18,12 @@ public sealed class AppConfig
     public int DocSearchMaxPages { get; set; } = 2;
     public int LlmMaxTokens { get; set; } = 4096;
     public int MaxForwarderHops { get; set; } = 8;
+
+    public static AppConfig? AutoDetect()
+    {
+        var findFile = FileUtils.FindFile("config.json");
+        return findFile is null ? null : Load(findFile);
+    }
 
     public static AppConfig Load(string path)
     {
