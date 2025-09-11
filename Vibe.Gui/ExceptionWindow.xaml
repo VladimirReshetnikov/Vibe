@@ -1,0 +1,6 @@
+<Window x:Class="Vibe.Gui.ExceptionWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Exceptions" Height="300" Width="600">
+    <ListBox ItemsSource="{Binding}" FontFamily="Consolas"/>
+</Window>
