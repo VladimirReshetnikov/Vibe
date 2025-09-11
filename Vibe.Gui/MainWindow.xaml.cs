@@ -240,6 +240,13 @@ public partial class MainWindow : Window
 
     protected override void OnClosed(EventArgs e)
     {
+        // Dispose all DLL items to clean up CancellationTokenSource objects
+        foreach (TreeViewItem item in DllTree.Items)
+        {
+            if (item.Tag is DllItem dll)
+                dll.Dispose();
+        }
+
         if (_provider.IsValueCreated)
             _provider.Value.Dispose();
         base.OnClosed(e);
