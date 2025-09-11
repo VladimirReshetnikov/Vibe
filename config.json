@@ -2,7 +2,7 @@
   "useWin32DocsLookup": true,
   "useWebSearch": true,
   "llmProvider": "openai",
-  "llmVersion": "gpt-4o-mini",
+  "llmVersion": "gpt-5",
   "maxDataSizeBytes": 10240,
   "maxLlmCodeLength": 4096,
   "docTimeoutSeconds": 30,

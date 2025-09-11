@@ -11,4 +11,8 @@
     <PackageReference Include="Iced" Version="1.21.0" />
   </ItemGroup>
 
+  <ItemGroup>
+    <ProjectReference Include="..\Vibe.Utils\Vibe.Utils.csproj" />
+  </ItemGroup>
+
 </Project>
