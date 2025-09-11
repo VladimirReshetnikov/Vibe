@@ -169,12 +169,19 @@ public static class TypeExtensions
             var argTypes = args is null
                 ? Type.EmptyTypes
                 : args.Select(a => a?.GetType() ?? typeof(object)).ToArray();
-            var method = _type.GetMethod(
-                name,
+
+            var candidates = _type
+                .GetMethods(BindingFlags.Static | BindingFlags.Public | BindingFlags.FlattenHierarchy)
+                .Where(m => m.Name == name)
+                .Cast<MethodBase>()
+                .ToArray();
+
+            var method = (MethodInfo?)Type.DefaultBinder.SelectMethod(
                 BindingFlags.Static | BindingFlags.Public | BindingFlags.FlattenHierarchy,
-                Type.DefaultBinder,
+                candidates,
                 argTypes,
                 null);
+
             return method?.ReturnType == typeof(void);
         }
     }
