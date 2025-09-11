@@ -182,8 +182,8 @@ public abstract class IRRewriter
 - [x] Add unit tests for `SimplifyRedundantAssignPass`.
  - [x] Move `SimplifyArithmeticIdentities` into `SimplifyArithmeticPass`.
  - [x] Add unit tests for `SimplifyArithmeticPass`.
- - [ ] Move `FoldConstants` into `FoldConstantsPass`.
- - [ ] Add unit tests for `FoldConstantsPass`.
+ - [x] Move `FoldConstants` into `FoldConstantsPass`.
+ - [x] Add unit tests for `FoldConstantsPass`.
  - [ ] Repeat for remaining passes: `DeadCodeEliminationPass`, `CanonicalizeLoopsPass`, etc.
  - [x] Create `DefaultPassPipeline` with pass ordering derived from current usage.
  - [x] Update callers to use `DefaultPassPipeline.Create()`.
