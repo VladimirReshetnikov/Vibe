@@ -740,6 +740,11 @@ public partial class MainWindow : Window
         Close();
     }
 
+    private void Log_Click(object sender, RoutedEventArgs e)
+    {
+        App.WindowLogger.Show();
+    }
+
     private void About_Click(object sender, RoutedEventArgs e)
     {
         var dlg = new AboutWindow { Owner = this };

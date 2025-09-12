@@ -74,6 +74,7 @@
                 <MenuItem Header="_Explorer" Command="{x:Static local:MainWindow.ToggleExplorerCommand}" />
                 <MenuItem Header="_Output" Command="{x:Static local:MainWindow.ToggleOutputCommand}" />
                 <MenuItem Header="_Search Results" Command="{x:Static local:MainWindow.ToggleSearchCommand}" />
+                <MenuItem Header="_Log" Click="Log_Click" />
                 <Separator />
                 <MenuItem Header="_Reset Window Layout" Command="{x:Static local:MainWindow.ResetLayoutCommand}" />
             </MenuItem>

@@ -15,11 +15,15 @@ public sealed class WindowLogger : ILogger
         Application.Current.Dispatcher.Invoke(() =>
         {
             _messages.Add(message);
-            EnsureWindow();
         });
     }
 
     public void LogException(Exception ex) => Log(ex.ToString());
+
+    public void Show()
+    {
+        Application.Current.Dispatcher.Invoke(EnsureWindow);
+    }
 
     private void EnsureWindow()
     {
@@ -27,7 +31,9 @@ public sealed class WindowLogger : ILogger
         {
             _window = new LogWindow(_messages);
             _window.Closed += (_, _) => _window = null;
-            _window.Show();
         }
+        if (!_window.IsVisible)
+            _window.Show();
+        _window.Activate();
     }
 }
