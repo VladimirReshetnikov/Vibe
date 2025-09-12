@@ -2,7 +2,7 @@ using System.Collections.Generic;
 using System.Linq;
 using Mono.Cecil;
 using Terminal.Gui;
-using Vibe.Cui;
+using Vibe.Decompiler;
 
 /// <summary>
 /// Entry point and console user interface for exploring DLL exports and

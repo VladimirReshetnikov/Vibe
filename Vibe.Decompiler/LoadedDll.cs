@@ -1,4 +1,7 @@
+// SPDX-License-Identifier: MIT-0
+
 using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Security.Cryptography;
@@ -6,20 +9,19 @@ using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using Mono.Cecil;
-using Vibe.Decompiler;
 using Vibe.Decompiler.PE;
 
-namespace Vibe.Cui;
+namespace Vibe.Decompiler;
 
 /// <summary>
-/// Represents a DLL loaded from disk along with various metadata and hash values
-/// that describe its contents. The class also exposes convenience methods for
-/// enumerating exports and summarising the image.
+/// Represents a DLL loaded from disk along with computed metadata and
+/// cryptographic hashes. The class also exposes helpers for enumerating
+/// exports and summarising the image.
 /// </summary>
 public sealed class LoadedDll : IDisposable
 {
     /// <summary>PE parser used to inspect the image.</summary>
-    internal PeImage Pe { get; }
+    public PeImage Pe { get; }
 
     /// <summary>MD5 hash of the DLL file.</summary>
     public string Md5Hash { get; }
@@ -74,7 +76,7 @@ public sealed class LoadedDll : IDisposable
     /// <summary>
     /// Asynchronously enumerates the names of exported functions defined in the DLL.
     /// </summary>
-    public Task<System.Collections.Generic.List<string>> GetExportNamesAsync(CancellationToken token)
+    public Task<List<string>> GetExportNamesAsync(CancellationToken token)
     {
         return Task.Run(() =>
         {
@@ -90,3 +92,4 @@ public sealed class LoadedDll : IDisposable
         ManagedModule?.Dispose();
     }
 }
+

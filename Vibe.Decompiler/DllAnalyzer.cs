@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: MIT-0
+
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -5,18 +7,39 @@ using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using Mono.Cecil;
-using Vibe.Decompiler;
+using Vibe.Decompiler.Models;
 
-namespace Vibe.Cui;
+namespace Vibe.Decompiler;
 
 /// <summary>
-/// Provides high level operations for inspecting a DLL from the console
-/// interface, such as retrieving export names or decompiling functions.
+/// Provides high level operations for inspecting a DLL, such as retrieving
+/// export names or decompiling functions. Optional caching and LLM-based
+/// refinement can be supplied via constructor parameters.
 /// </summary>
-internal sealed class DllAnalyzer : IDisposable
+public sealed class DllAnalyzer : IDisposable
 {
+    private readonly IModelProvider? _provider;
+    private readonly Func<string, string, string?>? _cacheGet;
+    private readonly Action<string, string, string>? _cacheSave;
+
+    /// <summary>Gets a value indicating whether an LLM provider is available.</summary>
+    public bool HasLlmProvider => _provider != null;
+
+    /// <summary>
+    /// Initializes a new instance of the analyzer.
+    /// </summary>
+    public DllAnalyzer(
+        IModelProvider? provider = null,
+        Func<string, string, string?>? cacheGet = null,
+        Action<string, string, string>? cacheSave = null)
+    {
+        _provider = provider;
+        _cacheGet = cacheGet;
+        _cacheSave = cacheSave;
+    }
+
     /// <summary>Loads a DLL from disk and computes basic metadata.</summary>
-    public LoadedDll Load(string path) => new LoadedDll(path);
+    public LoadedDll Load(string path) => new(path);
 
     /// <summary>Asynchronously retrieves the export names from the DLL.</summary>
     public Task<List<string>> GetExportNamesAsync(LoadedDll dll, CancellationToken token)
@@ -66,40 +89,57 @@ internal sealed class DllAnalyzer : IDisposable
 
     /// <summary>
     /// Decompiles the specified exported function into pseudocode and optionally
-    /// reports progress via <paramref name="progress"/>.
+    /// refines and caches the result.
     /// </summary>
-    public Task<string> GetDecompiledExportAsync(
+    public async Task<string> GetDecompiledExportAsync(
         LoadedDll dll,
         string name,
         IProgress<string>? progress,
         CancellationToken token)
     {
-        return Task.Run(() =>
+        var hash = dll.FileHash;
+        var cached = _cacheGet?.Invoke(hash, name);
+        if (cached != null)
+            return cached;
+
+        var export = dll.Pe.FindExport(name);
+        if (export.IsForwarder)
+        {
+            var forwarderText = $"{name} -> {export.ForwarderString}";
+            _cacheSave?.Invoke(hash, name, forwarderText);
+            return forwarderText;
+        }
+
+        var code = await Task.Run(() =>
         {
             token.ThrowIfCancellationRequested();
-            var export = dll.Pe.FindExport(name);
-            if (export.IsForwarder)
-            {
-                var forwarderText = $"{name} -> {export.ForwarderString}";
-                progress?.Report(forwarderText);
-                return forwarderText;
-            }
-
             int off = dll.Pe.RvaToOffsetChecked(export.FunctionRva);
             int maxLen = Math.Min(AppConfig.Current.MaxDataSizeBytes, dll.Pe.Data.Length - off);
             var engine = new Engine();
-            var code = engine.ToPseudoCode(dll.Pe.Data.AsMemory(off, maxLen), new Engine.Options
+            return engine.ToPseudoCode(dll.Pe.Data.AsMemory(off, maxLen), new Engine.Options
             {
                 BaseAddress = dll.Pe.ImageBase + export.FunctionRva,
                 FunctionName = name
             });
-            progress?.Report(code);
-            return code;
         }, token);
+
+        if (_provider != null && AppConfig.Current.MaxLlmCodeLength > 0 && code.Length > AppConfig.Current.MaxLlmCodeLength)
+            code = code[..AppConfig.Current.MaxLlmCodeLength];
+
+        progress?.Report(code);
+
+        var output = code;
+        if (_provider != null)
+            output = await _provider.RefineAsync(code, null, token);
+
+        _cacheSave?.Invoke(hash, name, output);
+        return output;
     }
 
     /// <summary>Disposes any resources held by the analyzer.</summary>
     public void Dispose()
     {
+        _provider?.Dispose();
     }
 }
+
