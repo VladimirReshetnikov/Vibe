@@ -177,6 +177,7 @@ public partial class MainWindow : Window
         _currentRequestCts?.Cancel();
         _currentRequestCts?.Dispose();
         _currentRequestCts = null;
+        LoadingOverlay.Visibility = Visibility.Collapsed;
     }
 
     private async void DllRoot_Expanded(object sender, RoutedEventArgs e)
@@ -287,6 +288,7 @@ public partial class MainWindow : Window
     {
         CancelCurrentRequest();
         BusyBar.Visibility = Visibility.Collapsed;
+        LoadingOverlay.Visibility = Visibility.Collapsed;
 
         if (DllTree.SelectedItem is not TreeViewItem item)
             return;
@@ -299,6 +301,7 @@ public partial class MainWindow : Window
             case ExportItem exp:
                 OutputBox.Text = string.Empty;
                 BusyBar.Visibility = Visibility.Visible;
+                LoadingOverlay.Visibility = Visibility.Visible;
                 var dllItem = exp.Dll;
                 _currentRequestCts = CancellationTokenSource.CreateLinkedTokenSource(dllItem.Cts.Token);
                 var token = _currentRequestCts.Token;
@@ -326,6 +329,7 @@ public partial class MainWindow : Window
                     if (_currentRequestCts?.Token == token)
                     {
                         BusyBar.Visibility = Visibility.Collapsed;
+                        LoadingOverlay.Visibility = Visibility.Collapsed;
                         CancelCurrentRequest();
                     }
                 }

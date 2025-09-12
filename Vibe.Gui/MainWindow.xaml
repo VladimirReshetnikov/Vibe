@@ -29,8 +29,29 @@
                 <ColumnDefinition Width="*" />
             </Grid.ColumnDefinitions>
             <TreeView x:Name="DllTree" Grid.Column="0" Margin="4" Background="{StaticResource PanelBrush}" SelectedItemChanged="DllTree_SelectedItemChanged" KeyDown="DllTree_KeyDown" />
-            <avalonEdit:TextEditor x:Name="OutputBox" Grid.Column="1" Margin="4" FontFamily="Consolas" IsReadOnly="True" ShowLineNumbers="True"
-                                   VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Auto" Foreground="{StaticResource TextBrush}" Background="#FFFFFF" />
+            <Grid Grid.Column="1" Margin="4">
+                <avalonEdit:TextEditor x:Name="OutputBox" FontFamily="Consolas" IsReadOnly="True" ShowLineNumbers="True"
+                                       VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Auto" Foreground="{StaticResource TextBrush}" Background="#FFFFFF" />
+                <Grid x:Name="LoadingOverlay" Visibility="Collapsed" Background="#80FFFFFF">
+                    <Canvas>
+                        <Rectangle Width="200" Height="{Binding ActualHeight, RelativeSource={RelativeSource AncestorType=Grid}}" Fill="{StaticResource AccentBrush}" Opacity="0.3">
+                            <Rectangle.RenderTransform>
+                                <TranslateTransform x:Name="LoadingTransform" />
+                            </Rectangle.RenderTransform>
+                        </Rectangle>
+                        <Canvas.Triggers>
+                            <EventTrigger RoutedEvent="Loaded">
+                                <BeginStoryboard>
+                                    <Storyboard RepeatBehavior="Forever">
+                                        <DoubleAnimation Storyboard.TargetName="LoadingTransform" Storyboard.TargetProperty="X" From="-200" To="1000" Duration="0:0:3" />
+                                    </Storyboard>
+                                </BeginStoryboard>
+                            </EventTrigger>
+                        </Canvas.Triggers>
+                    </Canvas>
+                    <TextBlock Text="Refining code..." FontSize="16" FontWeight="Bold" Foreground="{StaticResource TextBrush}" HorizontalAlignment="Center" VerticalAlignment="Center" />
+                </Grid>
+            </Grid>
         </Grid>
     </DockPanel>
 </Window>
