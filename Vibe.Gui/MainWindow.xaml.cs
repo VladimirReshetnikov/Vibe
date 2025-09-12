@@ -83,11 +83,7 @@ public partial class MainWindow : Window
             var dll = _dllAnalyzer.Load(path);
 
             var dllIcon = (ImageSource)FindResource("DllIconImage");
-            var headerPanel = new StackPanel { Orientation = Orientation.Horizontal };
-            headerPanel.Children.Add(new Image { Source = dllIcon, Width = 16, Height = 16, Margin = new Thickness(0, 0, 4, 0) });
-            headerPanel.Children.Add(new TextBlock { Text = Path.GetFileName(path) });
-
-            var root = new TreeViewItem { Header = headerPanel, Tag = dll };
+            var root = CreateTreeViewItemWithIcon(Path.GetFileName(path), dllIcon, dll);
             // Add a dummy child so the expand arrow appears and load exports on demand
             root.Items.Add(new TreeViewItem { Header = "Loading...", Tag = "Loading" });
             root.Expanded += DllRoot_Expanded;
@@ -100,6 +96,39 @@ public partial class MainWindow : Window
             if (showErrors)
                 ExceptionManager.Handle(ex);
         }
+    }
+
+    private TreeViewItem CreateTreeViewItemWithIcon(string text, ImageSource icon, object tag)
+    {
+        var textBlock = new TextBlock { Text = text };
+        var border = new Border { Padding = new Thickness(1, 0, 1, 0), Child = textBlock };
+        var panel = new StackPanel { Orientation = Orientation.Horizontal };
+        panel.Children.Add(new Image { Source = icon, Width = 16, Height = 16, Margin = new Thickness(0, 0, 4, 0) });
+        panel.Children.Add(border);
+
+        var item = new TreeViewItem { Header = panel, Tag = tag };
+
+        // Remove default highlight so only the text background changes when selected
+        var textBrush = (Brush)FindResource("TextBrush");
+        item.Resources[SystemColors.HighlightBrushKey] = Brushes.Transparent;
+        item.Resources[SystemColors.ControlBrushKey] = Brushes.Transparent;
+        item.Resources[SystemColors.HighlightTextBrushKey] = textBrush;
+        item.Resources[SystemColors.ControlTextBrushKey] = textBrush;
+
+        var accentBrush = (Brush)FindResource("AccentBrush");
+        var accentTextBrush = new SolidColorBrush((Color)FindResource("Color.Foreground.OnAccent"));
+        item.Selected += (_, _) =>
+        {
+            border.Background = accentBrush;
+            textBlock.Foreground = accentTextBrush;
+        };
+        item.Unselected += (_, _) =>
+        {
+            border.Background = Brushes.Transparent;
+            textBlock.Foreground = textBrush;
+        };
+
+        return item;
     }
 
     private void LoadCommonDlls()
@@ -292,10 +321,8 @@ public partial class MainWindow : Window
                     var typeItem = new TreeViewItem { Header = type.FullName, Tag = type };
                     foreach (var method in type.Methods)
                     {
-                        var methodHeader = new StackPanel { Orientation = Orientation.Horizontal };
-                        methodHeader.Children.Add(new Image { Source = funcIcon, Width = 16, Height = 16, Margin = new Thickness(0, 0, 4, 0) });
-                        methodHeader.Children.Add(new TextBlock { Text = method.Name });
-                        typeItem.Items.Add(new TreeViewItem { Header = methodHeader, Tag = method });
+                        var methodItem = CreateTreeViewItemWithIcon(method.Name, funcIcon, method);
+                        typeItem.Items.Add(methodItem);
                     }
                     root.Items.Add(typeItem);
                     await Dispatcher.Yield();
@@ -309,10 +336,8 @@ public partial class MainWindow : Window
                 foreach (var name in names)
                 {
                     token.ThrowIfCancellationRequested();
-                    var funcHeader = new StackPanel { Orientation = Orientation.Horizontal };
-                    funcHeader.Children.Add(new Image { Source = funcIcon, Width = 16, Height = 16, Margin = new Thickness(0, 0, 4, 0) });
-                    funcHeader.Children.Add(new TextBlock { Text = name });
-                    root.Items.Add(new TreeViewItem { Header = funcHeader, Tag = new ExportItem { Dll = dll, Name = name } });
+                    var funcItem = CreateTreeViewItemWithIcon(name, funcIcon, new ExportItem { Dll = dll, Name = name });
+                    root.Items.Add(funcItem);
 
                     if (++i % 20 == 0)
                         await Dispatcher.Yield();
