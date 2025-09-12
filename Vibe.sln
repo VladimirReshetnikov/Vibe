@@ -31,6 +31,7 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "docs", "docs", "{91C8EFF0-9
 		docs\transformations-architecture-2.md = docs\transformations-architecture-2.md
 		docs\web-doc-selection.md = docs\web-doc-selection.md
 		docs\constant-database.md = docs\constant-database.md
+		docs\llm-rewrite-visual-effects.md = docs\llm-rewrite-visual-effects.md
 	EndProjectSection
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Vibe.Gui", "Vibe.Gui\Vibe.Gui.csproj", "{1440EBD9-4E12-4327-9C11-12BF6F95D060}"
