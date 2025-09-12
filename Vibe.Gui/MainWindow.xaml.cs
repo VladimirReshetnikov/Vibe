@@ -7,6 +7,8 @@ using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Media;
+using System.Windows.Media.Animation;
+using System.Windows.Media.Effects;
 using System.Windows.Threading;
 using System.Windows.Input;
 using Microsoft.Win32;
@@ -31,6 +33,27 @@ public partial class MainWindow : Window
     private CancellationTokenSource? _currentRequestCts;
     private const string RecentFilesKey = @"Software\\Vibe\\RecentFiles";
     private readonly List<string> _recentFiles;
+
+    private void ShowLlmOverlay()
+    {
+        RewriteOverlay.Opacity = 1;
+        RewriteOverlay.Visibility = Visibility.Visible;
+        OutputBox.Opacity = 0.5;
+        OutputBox.Effect = new BlurEffect { Radius = 1 };
+        if (FindResource("StripeAnimation") is Storyboard sb)
+            sb.Begin(RewriteOverlay, true);
+    }
+
+    private void HideLlmOverlay()
+    {
+        var fade = new DoubleAnimation(0, TimeSpan.FromMilliseconds(300));
+        fade.Completed += (_, _) => RewriteOverlay.Visibility = Visibility.Collapsed;
+        RewriteOverlay.BeginAnimation(UIElement.OpacityProperty, fade);
+        OutputBox.Opacity = 1;
+        OutputBox.Effect = null;
+        if (FindResource("StripeAnimation") is Storyboard sb)
+            sb.Stop(RewriteOverlay);
+    }
 
     public MainWindow()
     {
@@ -177,6 +200,9 @@ public partial class MainWindow : Window
         _currentRequestCts?.Cancel();
         _currentRequestCts?.Dispose();
         _currentRequestCts = null;
+
+        BusyBar.Visibility = Visibility.Collapsed;
+        HideLlmOverlay();
     }
 
     private async void DllRoot_Expanded(object sender, RoutedEventArgs e)
@@ -286,7 +312,6 @@ public partial class MainWindow : Window
     private async void DllTree_SelectedItemChanged(object sender, RoutedPropertyChangedEventArgs<object> e)
     {
         CancelCurrentRequest();
-        BusyBar.Visibility = Visibility.Collapsed;
 
         if (DllTree.SelectedItem is not TreeViewItem item)
             return;
@@ -304,7 +329,12 @@ public partial class MainWindow : Window
                 var token = _currentRequestCts.Token;
                 try
                 {
-                    var progress = new Progress<string>(t => OutputBox.Text = t);
+                    var progress = new Progress<string>(t =>
+                    {
+                        OutputBox.Text = t;
+                        if (_dllAnalyzer.HasLlmProvider)
+                            ShowLlmOverlay();
+                    });
                     var output = await _dllAnalyzer.GetDecompiledExportAsync(dllItem, exp.Name, progress, token);
                     OutputBox.Text = output;
                 }
@@ -324,10 +354,7 @@ public partial class MainWindow : Window
                 finally
                 {
                     if (_currentRequestCts?.Token == token)
-                    {
-                        BusyBar.Visibility = Visibility.Collapsed;
                         CancelCurrentRequest();
-                    }
                 }
                 break;
         }
@@ -368,7 +395,6 @@ public partial class MainWindow : Window
             dll.Dispose();
             DllTree.Items.Remove(root);
             CancelCurrentRequest();
-            BusyBar.Visibility = Visibility.Collapsed;
             if (ReferenceEquals(item, DllTree.SelectedItem))
                 OutputBox.Text = string.Empty;
             e.Handled = true;

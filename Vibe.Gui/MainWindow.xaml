@@ -9,6 +9,11 @@
         <SolidColorBrush x:Key="AccentBrush" Color="#C6DC1D" />
         <SolidColorBrush x:Key="PanelBrush" Color="#EEEEEE" />
         <SolidColorBrush x:Key="TextBrush" Color="#2D4D78" />
+        <Storyboard x:Key="StripeAnimation" RepeatBehavior="Forever">
+            <DoubleAnimation Storyboard.TargetName="StripeTransform"
+                             Storyboard.TargetProperty="X"
+                             From="0" To="1" Duration="0:0:1.2" />
+        </Storyboard>
     </Window.Resources>
     <DockPanel>
         <Menu DockPanel.Dock="Top">
@@ -29,8 +34,32 @@
                 <ColumnDefinition Width="*" />
             </Grid.ColumnDefinitions>
             <TreeView x:Name="DllTree" Grid.Column="0" Margin="4" Background="{StaticResource PanelBrush}" SelectedItemChanged="DllTree_SelectedItemChanged" KeyDown="DllTree_KeyDown" />
-            <avalonEdit:TextEditor x:Name="OutputBox" Grid.Column="1" Margin="4" FontFamily="Consolas" IsReadOnly="True" ShowLineNumbers="True"
-                                   VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Auto" Foreground="{StaticResource TextBrush}" Background="#FFFFFF" />
+            <Grid Grid.Column="1" Margin="4">
+                <avalonEdit:TextEditor x:Name="OutputBox" FontFamily="Consolas" IsReadOnly="True" ShowLineNumbers="True"
+                                       VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Auto"
+                                       Foreground="{StaticResource TextBrush}" Background="#FFFFFF" />
+                <Border x:Name="RewriteOverlay" Visibility="Collapsed">
+                    <Border.Background>
+                        <LinearGradientBrush x:Name="StripeBrush" StartPoint="0,0" EndPoint="1,0" SpreadMethod="Repeat">
+                            <GradientStop Color="#26FFFFFF" Offset="0" />
+                            <GradientStop Color="#0DFFFFFF" Offset="0.5" />
+                            <GradientStop Color="#26FFFFFF" Offset="1" />
+                            <LinearGradientBrush.RelativeTransform>
+                                <TransformGroup>
+                                    <RotateTransform Angle="135" />
+                                    <TranslateTransform x:Name="StripeTransform" />
+                                </TransformGroup>
+                            </LinearGradientBrush.RelativeTransform>
+                        </LinearGradientBrush>
+                    </Border.Background>
+                    <TextBlock Text="Refining with AI" HorizontalAlignment="Center" VerticalAlignment="Center"
+                               Foreground="#80808080" FontSize="48" FontWeight="Bold" FontFamily="Arial Black" AutomationProperties.LiveSetting="Polite">
+                        <TextBlock.Effect>
+                            <DropShadowEffect BlurRadius="2" ShadowDepth="0" />
+                        </TextBlock.Effect>
+                    </TextBlock>
+                </Border>
+            </Grid>
         </Grid>
     </DockPanel>
 </Window>
