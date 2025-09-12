@@ -5,11 +5,16 @@ using Vibe.Utils;
 
 namespace Vibe.Gui;
 
+/// <summary>
+/// <see cref="ILogger"/> implementation that displays log messages in a window
+/// within the WPF application.
+/// </summary>
 public sealed class WindowLogger : ILogger
 {
     private readonly ObservableCollection<string> _messages = new();
     private LogWindow? _window;
 
+    /// <inheritdoc />
     public void Log(string message)
     {
         Application.Current.Dispatcher.Invoke(() =>
@@ -18,8 +23,10 @@ public sealed class WindowLogger : ILogger
         });
     }
 
+    /// <inheritdoc />
     public void LogException(Exception ex) => Log(ex.ToString());
 
+    /// <summary>Shows the log window, creating it if necessary.</summary>
     public void Show()
     {
         Application.Current.Dispatcher.Invoke(EnsureWindow);

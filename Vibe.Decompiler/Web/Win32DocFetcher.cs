@@ -5,6 +5,10 @@ using Vibe.Utils;
 
 namespace Vibe.Decompiler.Web;
 
+/// <summary>
+/// Provides helpers for locating and downloading documentation for Windows API
+/// exports from the official learn.microsoft.com site.
+/// </summary>
 public static class Win32DocFetcher
 {
     private static readonly HttpClient _http = new();

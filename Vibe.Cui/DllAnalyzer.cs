@@ -9,13 +9,22 @@ using Vibe.Decompiler;
 
 namespace Vibe.Cui;
 
+/// <summary>
+/// Provides high level operations for inspecting a DLL from the console
+/// interface, such as retrieving export names or decompiling functions.
+/// </summary>
 internal sealed class DllAnalyzer : IDisposable
 {
+    /// <summary>Loads a DLL from disk and computes basic metadata.</summary>
     public LoadedDll Load(string path) => new LoadedDll(path);
 
+    /// <summary>Asynchronously retrieves the export names from the DLL.</summary>
     public Task<List<string>> GetExportNamesAsync(LoadedDll dll, CancellationToken token)
         => dll.GetExportNamesAsync(token);
 
+    /// <summary>
+    /// Enumerates all managed types defined in the DLL, including nested types.
+    /// </summary>
     public Task<List<TypeDefinition>> GetManagedTypesAsync(LoadedDll dll, CancellationToken token)
     {
         if (!dll.IsManaged || dll.ManagedModule == null)
@@ -37,6 +46,9 @@ internal sealed class DllAnalyzer : IDisposable
         }, token);
     }
 
+    /// <summary>
+    /// Returns the IL instructions that make up the specified managed method.
+    /// </summary>
     public string GetManagedMethodBody(MethodDefinition method)
     {
         if (!method.HasBody)
@@ -49,8 +61,13 @@ internal sealed class DllAnalyzer : IDisposable
         return sb.ToString();
     }
 
+    /// <summary>Creates a textual summary containing PE information and hashes.</summary>
     public string GetSummary(LoadedDll dll) => dll.GetSummary();
 
+    /// <summary>
+    /// Decompiles the specified exported function into pseudocode and optionally
+    /// reports progress via <paramref name="progress"/>.
+    /// </summary>
     public Task<string> GetDecompiledExportAsync(
         LoadedDll dll,
         string name,
@@ -81,6 +98,7 @@ internal sealed class DllAnalyzer : IDisposable
         }, token);
     }
 
+    /// <summary>Disposes any resources held by the analyzer.</summary>
     public void Dispose()
     {
     }

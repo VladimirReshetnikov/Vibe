@@ -2,8 +2,13 @@ using System.Windows;
 
 namespace Vibe.Gui;
 
+/// <summary>
+/// Modal dialog prompting the user to supply an OpenAI API key or continue
+/// without one.
+/// </summary>
 public partial class MissingApiKeyWindow : Window
 {
+    /// <summary>Gets the API key entered by the user, if any.</summary>
     public string? ApiKey { get; private set; }
 
     public MissingApiKeyWindow()

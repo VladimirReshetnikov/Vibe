@@ -34,6 +34,10 @@ public static class NativeLibraryProxy
         private readonly ModuleBuilder module;
         private readonly ConcurrentDictionary<Signature, Delegate> delegateCache = new();
 
+        /// <summary>
+        /// Loads the specified native library and prepares to expose its exports
+        /// as dynamically generated delegates.
+        /// </summary>
         public DynamicLibraryProxy(string library, CallingConvention callingConvention)
         {
             handle = NativeLibrary.Load(library);
@@ -43,6 +47,9 @@ public static class NativeLibraryProxy
             module = asm.DefineDynamicModule(asmName.Name!);
         }
 
+        /// <summary>
+        /// Resolves an exported function by name and invokes it with the supplied arguments.
+        /// </summary>
         public override bool TryInvokeMember(InvokeMemberBinder binder, object?[]? args, out object? result)
         {
             args ??= Array.Empty<object>();
@@ -59,6 +66,10 @@ public static class NativeLibraryProxy
             return true;
         }
 
+        /// <summary>
+        /// Creates (or retrieves from cache) a managed delegate type that can call the
+        /// unmanaged export described by <paramref name="sig"/>.
+        /// </summary>
         private Delegate CreateDelegate(Signature sig)
         {
             IntPtr proc;
@@ -75,6 +86,10 @@ public static class NativeLibraryProxy
             return Marshal.GetDelegateForFunctionPointer(proc, delegateType);
         }
 
+        /// <summary>
+        /// Dynamically emits a delegate type that matches the unmanaged signature so it
+        /// can be invoked from managed code.
+        /// </summary>
         private Type EmitDelegateType(Type[] parameterTypes, Type returnType)
         {
             string name = "NativeDelegate_" + Guid.NewGuid().ToString("N");
@@ -96,6 +111,10 @@ public static class NativeLibraryProxy
             return tb.CreateType();
         }
 
+        /// <summary>
+        /// Ensures that all parameter and return types are marshalable using the rules
+        /// understood by <see cref="Marshal"/>. Unsupported types result in an exception.
+        /// </summary>
         private static void ValidateTypes(Type[] parameters, Type returnType)
         {
             foreach (var t in parameters)
@@ -108,6 +127,9 @@ public static class NativeLibraryProxy
                 throw new NotSupportedException($"Return type {returnType} is not supported.");
         }
 
+        /// <summary>
+        /// Determines whether the specified type can be marshalled to unmanaged code.
+        /// </summary>
         private static bool IsSupportedType(Type type, bool allowString = true)
         {
             if (allowString && type == typeof(string))
@@ -128,6 +150,9 @@ public static class NativeLibraryProxy
             return false;
         }
 
+        /// <summary>
+        /// Frees the loaded native library when this proxy is disposed.
+        /// </summary>
         public void Dispose()
         {
             var h = Interlocked.Exchange(ref handle, IntPtr.Zero);

@@ -21,6 +21,10 @@ using Vibe.Utils;
 
 namespace Vibe.Gui;
 
+/// <summary>
+/// Main application window hosting the decompiled code viewer, export explorer
+/// and various utility panes.
+/// </summary>
 public partial class MainWindow : Window
 {
     public static readonly RoutedUICommand ToggleExplorerCommand = new("Explorer", nameof(ToggleExplorerCommand), typeof(MainWindow), new InputGestureCollection { new KeyGesture(Key.E, ModifierKeys.Control | ModifierKeys.Alt) });

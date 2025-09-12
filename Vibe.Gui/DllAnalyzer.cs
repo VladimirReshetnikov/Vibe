@@ -12,11 +12,20 @@ using Vibe.Decompiler.Models;
 
 namespace Vibe.Gui;
 
+/// <summary>
+/// Provides high level analysis features for the WPF UI including optional
+/// LLM based refinement of decompiled code.
+/// </summary>
 internal sealed class DllAnalyzer : IDisposable
 {
     private readonly IModelProvider? _provider;
+    /// <summary>Gets a value indicating whether an LLM provider is available.</summary>
     public bool HasLlmProvider => _provider != null;
 
+    /// <summary>
+    /// Initializes the analyzer and, if an API key is present, sets up an
+    /// <see cref="OpenAiModelProvider"/> for code refinement.
+    /// </summary>
     public DllAnalyzer()
     {
         var apiKey = App.ApiKey;
@@ -28,16 +37,21 @@ internal sealed class DllAnalyzer : IDisposable
         }
     }
 
+    /// <summary>Loads a DLL from disk and prepares it for analysis.</summary>
     public LoadedDll Load(string path)
     {
         return new LoadedDll(path);
     }
 
+    /// <summary>Retrieves the list of exported function names.</summary>
     public Task<List<string>> GetExportNamesAsync(LoadedDll dll, CancellationToken token)
     {
         return dll.GetExportNamesAsync(token);
     }
 
+    /// <summary>
+    /// Enumerates all managed types defined in the assembly, including nested types.
+    /// </summary>
     public Task<List<TypeDefinition>> GetManagedTypesAsync(LoadedDll dll, CancellationToken token)
     {
         if (!dll.IsManaged || dll.ManagedModule == null)
@@ -59,6 +73,9 @@ internal sealed class DllAnalyzer : IDisposable
         }, token);
     }
 
+    /// <summary>
+    /// Returns the IL body of a managed method as a string.
+    /// </summary>
     public string GetManagedMethodBody(MethodDefinition method)
     {
         if (!method.HasBody)
@@ -71,8 +88,13 @@ internal sealed class DllAnalyzer : IDisposable
         return sb.ToString();
     }
 
+    /// <summary>Builds a textual summary of the DLL and its hashes.</summary>
     public string GetSummary(LoadedDll dll) => dll.GetSummary();
 
+    /// <summary>
+    /// Decompiles an exported function, optionally refining the result using an LLM
+    /// and caching the outcome for future requests.
+    /// </summary>
     public async Task<string> GetDecompiledExportAsync(
         LoadedDll dll,
         string name,
@@ -118,6 +140,7 @@ internal sealed class DllAnalyzer : IDisposable
         return output;
     }
 
+    /// <summary>Releases resources including any LLM provider.</summary>
     public void Dispose()
     {
         _provider?.Dispose();

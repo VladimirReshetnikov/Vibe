@@ -5,6 +5,10 @@ using System.Text.Json;
 
 namespace Vibe.Decompiler.Models;
 
+/// <summary>
+/// Invokes Anthropic's Claude API to rewrite decompiled functions into clearer
+/// C code. Instances are disposable and hold an internal HTTP client.
+/// </summary>
 public sealed class AnthropicModelProvider : IModelProvider
 {
     private readonly HttpClient _http = new();
@@ -13,6 +17,9 @@ public sealed class AnthropicModelProvider : IModelProvider
     public int MaxTokens { get; }
     public string ApiVersion { get; }
 
+    /// <summary>
+    /// Initializes a new instance targeting the specified model and API version.
+    /// </summary>
     public AnthropicModelProvider(string apiKey, string model = "claude-3-5-sonnet-20240620", string apiVersion = "2023-06-01", int maxTokens = 4096)
     {
         ApiKey = apiKey;
@@ -23,6 +30,7 @@ public sealed class AnthropicModelProvider : IModelProvider
         _http.DefaultRequestHeaders.Add("anthropic-version", ApiVersion);
     }
 
+    /// <inheritdoc />
     public async Task<string> RefineAsync(
         string decompiledCode,
         IEnumerable<string>? documentation = null,
@@ -69,5 +77,6 @@ public sealed class AnthropicModelProvider : IModelProvider
         return message.Trim();
     }
 
+    /// <inheritdoc />
     public void Dispose() => _http.Dispose();
 }

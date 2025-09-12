@@ -11,16 +11,37 @@ using Vibe.Decompiler.PE;
 
 namespace Vibe.Cui;
 
+/// <summary>
+/// Represents a DLL loaded from disk along with various metadata and hash values
+/// that describe its contents. The class also exposes convenience methods for
+/// enumerating exports and summarising the image.
+/// </summary>
 public sealed class LoadedDll : IDisposable
 {
+    /// <summary>PE parser used to inspect the image.</summary>
     internal PeImage Pe { get; }
+
+    /// <summary>MD5 hash of the DLL file.</summary>
     public string Md5Hash { get; }
+
+    /// <summary>SHA-1 hash of the DLL file.</summary>
     public string Sha1Hash { get; }
+
+    /// <summary>SHA-256 hash of the DLL file.</summary>
     public string FileHash { get; }
+
+    /// <summary>Cancellation token for long running operations initiated on this DLL.</summary>
     public CancellationTokenSource Cts { get; } = new();
+
     internal ModuleDefinition? ManagedModule { get; }
+
+    /// <summary>Gets a value indicating whether the DLL contains .NET metadata.</summary>
     public bool IsManaged => ManagedModule != null;
 
+    /// <summary>
+    /// Loads a DLL from disk and computes cryptographic hashes for its contents.
+    /// </summary>
+    /// <param name="path">Path to the DLL.</param>
     public LoadedDll(string path)
     {
         using var fs = File.OpenRead(path);
@@ -37,6 +58,9 @@ public sealed class LoadedDll : IDisposable
             ManagedModule = ModuleDefinition.ReadModule(path);
     }
 
+    /// <summary>
+    /// Builds a textual summary of the DLL including PE header information and hashes.
+    /// </summary>
     public string GetSummary()
     {
         var sb = new StringBuilder();
@@ -47,6 +71,9 @@ public sealed class LoadedDll : IDisposable
         return sb.ToString();
     }
 
+    /// <summary>
+    /// Asynchronously enumerates the names of exported functions defined in the DLL.
+    /// </summary>
     public Task<System.Collections.Generic.List<string>> GetExportNamesAsync(CancellationToken token)
     {
         return Task.Run(() =>
@@ -56,6 +83,7 @@ public sealed class LoadedDll : IDisposable
         }, token);
     }
 
+    /// <summary>Releases resources held by this instance.</summary>
     public void Dispose()
     {
         Cts.Dispose();

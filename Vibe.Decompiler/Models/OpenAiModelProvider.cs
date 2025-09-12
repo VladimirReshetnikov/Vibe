@@ -6,6 +6,10 @@ using System.Text.Json.Serialization;
 
 namespace Vibe.Decompiler.Models;
 
+/// <summary>
+/// IModelProvider that communicates with the OpenAI Responses API to refine
+/// decompiled output using GPT models.
+/// </summary>
 public sealed class OpenAiModelProvider : IModelProvider
 {
     private readonly HttpClient _http = new() { Timeout = TimeSpan.FromHours(1) }; // TODO: Make configurable
@@ -13,6 +17,9 @@ public sealed class OpenAiModelProvider : IModelProvider
     public string Model { get; }
     public string? ReasoningEffort { get; }
 
+    /// <summary>
+    /// Creates a provider that targets the specified OpenAI model.
+    /// </summary>
     public OpenAiModelProvider(string apiKey, string model = "gpt-4o-mini", string? reasoningEffort = null)
     {
         ApiKey = apiKey;
@@ -21,6 +28,7 @@ public sealed class OpenAiModelProvider : IModelProvider
         _http.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", ApiKey);
     }
 
+    /// <inheritdoc />
     public async Task<string> RefineAsync(
         string decompiledCode,
         IEnumerable<string>? documentation = null,
@@ -109,5 +117,6 @@ public sealed class OpenAiModelProvider : IModelProvider
         return message.Trim();
     }
 
+    /// <inheritdoc />
     public void Dispose() => _http.Dispose();
 }

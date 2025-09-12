@@ -7,6 +7,10 @@ using ICSharpCode.AvalonEdit.Rendering;
 
 namespace Vibe.Gui;
 
+/// <summary>
+/// Syntax highlighter for the decompiler's pseudo code using AvalonEdit's
+/// <see cref="DocumentColorizingTransformer"/> infrastructure.
+/// </summary>
 internal sealed class PseudoCodeColorizer : DocumentColorizingTransformer
 {
     private static SolidColorBrush CreateBrush(byte r, byte g, byte b)
