@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using System.Linq;
+using System.Threading.Tasks;
 using Mono.Cecil;
 using Terminal.Gui;
 using Vibe.Cui;
@@ -12,6 +13,58 @@ public class Program
     static ListView ItemList = null!;
     static TextView CodeView = null!;
     static bool ShowingExports = true;
+    static readonly HashSet<Task> RunningTasks = new();
+
+    static async Task<T> TrackTask<T>(Task<T> task)
+    {
+        lock (RunningTasks)
+            RunningTasks.Add(task);
+        try
+        {
+            return await task;
+        }
+        finally
+        {
+            lock (RunningTasks)
+                RunningTasks.Remove(task);
+        }
+    }
+
+    static async Task TrackTask(Task task)
+    {
+        lock (RunningTasks)
+            RunningTasks.Add(task);
+        try
+        {
+            await task;
+        }
+        finally
+        {
+            lock (RunningTasks)
+                RunningTasks.Remove(task);
+        }
+    }
+
+    static async Task DisposeCurrentDllAsync()
+    {
+        if (Dll == null) return;
+
+        Dll.Cts.Cancel();
+        Task[] tasks;
+        lock (RunningTasks)
+            tasks = RunningTasks.ToArray();
+        try
+        {
+            await Task.WhenAll(tasks);
+        }
+        catch (OperationCanceledException)
+        {
+            // ignore
+        }
+
+        Dll.Dispose();
+        Dll = null;
+    }
 
     public static void Main()
     {
@@ -23,7 +76,7 @@ public class Program
             new MenuBarItem("_File", new MenuItem[]
             {
                 new MenuItem("_Open", string.Empty, OpenFile),
-                new MenuItem("_Quit", string.Empty, () => { Dll?.Dispose(); Application.RequestStop(); })
+                new MenuItem("_Quit", string.Empty, async () => { await DisposeCurrentDllAsync(); Application.RequestStop(); })
             }),
             new MenuBarItem("_View", new MenuItem[]
             {
@@ -85,11 +138,11 @@ public class Program
             if (ShowingExports)
             {
                 CodeView.Text = "Loading...";
-                var code = await Analyzer.GetDecompiledExportAsync(
+                var code = await TrackTask(Analyzer.GetDecompiledExportAsync(
                     Dll,
                     selected,
                     new Progress<string>(p => Application.MainLoop.Invoke(() => CodeView.Text = p)),
-                    Dll.Cts.Token);
+                    Dll.Cts.Token));
                 Application.MainLoop.Invoke(() => CodeView.Text = code);
             }
             else
@@ -132,7 +185,7 @@ public class Program
         top.Add(win);
 
         Application.Run();
-        Dll?.Dispose();
+        DisposeCurrentDllAsync().GetAwaiter().GetResult();
         Application.Shutdown();
     }
 
@@ -144,11 +197,12 @@ public class Program
             CanChooseDirectories = false
         };
         Application.Run(dialog);
-        if (dialog.Canceled || string.IsNullOrEmpty(dialog.FilePath.ToString()))
+        var filePath = dialog.FilePath?.ToString();
+        if (dialog.Canceled || string.IsNullOrEmpty(filePath))
             return;
 
-        Dll?.Dispose();
-        Dll = Analyzer.Load(dialog.FilePath.ToString()!);
+        await DisposeCurrentDllAsync();
+        Dll = Analyzer.Load(filePath);
         CodeView.Text = Analyzer.GetSummary(Dll);
 
         await LoadExportsAsync();
@@ -159,7 +213,7 @@ public class Program
     static async Task LoadExportsAsync()
     {
         if (Dll == null) return;
-        var exports = await Analyzer.GetExportNamesAsync(Dll, Dll.Cts.Token);
+        var exports = await TrackTask(Analyzer.GetExportNamesAsync(Dll, Dll.Cts.Token));
         Application.MainLoop.Invoke(() =>
         {
             ItemList.SetSource(exports);
@@ -170,7 +224,7 @@ public class Program
     static async void LoadManagedTypes()
     {
         if (Dll == null || !Dll.IsManaged) return;
-        ManagedTypes = await Analyzer.GetManagedTypesAsync(Dll, Dll.Cts.Token);
+        ManagedTypes = await TrackTask(Analyzer.GetManagedTypesAsync(Dll, Dll.Cts.Token));
         Application.MainLoop.Invoke(() =>
         {
             ItemList.SetSource(ManagedTypes.Select(t => t.FullName).ToList());
