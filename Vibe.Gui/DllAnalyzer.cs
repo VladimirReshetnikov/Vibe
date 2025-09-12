@@ -11,6 +11,7 @@ namespace Vibe.Gui;
 internal sealed class DllAnalyzer : IDisposable
 {
     private readonly ILlmProvider? _provider;
+    public bool HasLlmProvider => _provider != null;
 
     public DllAnalyzer()
     {
