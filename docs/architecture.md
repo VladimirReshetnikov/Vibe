@@ -91,11 +91,13 @@ Provides library-friendly methods:
 public static string DisassembleExportToPseudo(
     string dllName,
     string exportName,
-    int maxBytes = 4096)
+    int? maxBytes = null,
+    int? maxForwarderHops = null)
 public static Dictionary<string,string> DisassembleExportsToPseudo(
     string dllName,
     string exportNamePattern,
-    int maxBytes = 4096)
+    int? maxBytes = null,
+    int? maxForwarderHops = null)
 ```
 
 Steps:

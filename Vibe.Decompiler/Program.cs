@@ -13,13 +13,12 @@ public static class Program
 {
     static async Task Main(string[] args)
     {
-        var configPath = Path.Combine(AppContext.BaseDirectory, "config.json");
-        var config = AppConfig.AutoDetect() ?? new AppConfig();
+        var config = AppConfig.Current;
 
         string dllPath = @"C:\Windows\System32\Microsoft-Edge-WebView\msedge.dll";
         string exportName = "CreateTestWebClientProxy";
 
-        var disasm = DisassembleExportToPseudo(dllPath, exportName, config.MaxDataSizeBytes, config.MaxForwarderHops);
+        var disasm = DisassembleExportToPseudo(dllPath, exportName);
         Console.WriteLine(disasm);
 
         var docs = new List<string>();
@@ -117,16 +116,24 @@ public static class Program
     /// <param name="dllName">e.g., "ntdll.dll", "kernelbase.dll"</param>
     /// <param name="exportName">e.g., "RtlGetVersion"</param>
     /// <param name="maxBytes">
-    /// Maximum bytes to read from the function start (bounded by end of section). The decompiler
-    /// stops at the first RET anyway; this just keeps us from running off into unrelated code when RET is missing.
+    /// Optional maximum bytes to read from the function start (bounded by end of section).
+    /// Uses <see cref="AppConfig.Current"/> when <c>null</c>.
+    /// </param>
+    /// <param name="maxForwarderHops">
+    /// Optional maximum number of export forwarders to follow. Uses
+    /// <see cref="AppConfig.Current"/> when <c>null</c>.
     /// </param>
     /// <returns>Pseudocode string with a small header (path, RVA, ImageBase)</returns>
     public static string DisassembleExportToPseudo(
         string dllName,
         string exportName,
-        int maxBytes = 4096,
-        int maxForwarderHops = 8)
+        int? maxBytes = null,
+        int? maxForwarderHops = null)
     {
+        var cfg = AppConfig.Current;
+        int bytes = maxBytes ?? cfg.MaxDataSizeBytes;
+        int hops = maxForwarderHops ?? cfg.MaxForwarderHops;
+
         // Resolve a *64-bit* System32 path even if this process is 32-bit (WOW64).
         string ResolveSystemDllPath(string name)
         {
@@ -150,7 +157,7 @@ public static class Program
         string curDllPath = ResolveSystemDllPath(dllName);
         string curExport = exportName;
 
-        for (int hop = 0; hop < maxForwarderHops; hop++)
+        for (int hop = 0; hop < hops; hop++)
         {
             if (!visited.Add($"{curDllPath}!{curExport}"))
                 throw new InvalidOperationException("Forwarder loop detected.");
@@ -173,7 +180,7 @@ public static class Program
                       ?? throw new InvalidOperationException("Function RVA not contained in any section.");
             int secEnd = checked((int)sec.PointerToRawData + (int)sec.SizeOfRawData);
             int maxAvail = Math.Max(0, secEnd - funcOff);
-            int take = Math.Min(maxBytes, maxAvail);
+            int take = Math.Min(bytes, maxAvail);
             if (take <= 0)
                 throw new InvalidOperationException("No bytes available for function body.");
 
@@ -199,7 +206,7 @@ public static class Program
             header.AppendLine($"// Export      : {curExport}");
             header.AppendLine($"// ImageBase   : 0x{pe.ImageBase:X}");
             header.AppendLine($"// FunctionRVA : 0x{export.FunctionRva:X}");
-            header.AppendLine($"// Slice bytes : {take} (bounded by section end and maxBytes={maxBytes})");
+            header.AppendLine($"// Slice bytes : {take} (bounded by section end and maxBytes={bytes})");
             header.AppendLine();
 
             return header.ToString() + pseudo;

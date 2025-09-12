@@ -22,8 +22,7 @@ dotnet build -c Release
 ```csharp
 var disasm = DisassembleExportToPseudo(
     "C:\\Windows\\System32\\Microsoft-Edge-WebView\\msedge.dll",
-    "CreateTestWebClientProxy",
-    256 * 1024);
+    "CreateTestWebClientProxy");
 Console.WriteLine(disasm);
 ```
 If an `OPENAI_API_KEY` or `ANTHROPIC_API_KEY` environment variable is set, the tool sends the pseudocode to that provider and prints a refined version that reads much closer to hand-written C. Example output lives in [docs/examples.md](docs/examples.md).
