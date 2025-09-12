@@ -36,33 +36,40 @@ public sealed class OpenAiLlmProvider : ILlmProvider
         IEnumerable<string>? documentation = null,
         CancellationToken cancellationToken = default)
     {
-        var messages = new List<object>
+        var input = new List<object>
         {
-            new { role = "system", content = "You rewrite decompiled machine code into clear and idiomatic C code." },
-            new { role = "user", content = $"Rewrite the following decompiler output into readable C code, " +
-                                           $"as close to the original source as possible. Output code only, not" +
-                                           $"enclosed in code fences. All your comments should appear only as part " +
-                                           $"of the code as syntactically valid C comments. You may (and should) add " +
-                                           $"auxiliary declarations of structs where it makes sense.\n\n{decompiledCode}" }
+            new
+            {
+                role = "user",
+                content =
+                    $"Rewrite the following decompiler output into readable C code, " +
+                    $"as close to the original source as possible. Output code only, not" +
+                    $"enclosed in code fences. All your comments should appear only as part " +
+                    $"of the code as syntactically valid C comments. You may (and should) add " +
+                    $"auxiliary declarations of structs where it makes sense.\n\n{decompiledCode}"
+            }
         };
 
         if (documentation is not null)
         {
             foreach (var docSnippet in documentation)
-                messages.Add(new { role = "user", content = $"Reference documentation:\n{docSnippet}" });
+                input.Add(new { role = "user", content = $"Reference documentation:\n{docSnippet}" });
         }
+
+        var instructions = "You rewrite decompiled machine code into clear and idiomatic C code.";
 
         var req = new
         {
             model = Model,
-            messages,
-            reasoning = string.IsNullOrWhiteSpace(ReasoningEffort) ? null : new { effort = ReasoningEffort }
+            reasoning = string.IsNullOrWhiteSpace(ReasoningEffort) ? null : new { effort = ReasoningEffort },
+            instructions,
+            input
         };
 
         var options = new JsonSerializerOptions { DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull };
         var json = JsonSerializer.Serialize(req, options);
         using var content = new StringContent(json, Encoding.UTF8, "application/json");
-        using var resp = await _http.PostAsync("https://api.openai.com/v1/chat/completions", content, cancellationToken);
+        using var resp = await _http.PostAsync("https://api.openai.com/v1/responses", content, cancellationToken);
 
         if (!resp.IsSuccessStatusCode)
         {
@@ -71,13 +78,16 @@ public sealed class OpenAiLlmProvider : ILlmProvider
         }
 
         using var doc = JsonDocument.Parse(await resp.Content.ReadAsStringAsync(cancellationToken));
-        var choices = doc.RootElement.GetProperty("choices");
-        if (choices.GetArrayLength() == 0)
-            throw new InvalidOperationException("OpenAI API returned no choices");
+        if (!doc.RootElement.TryGetProperty("output", out var output) || output.GetArrayLength() == 0)
+            throw new InvalidOperationException("OpenAI API returned no output");
 
-        var message = choices[0].GetProperty("message").GetProperty("content").GetString();
-        if (message is null)
+        var contentArr = output[0].GetProperty("content");
+        if (contentArr.GetArrayLength() == 0)
             throw new InvalidOperationException("OpenAI API response missing content");
+
+        var message = contentArr[0].GetProperty("text").GetString();
+        if (message is null)
+            throw new InvalidOperationException("OpenAI API response missing text");
 
         return message.Trim();
     }
