@@ -1,15 +1,11 @@
 // SPDX-License-Identifier: MIT-0
 
-using System;
-using System.Collections.Generic;
-using System.IO;
-using System.Linq;
 using System.Reflection.Metadata;
 using System.Reflection.PortableExecutable;
 using System.Text.RegularExpressions;
 using PeNet;
 
-namespace Vibe.Decompiler;
+namespace Vibe.Decompiler.PE;
 
 /// <summary>
 /// Extracts a best-effort description of the compiler, toolset and

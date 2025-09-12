@@ -7,6 +7,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using Mono.Cecil;
 using Vibe.Decompiler;
+using Vibe.Decompiler.PE;
 
 namespace Vibe.Cui;
 

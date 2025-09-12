@@ -5,6 +5,9 @@ using System.Collections.Generic;
 using System.IO;
 using System.IO.Compression;
 using System.Text;
+using Vibe.Decompiler.Models;
+using Vibe.Decompiler.PE;
+using Vibe.Decompiler.Web;
 using Vibe.Utils;
 
 namespace Vibe.Decompiler;
@@ -48,7 +51,7 @@ public static class Program
             }
         }
 
-        ILlmProvider? provider = null;
+        IModelProvider? provider = null;
         string? openAiKey = Environment.GetEnvironmentVariable("OPENAI_API_KEY");
         string? anthropicKey = Environment.GetEnvironmentVariable("ANTHROPIC_API_KEY");
 
@@ -57,7 +60,7 @@ public static class Program
             case "openai" when !string.IsNullOrWhiteSpace(openAiKey):
                 {
                     string model = string.IsNullOrWhiteSpace(config.LlmVersion) ? "gpt-4o-mini" : config.LlmVersion;
-                    provider = new OpenAiLlmProvider(openAiKey, model, reasoningEffort: config.LlmReasoningEffort);
+                    provider = new OpenAiModelProvider(openAiKey, model, reasoningEffort: config.LlmReasoningEffort);
                     if (config.UseWebSearch)
                     {
                         try
@@ -81,7 +84,7 @@ public static class Program
             case "anthropic" when !string.IsNullOrWhiteSpace(anthropicKey):
                 {
                     string model = string.IsNullOrWhiteSpace(config.LlmVersion) ? "claude-3-5-sonnet-20240620" : config.LlmVersion;
-                    provider = new AnthropicLlmProvider(anthropicKey, model, maxTokens: config.LlmMaxTokens);
+                    provider = new AnthropicModelProvider(anthropicKey, model, maxTokens: config.LlmMaxTokens);
                     break;
                 }
         }

@@ -1,4 +1,5 @@
 using Vibe.Decompiler;
+using Vibe.Decompiler.PE;
 using Xunit;
 
 namespace Vibe.Tests;
