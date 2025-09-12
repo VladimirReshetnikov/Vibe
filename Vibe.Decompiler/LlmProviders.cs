@@ -18,7 +18,7 @@ public interface ILlmProvider : IDisposable
 
 public sealed class OpenAiLlmProvider : ILlmProvider
 {
-    private readonly HttpClient _http = new();
+    private readonly HttpClient _http = new() { Timeout = TimeSpan.FromHours(1) }; // TODO: Make configurable
     public string ApiKey { get; }
     public string Model { get; }
     public string? ReasoningEffort { get; }
@@ -42,11 +42,11 @@ public sealed class OpenAiLlmProvider : ILlmProvider
             {
                 role = "user",
                 content =
-                    $"Rewrite the following decompiler output into readable C code, " +
-                    $"as close to the original source as possible. Output code only, not" +
+                    $"Rewrite the following decompiler output into readable C or C++ code, " +
+                    $"as close to the original source as possible. Output code only, not " +
                     $"enclosed in code fences. All your comments should appear only as part " +
                     $"of the code as syntactically valid C comments. You may (and should) add " +
-                    $"auxiliary declarations of structs where it makes sense.\n\n{decompiledCode}"
+                    $"auxiliary declarations of structs and other symbols where it makes sense.\n\n{decompiledCode}"
             }
         };
 

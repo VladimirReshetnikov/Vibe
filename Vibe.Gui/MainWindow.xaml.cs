@@ -249,9 +249,8 @@ public partial class MainWindow : Window
 
     private void Window_PreviewKeyDown(object sender, KeyEventArgs e)
     {
-        if (e.Key == Key.V && Keyboard.Modifiers.HasFlag(ModifierKeys.Control))
-            if (TryOpenFromClipboard())
-                e.Handled = true;
+        if (e.Key == Key.V && Keyboard.Modifiers.HasFlag(ModifierKeys.Control) && TryOpenFromClipboard())
+            e.Handled = true;
     }
 
     private bool TryOpenFromClipboard()
@@ -366,6 +365,7 @@ public partial class MainWindow : Window
                     if (_provider != null && AppConfig.Current.MaxLlmCodeLength > 0 && code.Length > AppConfig.Current.MaxLlmCodeLength)
                         code = code[..AppConfig.Current.MaxLlmCodeLength];
                     string output = code;
+                    OutputBox.Text = output;
                     if (_provider != null)
                         output = await _provider.RefineAsync(code, null, token);
                     DecompiledCodeCache.Save(hash, name, output);
