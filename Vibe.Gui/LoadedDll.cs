@@ -27,9 +27,9 @@ internal sealed class LoadedDll : IDisposable
     internal string Md5Hash { get; }
 
     /// <summary>
-    /// Gets the SHA-512 hash of the DLL's contents.
+    /// Gets the SHA-1 hash of the DLL's contents.
     /// </summary>
-    internal string Sha2Hash { get; }
+    internal string Sha1Hash { get; }
 
     /// <summary>
     /// Gets the SHA-256 hash of the DLL's contents.
@@ -61,11 +61,11 @@ internal sealed class LoadedDll : IDisposable
     {
         using var fs = File.OpenRead(path);
         using var md5 = MD5.Create();
-        using var sha512 = SHA512.Create();
+        using var sha1 = SHA1.Create();
         using var sha256 = SHA256.Create();
         Md5Hash = Convert.ToHexString(md5.ComputeHash(fs));
         fs.Position = 0;
-        Sha2Hash = Convert.ToHexString(sha512.ComputeHash(fs));
+        Sha1Hash = Convert.ToHexString(sha1.ComputeHash(fs));
         fs.Position = 0;
         FileHash = Convert.ToHexString(sha256.ComputeHash(fs));
         Pe = new PeImage(path);
@@ -82,7 +82,7 @@ internal sealed class LoadedDll : IDisposable
         var sb = new StringBuilder();
         sb.Append(Pe.GetSummary());
         sb.AppendLine($"MD5: {Md5Hash}");
-        sb.AppendLine($"SHA2: {Sha2Hash}");
+        sb.AppendLine($"SHA1: {Sha1Hash}");
         sb.AppendLine($"SHA256: {FileHash}");
         return sb.ToString();
     }
