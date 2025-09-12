@@ -20,6 +20,7 @@ public sealed class PEReaderLite
     public bool HasDotNetMetadata => CliHeaderRva != 0;
     public readonly List<ImportModule> Imports = new();
     public readonly uint SizeOfHeaders; // NEW: keep SizeOfHeaders for header-range RVA mapping
+    public readonly bool IsPe32Plus; // Indicates pointer size for import parsing
 
     // Basic information about the module
     public readonly string FilePath;
@@ -70,6 +71,8 @@ public sealed class PEReaderLite
         {
             throw new NotSupportedException($"Unsupported PE magic 0x{magic:X}");
         }
+
+        IsPe32Plus = isPe32Plus;
 
         ImageBase = isPe32Plus ? U64(optOff + 24) : U32(optOff + 28);
         MajorImageVersion = U16(optOff + 44);
@@ -262,20 +265,24 @@ public sealed class PEReaderLite
             var module = new ImportModule { Name = moduleName };
 
             int symbolCount = 0;
+            int entrySize = IsPe32Plus ? 8 : 4;
             while (true)
             {
                 if (symbolCount++ >= 10000)
                     throw new BadImageFormatException("Too many import symbols in module.");
 
-                // Check bounds before reading thunk entry (8 bytes)
-                if (thunkOff + 8 > Data.Length)
+                // Check bounds before reading thunk entry
+                if (thunkOff + entrySize > Data.Length)
                     break;
 
-                ulong entry = U64(thunkOff);
+                ulong entry = IsPe32Plus ? U64(thunkOff) : U32(thunkOff);
                 if (entry == 0)
                     break;
 
-                bool byOrdinal = (entry & 0x8000000000000000UL) != 0;
+                bool byOrdinal = IsPe32Plus ?
+                    (entry & 0x8000000000000000UL) != 0 :
+                    (entry & 0x80000000) != 0;
+
                 if (byOrdinal)
                 {
                     ushort ord = (ushort)(entry & 0xFFFF);
@@ -284,6 +291,8 @@ public sealed class PEReaderLite
                 else
                 {
                     uint hintNameRva = (uint)entry;
+                    if (hintNameRva == 0)
+                        break;
                     int hnOff = RvaToOffsetChecked(hintNameRva);
                     if (hnOff + 2 >= Data.Length)
                         break;
@@ -291,7 +300,7 @@ public sealed class PEReaderLite
                     module.Symbols.Add(ImportSymbol.FromName(funcName));
                 }
 
-                thunkOff += 8;
+                thunkOff += entrySize;
             }
 
             Imports.Add(module);
