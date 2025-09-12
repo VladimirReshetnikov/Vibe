@@ -62,7 +62,6 @@ public partial class MainWindow : Window
         InitializeComponent();
         OutputBox.TextArea.TextView.LineTransformers.Add(new PseudoCodeColorizer());
         _recentFiles = LoadRecentFiles();
-        UpdateRecentFilesMenu();
         _dllAnalyzer = new DllAnalyzer();
         var opened = LoadOpenDlls();
         if (opened.Count > 0)
@@ -74,6 +73,7 @@ public partial class MainWindow : Window
         {
             LoadCommonDlls();
         }
+        UpdateRecentFilesMenu();
     }
 
     private void LoadDll(string path, bool showErrors)
@@ -214,13 +214,23 @@ public partial class MainWindow : Window
     private void UpdateRecentFilesMenu()
     {
         RecentFilesMenu.Items.Clear();
-        if (_recentFiles.Count == 0)
+
+        // Exclude files that are currently loaded in the tree view
+        var openFiles = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        foreach (TreeViewItem item in DllTree.Items)
+            if (item.Tag is LoadedDll dll)
+                openFiles.Add(dll.Pe.FilePath);
+
+        var candidates = _recentFiles.Where(f => !openFiles.Contains(f)).ToList();
+
+        if (candidates.Count == 0)
         {
             RecentFilesMenu.IsEnabled = false;
             return;
         }
+
         RecentFilesMenu.IsEnabled = true;
-        foreach (var file in _recentFiles)
+        foreach (var file in candidates)
         {
             var item = new MenuItem { Header = file, Tag = file };
             item.Click += RecentFile_Click;
@@ -337,7 +347,7 @@ public partial class MainWindow : Window
                 {
                     if (IsDll(file))
                     {
-                        LoadDll(file, showErrors: true);
+                        OpenDll(file);
                         return true;
                     }
                 }
@@ -348,7 +358,7 @@ public partial class MainWindow : Window
                 var text = Clipboard.GetText().Trim('"');
                 if (IsDll(text))
                 {
-                    LoadDll(text, showErrors: true);
+                    OpenDll(text);
                     return true;
                 }
             }
@@ -381,7 +391,7 @@ public partial class MainWindow : Window
         var files = (string[])e.Data.GetData(DataFormats.FileDrop);
         foreach (var file in files)
             if (IsDll(file))
-                LoadDll(file, showErrors: true);
+                OpenDll(file);
     }
 
     private async void DllTree_SelectedItemChanged(object sender, RoutedPropertyChangedEventArgs<object> e)
@@ -476,6 +486,7 @@ public partial class MainWindow : Window
             dll.Dispose();
             DllTree.Items.Remove(root);
             SaveOpenDlls();
+            UpdateRecentFilesMenu();
             CancelCurrentRequest();
             if (ReferenceEquals(item, DllTree.SelectedItem))
                 OutputBox.Text = string.Empty;
