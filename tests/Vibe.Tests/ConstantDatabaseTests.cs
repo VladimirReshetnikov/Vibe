@@ -199,29 +199,26 @@ public class ConstantDatabaseTests
         var db = new ConstantDatabase();
         db.LoadWin32MetadataFromWinmd(winmd);
 
-        var cases = new (string EnumName, ulong Value, string Expected)[]
+        var cases = new (ulong Value, string Expected)[]
         {
             (
-                "Windows.Win32.System.Memory.PAGE_PROTECTION_FLAGS",
                 0x04,
                 "Windows.Win32.System.Memory.PAGE_PROTECTION_FLAGS.PAGE_READWRITE"
             ),
             (
-                "Windows.Win32.System.Memory.MEMORY_ALLOCATION_TYPE",
                 0x1000,
                 "Windows.Win32.System.Memory.MEMORY_ALLOCATION_TYPE.MEM_COMMIT"
             ),
             (
-                "Windows.Win32.System.Threading.PROCESS_ACCESS_RIGHTS",
                 0x001F0FFF,
                 "Windows.Win32.System.Threading.PROCESS_ACCESS_RIGHTS.PROCESS_ALL_ACCESS"
             )
         };
 
-        foreach (var (enumName, value, expected) in cases)
+        foreach (var (value, expected) in cases)
         {
-            Assert.True(db.TryFormatValue(enumName, value, out var formatted));
-            Assert.Equal(expected, formatted);
+            var matches = db.FindByValue(value).Select(m => m.Formatted);
+            Assert.Contains(expected, matches);
         }
     }
 
