@@ -33,6 +33,7 @@ public partial class MainWindow : Window
     // Cancellation for the currently running decompile/refine task
     private CancellationTokenSource? _currentRequestCts;
     private const string RecentFilesKey = @"Software\\Vibe\\RecentFiles";
+    private const string OpenDllsKey = @"Software\\Vibe\\OpenDlls";
     private readonly List<string> _recentFiles;
 
     private void ShowLlmOverlay()
@@ -63,7 +64,16 @@ public partial class MainWindow : Window
         _recentFiles = LoadRecentFiles();
         UpdateRecentFilesMenu();
         _dllAnalyzer = new DllAnalyzer();
-        LoadCommonDlls();
+        var opened = LoadOpenDlls();
+        if (opened.Count > 0)
+        {
+            foreach (var path in opened)
+                LoadDll(path, showErrors: false);
+        }
+        else
+        {
+            LoadCommonDlls();
+        }
     }
 
     private void LoadDll(string path, bool showErrors)
@@ -130,6 +140,27 @@ public partial class MainWindow : Window
         return list;
     }
 
+    private List<string> LoadOpenDlls()
+    {
+        var list = new List<string>();
+        try
+        {
+            using var key = Registry.CurrentUser.OpenSubKey(OpenDllsKey);
+            if (key != null)
+            {
+                foreach (var name in key.GetValueNames().OrderBy(n => n))
+                {
+                    if (key.GetValue(name) is string path && File.Exists(path))
+                        list.Add(path);
+                }
+            }
+        }
+        catch
+        {
+        }
+        return list;
+    }
+
     private void SaveRecentFiles()
     {
         try
@@ -157,6 +188,26 @@ public partial class MainWindow : Window
             _recentFiles.RemoveRange(cfg.MaxRecentFiles, _recentFiles.Count - cfg.MaxRecentFiles);
         SaveRecentFiles();
         UpdateRecentFilesMenu();
+    }
+
+    private void SaveOpenDlls()
+    {
+        try
+        {
+            using var key = Registry.CurrentUser.CreateSubKey(OpenDllsKey);
+            if (key != null)
+            {
+                foreach (var name in key.GetValueNames())
+                    key.DeleteValue(name, false);
+                int i = 0;
+                foreach (TreeViewItem item in DllTree.Items)
+                    if (item.Tag is LoadedDll dll)
+                        key.SetValue($"File{i++}", dll.Pe.FilePath);
+            }
+        }
+        catch
+        {
+        }
     }
 
     private void UpdateRecentFilesMenu()
@@ -194,6 +245,7 @@ public partial class MainWindow : Window
         }
         LoadDll(path, showErrors: true);
         AddRecentFile(path);
+        SaveOpenDlls();
     }
 
     private void CancelCurrentRequest()
@@ -476,6 +528,7 @@ public partial class MainWindow : Window
     protected override void OnClosed(EventArgs e)
     {
         CancelCurrentRequest();
+        SaveOpenDlls();
         // Dispose all DLL items to clean up CancellationTokenSource objects
         foreach (TreeViewItem item in DllTree.Items)
             if (item.Tag is LoadedDll dll)
