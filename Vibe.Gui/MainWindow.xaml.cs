@@ -326,7 +326,15 @@ public partial class MainWindow : Window
                 return;
             case ExportItem exp:
                 var hash = exp.Dll.FileHash;
-                var cached = DecompiledCodeCache.TryGet(hash, exp.Name);
+                string? cached = null;
+                try
+                {
+                    cached = DecompiledCodeCache.TryGet(hash, exp.Name);
+                }
+                catch (Exception ex)
+                {
+                    Logger.LogException(ex);
+                }
                 if (cached != null)
                 {
                     OutputBox.Text = cached;
@@ -345,7 +353,14 @@ public partial class MainWindow : Window
                     if (export.IsForwarder)
                     {
                         var forwarderText = $"{name} -> {export.ForwarderString}";
-                        DecompiledCodeCache.Save(hash, name, forwarderText);
+                        try
+                        {
+                            DecompiledCodeCache.Save(hash, name, forwarderText);
+                        }
+                        catch (Exception ex)
+                        {
+                            Logger.LogException(ex);
+                        }
                         OutputBox.Text = forwarderText;
                         return;
                     }
@@ -368,7 +383,14 @@ public partial class MainWindow : Window
                     string output = code;
                     if (_provider != null)
                         output = await _provider.RefineAsync(code, null, token);
-                    DecompiledCodeCache.Save(hash, name, output);
+                    try
+                    {
+                        DecompiledCodeCache.Save(hash, name, output);
+                    }
+                    catch (Exception ex)
+                    {
+                        Logger.LogException(ex);
+                    }
                     OutputBox.Text = output;
                 }
                 catch (OperationCanceledException ex)
