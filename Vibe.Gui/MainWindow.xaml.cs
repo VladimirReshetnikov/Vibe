@@ -200,6 +200,9 @@ public partial class MainWindow : Window
         _currentRequestCts?.Cancel();
         _currentRequestCts?.Dispose();
         _currentRequestCts = null;
+
+        BusyBar.Visibility = Visibility.Collapsed;
+        HideLlmOverlay();
     }
 
     private async void DllRoot_Expanded(object sender, RoutedEventArgs e)
@@ -309,7 +312,6 @@ public partial class MainWindow : Window
     private async void DllTree_SelectedItemChanged(object sender, RoutedPropertyChangedEventArgs<object> e)
     {
         CancelCurrentRequest();
-        BusyBar.Visibility = Visibility.Collapsed;
 
         if (DllTree.SelectedItem is not TreeViewItem item)
             return;
@@ -352,11 +354,7 @@ public partial class MainWindow : Window
                 finally
                 {
                     if (_currentRequestCts?.Token == token)
-                    {
-                        BusyBar.Visibility = Visibility.Collapsed;
-                        HideLlmOverlay();
                         CancelCurrentRequest();
-                    }
                 }
                 break;
         }
@@ -397,7 +395,6 @@ public partial class MainWindow : Window
             dll.Dispose();
             DllTree.Items.Remove(root);
             CancelCurrentRequest();
-            BusyBar.Visibility = Visibility.Collapsed;
             if (ReferenceEquals(item, DllTree.SelectedItem))
                 OutputBox.Text = string.Empty;
             e.Handled = true;

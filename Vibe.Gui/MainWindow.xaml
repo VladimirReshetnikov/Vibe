@@ -52,8 +52,8 @@
                             </LinearGradientBrush.RelativeTransform>
                         </LinearGradientBrush>
                     </Border.Background>
-                    <TextBlock Text="Refining code with AI…" HorizontalAlignment="Center" VerticalAlignment="Center"
-                               Foreground="#E0FFE0" FontWeight="SemiBold" AutomationProperties.LiveSetting="Polite">
+                    <TextBlock Text="Refining with AI" HorizontalAlignment="Center" VerticalAlignment="Center"
+                               Foreground="#80808080" FontSize="48" FontWeight="Bold" FontFamily="Arial Black" AutomationProperties.LiveSetting="Polite">
                         <TextBlock.Effect>
                             <DropShadowEffect BlurRadius="2" ShadowDepth="0" />
                         </TextBlock.Effect>
