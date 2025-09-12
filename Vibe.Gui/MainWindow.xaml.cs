@@ -215,22 +215,14 @@ public partial class MainWindow : Window
     {
         RecentFilesMenu.Items.Clear();
 
-        // Exclude files that are currently loaded in the tree view
-        var openFiles = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-        foreach (TreeViewItem item in DllTree.Items)
-            if (item.Tag is LoadedDll dll)
-                openFiles.Add(dll.Pe.FilePath);
-
-        var candidates = _recentFiles.Where(f => !openFiles.Contains(f)).ToList();
-
-        if (candidates.Count == 0)
+        if (_recentFiles.Count == 0)
         {
             RecentFilesMenu.IsEnabled = false;
             return;
         }
 
         RecentFilesMenu.IsEnabled = true;
-        foreach (var file in candidates)
+        foreach (var file in _recentFiles)
         {
             var item = new MenuItem { Header = file, Tag = file };
             item.Click += RecentFile_Click;
