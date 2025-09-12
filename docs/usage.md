@@ -1,6 +1,6 @@
 # Usage Patterns & Extensibility
 
-- **As a library**: Call `Program.DisassembleExportToPseudo()` for a single export or `Program.DisassembleExportsToPseudo()` with a regex pattern string to process all matching exports. You can also use `PEReader` + `Engine` directly if you already have bytes.
+- **As a library**: Call `Program.DisassembleExportToPseudo()` for a single export or `Program.DisassembleExportsToPseudo()` with a regex pattern string to process all matching exports. You can also use `PeImage` + `Engine` directly if you already have bytes.
 - **Change the function under test**: In `Program.Main`, edit the DLL/export name and the `maxBytes` bound. The decompiler stops at the first `RET`.
 - **Constant naming**:
   - Replace `ReturnEnumTypeFullName` if your target returns something other than `NTSTATUS`.

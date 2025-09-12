@@ -162,7 +162,7 @@ public static class Program
             if (!visited.Add($"{curDllPath}!{curExport}"))
                 throw new InvalidOperationException("Forwarder loop detected.");
 
-            var pe = new PEReaderLite(curDllPath);
+            var pe = new PeImage(curDllPath);
             var export = pe.FindExport(curExport);
 
             if (export.IsForwarder)

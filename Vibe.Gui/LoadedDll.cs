@@ -11,7 +11,7 @@ namespace Vibe.Gui;
 
 internal sealed class LoadedDll : IDisposable
 {
-    internal PEReaderLite Pe { get; }
+    internal PeImage Pe { get; }
     internal string FileHash { get; }
     internal CancellationTokenSource Cts { get; } = new();
     internal ModuleDefinition? ManagedModule { get; }
@@ -22,7 +22,7 @@ internal sealed class LoadedDll : IDisposable
         using var fs = File.OpenRead(path);
         using var sha = SHA256.Create();
         FileHash = Convert.ToHexString(sha.ComputeHash(fs));
-        Pe = new PEReaderLite(path);
+        Pe = new PeImage(path);
         if (Pe.HasDotNetMetadata)
             ManagedModule = ModuleDefinition.ReadModule(path);
     }
