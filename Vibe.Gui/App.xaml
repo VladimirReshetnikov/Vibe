@@ -7,7 +7,15 @@
         <ResourceDictionary>
             <ResourceDictionary.MergedDictionaries>
                 <ResourceDictionary Source="Icons.xaml" />
+                <ResourceDictionary Source="Colors.xaml" />
             </ResourceDictionary.MergedDictionaries>
+            <!-- Brushes -->
+            <SolidColorBrush x:Key="WindowBackgroundBrush" Color="{StaticResource Color.Background}" />
+            <SolidColorBrush x:Key="PanelBrush" Color="{StaticResource Color.Surface}" />
+            <SolidColorBrush x:Key="BorderBrush" Color="{StaticResource Color.Border}" />
+            <SolidColorBrush x:Key="TextBrush" Color="{StaticResource Color.Foreground}" />
+            <SolidColorBrush x:Key="AccentBrush" Color="{StaticResource Color.Accent}" />
+            <SolidColorBrush x:Key="AccentHighlightBrush" Color="{StaticResource Color.Accent.Highlight}" />
         </ResourceDictionary>
     </Application.Resources>
 </Application>

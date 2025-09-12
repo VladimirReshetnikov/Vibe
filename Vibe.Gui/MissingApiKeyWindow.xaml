@@ -4,7 +4,9 @@
         Title="OpenAI API Key Required"
         WindowStartupLocation="CenterScreen"
         ResizeMode="NoResize"
-        SizeToContent="WidthAndHeight">
+        SizeToContent="WidthAndHeight"
+        Background="{StaticResource WindowBackgroundBrush}"
+        Foreground="{StaticResource TextBrush}">
     <StackPanel Margin="20" Width="420">
         <TextBlock TextWrapping="Wrap" Margin="0,0,0,20" xml:space="preserve">
 This application needs to contact OpenAI to refine code, but no API key was found.
@@ -15,7 +17,10 @@ PowerShell: setx OPENAI_API_KEY "your_key"
 Bash: export OPENAI_API_KEY=your_key
         </TextBlock>
         <TextBlock Text="Temporary API Key:" Margin="0,0,0,5" />
-        <TextBox x:Name="ApiKeyBox" Margin="0,0,0,20" />
+        <TextBox x:Name="ApiKeyBox" Margin="0,0,0,20"
+                 Background="{StaticResource PanelBrush}"
+                 Foreground="{StaticResource TextBrush}"
+                 BorderBrush="{StaticResource BorderBrush}" />
         <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
             <Button Content="Exit" Width="75" Margin="0,0,10,0" Click="Exit_Click" />
             <Button Content="Use Key" Width="75" Margin="0,0,10,0" Click="UseKey_Click" />

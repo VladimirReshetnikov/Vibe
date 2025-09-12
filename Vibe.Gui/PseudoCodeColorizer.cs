@@ -8,6 +8,19 @@ namespace Vibe.Gui;
 
 internal sealed class PseudoCodeColorizer : DocumentColorizingTransformer
 {
+    private static SolidColorBrush CreateBrush(byte r, byte g, byte b)
+    {
+        var brush = new SolidColorBrush(Color.FromRgb(r, g, b));
+        brush.Freeze();
+        return brush;
+    }
+
+    private static readonly SolidColorBrush KeywordBrush = CreateBrush(0x8F, 0x9E, 0xB2); // CoolGray.Slate
+    private static readonly SolidColorBrush PreprocessorBrush = CreateBrush(0x5F, 0x70, 0x86); // CoolGray.Stone
+    private static readonly SolidColorBrush StringBrush = CreateBrush(0xEA, 0x8F, 0x7E); // Peach.Cantaloupe
+    private static readonly SolidColorBrush NumberBrush = CreateBrush(0xE7, 0xD2, 0x7B); // Yellow.Beeswax
+    private static readonly SolidColorBrush CommentBrush = CreateBrush(0x7D, 0x96, 0x57); // Olive.Olive
+
     private static readonly HashSet<string> Keywords = new(StringComparer.Ordinal)
     {
         // C keywords
@@ -37,14 +50,14 @@ internal sealed class PseudoCodeColorizer : DocumentColorizingTransformer
             if (endComment >= 0)
             {
                 ChangeLinePart(lineOffset, lineOffset + endComment + 2,
-                    part => part.TextRunProperties.SetForegroundBrush(Brushes.Green));
+                    part => part.TextRunProperties.SetForegroundBrush(CommentBrush));
                 _inMultiLineComment = false;
                 start = endComment + 2;
             }
             else
             {
                 ChangeLinePart(lineOffset, line.EndOffset,
-                    part => part.TextRunProperties.SetForegroundBrush(Brushes.Green));
+                    part => part.TextRunProperties.SetForegroundBrush(CommentBrush));
                 return;
             }
         }
@@ -62,7 +75,7 @@ internal sealed class PseudoCodeColorizer : DocumentColorizingTransformer
                 if (PreprocessorKeywords.Contains(directive))
                 {
                     ChangeLinePart(lineOffset + start, lineOffset + i,
-                        part => part.TextRunProperties.SetForegroundBrush(Brushes.DarkCyan));
+                        part => part.TextRunProperties.SetForegroundBrush(PreprocessorBrush));
 
                     // Highlight included file names surrounded by <> or ""
                     if (string.Equals(directive, "include", StringComparison.Ordinal))
@@ -76,7 +89,7 @@ internal sealed class PseudoCodeColorizer : DocumentColorizingTransformer
                             while (k < text.Length && text[k] != endChar) k++;
                             if (k < text.Length) k++;
                             ChangeLinePart(lineOffset + j, lineOffset + k,
-                                part => part.TextRunProperties.SetForegroundBrush(Brushes.Brown));
+                                part => part.TextRunProperties.SetForegroundBrush(StringBrush));
                             start = k;
                             continue;
                         }
@@ -91,7 +104,7 @@ internal sealed class PseudoCodeColorizer : DocumentColorizingTransformer
                 if (text[start + 1] == '/')
                 {
                     ChangeLinePart(lineOffset + start, line.EndOffset,
-                        part => part.TextRunProperties.SetForegroundBrush(Brushes.Green));
+                        part => part.TextRunProperties.SetForegroundBrush(CommentBrush));
                     return;
                 }
                 if (text[start + 1] == '*')
@@ -100,14 +113,14 @@ internal sealed class PseudoCodeColorizer : DocumentColorizingTransformer
                     if (endComment >= 0)
                     {
                         ChangeLinePart(lineOffset + start, lineOffset + endComment + 2,
-                            part => part.TextRunProperties.SetForegroundBrush(Brushes.Green));
+                            part => part.TextRunProperties.SetForegroundBrush(CommentBrush));
                         start = endComment + 2;
                         continue;
                     }
                     else
                     {
                         ChangeLinePart(lineOffset + start, line.EndOffset,
-                            part => part.TextRunProperties.SetForegroundBrush(Brushes.Green));
+                            part => part.TextRunProperties.SetForegroundBrush(CommentBrush));
                         _inMultiLineComment = true;
                         return;
                     }
@@ -124,7 +137,7 @@ internal sealed class PseudoCodeColorizer : DocumentColorizingTransformer
                     else i++;
                 }
                 ChangeLinePart(lineOffset + start, lineOffset + i,
-                    part => part.TextRunProperties.SetForegroundBrush(Brushes.Brown));
+                    part => part.TextRunProperties.SetForegroundBrush(StringBrush));
                 start = i;
                 continue;
             }
@@ -139,7 +152,7 @@ internal sealed class PseudoCodeColorizer : DocumentColorizingTransformer
                     else i++;
                 }
                 ChangeLinePart(lineOffset + start, lineOffset + i,
-                    part => part.TextRunProperties.SetForegroundBrush(Brushes.Brown));
+                    part => part.TextRunProperties.SetForegroundBrush(StringBrush));
                 start = i;
                 continue;
             }
@@ -163,7 +176,7 @@ internal sealed class PseudoCodeColorizer : DocumentColorizingTransformer
                 }
                 while (i < text.Length && char.IsLetter(text[i])) i++; // numeric suffixes
                 ChangeLinePart(lineOffset + start, lineOffset + i,
-                    part => part.TextRunProperties.SetForegroundBrush(Brushes.Magenta));
+                    part => part.TextRunProperties.SetForegroundBrush(NumberBrush));
                 start = i;
                 continue;
             }
@@ -176,7 +189,7 @@ internal sealed class PseudoCodeColorizer : DocumentColorizingTransformer
                 if (Keywords.Contains(word))
                 {
                     ChangeLinePart(lineOffset + start, lineOffset + i,
-                        part => part.TextRunProperties.SetForegroundBrush(Brushes.Blue));
+                        part => part.TextRunProperties.SetForegroundBrush(KeywordBrush));
                 }
                 start = i;
                 continue;
