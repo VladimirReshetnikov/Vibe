@@ -1,13 +1,20 @@
 # Vibe — The Explaining Decompiler for Native Code
 
-Vibe turns opaque machine instructions into readable stories. Built exclusively for x64 Windows binaries, it fuses advanced lifting algorithms with AI refinement so you don't just see the code—you understand it.
+Vibe aims to turn opaque machine instructions into more readable stories. Built exclusively for x64 Windows binaries, it fuses lifting algorithms with AI refinement so you don't just see the code—you understand it.
 
-> Vibe is a quickly vibe-coded prototype with rough edges and a limited feature set. Right now it only supports x64 binaries.
+> Vibe is a quickly vibe-coded prototype with rough edges and a limited feature set. We find its capability impressive, but it's experimental software: it only supports x64 binaries, may misinterpret code, and we don't promise any particular results.
 
 ## Why Vibe?
-- **Explains as it decompiles.** Vibe narrates the intent of native code, emitting C‑style pseudocode and assembly side‑by‑side.
-- **Combines algorithms and AI for code analysis.** The IR engine reconstructs control flow, and language models help refine the output into readable C-like pseudocode.
-- **Designed for code analysis tasks.** Useful for auditing third‑party libraries or exploring system internals, Vibe aims to provide understandable output efficiently.
+- **Explains as it decompiles.** Vibe narrates the intent of native code, emitting C‑style pseudocode and assembly side‑by‑side, though the interpretation might not always be accurate.
+- **Combines algorithms and AI for code analysis.** The IR engine reconstructs control flow, and language models help refine the output into readable C-like pseudocode, but manual review is still required.
+- **Intended for exploratory code analysis.** Useful for auditing third‑party libraries or exploring system internals, but the output can be incomplete or incorrect.
+
+## Limitations
+- Supports only PE32+ (x64) binaries.
+- Forwarders by ordinal are not supported.
+- Emits a linear IR with labels and gotos; region structuring is minimal.
+- Output may be incomplete or inaccurate; verify against the original binaries.
+- We don't guarantee any particular results.
 
 ## See it in action
 Below is real output produced by Vibe for `MakeSureDirectoryPathExists` from `dbghelp.dll`:
@@ -145,4 +152,15 @@ BOOL WINAPI MakeSureDirectoryPathExists(PCSTR path)
 ```
 If `OPENAI_API_KEY` or `ANTHROPIC_API_KEY` is set, Vibe will refine the pseudocode with the corresponding provider.
 
+## Documentation
+- [Architecture](docs/architecture.md)
+- [Key heuristics](docs/heuristics.md)
+- [Usage & extensibility](docs/usage.md)
+- [Examples](docs/examples.md)
+- [Roadmap](docs/roadmap.md)
+
+## Contributing
+See [docs/coding-guidelines.md](docs/coding-guidelines.md) for coding conventions and formatting rules.
+
+## License
 This project is licensed under the [MIT-0 license](LICENSE).
