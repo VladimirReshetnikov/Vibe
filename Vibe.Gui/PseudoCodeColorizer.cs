@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Windows.Media;
+using System.Runtime.CompilerServices;
 using ICSharpCode.AvalonEdit.Document;
 using ICSharpCode.AvalonEdit.Rendering;
 
@@ -54,6 +55,8 @@ internal sealed class PseudoCodeColorizer : DocumentColorizingTransformer
     private char _stringQuote;
     private string? _rawStringDelimiter;
 
+    private readonly ConditionalWeakTable<DocumentLine, LineState> _lineStates = new();
+
     private void SetState(LineState state)
     {
         _inMultiLineComment = state.InMultiLineComment;
@@ -73,7 +76,10 @@ internal sealed class PseudoCodeColorizer : DocumentColorizingTransformer
     };
 
     private void SaveLineState(DocumentLine line)
-        => line.Tag = CaptureState();
+    {
+        _lineStates.Remove(line);
+        _lineStates.Add(line, CaptureState());
+    }
 
     private LineState GetStartState(DocumentLine line)
     {
@@ -81,14 +87,15 @@ internal sealed class PseudoCodeColorizer : DocumentColorizingTransformer
         if (prev == null)
             return new LineState();
 
-        if (prev.Tag is LineState state)
+        if (_lineStates.TryGetValue(prev, out var state))
             return state;
 
         state = GetStartState(prev);
         SetState(state);
         ScanLineState(CurrentContext.Document.GetText(prev));
-        prev.Tag = CaptureState();
-        return (LineState)prev.Tag!;
+        var captured = CaptureState();
+        _lineStates.Add(prev, captured);
+        return captured;
     }
 
     private void ScanLineState(string text)
