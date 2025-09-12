@@ -12,6 +12,7 @@ using System.Windows.Input;
 using Microsoft.Win32;
 using Vibe.Decompiler;
 using ICSharpCode.AvalonEdit;
+using System.Security.Cryptography;
 
 namespace Vibe.Gui;
 
@@ -21,6 +22,7 @@ public partial class MainWindow : Window
     {
         public required PEReaderLite Pe { get; init; }
         public required CancellationTokenSource Cts { get; init; }
+        public required string FileHash { get; init; }
 
         public void Dispose()
         {
@@ -32,7 +34,6 @@ public partial class MainWindow : Window
     {
         public required DllItem Dll { get; init; }
         public required string Name { get; init; }
-        public string? CachedSource { get; set; }
     }
 
     private readonly AppConfig _config;
@@ -65,7 +66,10 @@ public partial class MainWindow : Window
     {
         try
         {
-            var dll = new DllItem { Pe = new PEReaderLite(path), Cts = new CancellationTokenSource() };
+            using var fs = File.OpenRead(path);
+            using var sha = SHA256.Create();
+            var hash = Convert.ToHexString(sha.ComputeHash(fs));
+            var dll = new DllItem { Pe = new PEReaderLite(path), Cts = new CancellationTokenSource(), FileHash = hash };
 
             var dllIcon = (ImageSource)FindResource("DllIconImage");
             var headerPanel = new StackPanel { Orientation = Orientation.Horizontal };
@@ -321,7 +325,9 @@ public partial class MainWindow : Window
                 OutputBox.Text = dll.Pe.GetSummary();
                 return;
             case ExportItem exp:
-                if (exp.CachedSource is string cached)
+                var hash = exp.Dll.FileHash;
+                var cached = DecompiledCodeCache.TryGet(hash, exp.Name);
+                if (cached != null)
                 {
                     OutputBox.Text = cached;
                     return;
@@ -339,7 +345,7 @@ public partial class MainWindow : Window
                     if (export.IsForwarder)
                     {
                         var forwarderText = $"{name} -> {export.ForwarderString}";
-                        exp.CachedSource = forwarderText;
+                        DecompiledCodeCache.Save(hash, name, forwarderText);
                         OutputBox.Text = forwarderText;
                         return;
                     }
@@ -362,7 +368,7 @@ public partial class MainWindow : Window
                     string output = code;
                     if (_provider != null)
                         output = await _provider.RefineAsync(code, null, token);
-                    exp.CachedSource = output;
+                    DecompiledCodeCache.Save(hash, name, output);
                     OutputBox.Text = output;
                 }
                 catch (OperationCanceledException ex)

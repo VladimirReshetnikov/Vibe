@@ -11,5 +11,6 @@
   </ItemGroup>
   <ItemGroup>
     <PackageReference Include="ICSharpCode.AvalonEdit" Version="4.3.0-alpha-00000000" />
+    <PackageReference Include="Microsoft.Data.Sqlite" Version="8.0.7" />
   </ItemGroup>
 </Project>
