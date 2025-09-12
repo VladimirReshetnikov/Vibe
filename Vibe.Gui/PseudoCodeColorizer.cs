@@ -283,7 +283,7 @@ internal sealed class PseudoCodeColorizer : DocumentColorizingTransformer
             }
             else
             {
-                ChangeLinePart(lineOffset + start, line.EndOffset,
+                ChangeLinePart(lineOffset + start, lineOffset + text.Length,
                     part => part.TextRunProperties.SetForegroundBrush(StringBrush));
                 _inString = true;
                 _rawString = true;
@@ -308,7 +308,7 @@ internal sealed class PseudoCodeColorizer : DocumentColorizingTransformer
                 else end++;
             }
 
-            ChangeLinePart(lineOffset + start, line.EndOffset,
+            ChangeLinePart(lineOffset + start, lineOffset + text.Length,
                 part => part.TextRunProperties.SetForegroundBrush(StringBrush));
             _inString = true;
             _rawString = false;
