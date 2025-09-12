@@ -15,17 +15,25 @@ using Microsoft.Win32;
 using ICSharpCode.AvalonEdit;
 using Mono.Cecil;
 using Vibe.Decompiler;
+using Xceed.Wpf.AvalonDock.Layout;
+using Xceed.Wpf.AvalonDock.Layout.Serialization;
 
 namespace Vibe.Gui;
 
 public partial class MainWindow : Window
 {
-    private sealed class ExportItem
-    {
-        public required LoadedDll Dll { get; init; }
-        public required string Name { get; init; }
-    }
+    public static readonly RoutedUICommand ToggleExplorerCommand = new("Explorer", nameof(ToggleExplorerCommand), typeof(MainWindow), new InputGestureCollection { new KeyGesture(Key.E, ModifierKeys.Control | ModifierKeys.Alt) });
+    public static readonly RoutedUICommand ToggleOutputCommand = new("Output", nameof(ToggleOutputCommand), typeof(MainWindow), new InputGestureCollection { new KeyGesture(Key.O, ModifierKeys.Control | ModifierKeys.Alt) });
+    public static readonly RoutedUICommand ToggleSearchCommand = new("Search Results", nameof(ToggleSearchCommand), typeof(MainWindow), new InputGestureCollection { new KeyGesture(Key.S, ModifierKeys.Control | ModifierKeys.Alt) });
+    public static readonly RoutedUICommand ResetLayoutCommand = new("Reset Window Layout", nameof(ResetLayoutCommand), typeof(MainWindow), new InputGestureCollection { new KeyGesture(Key.R, ModifierKeys.Control | ModifierKeys.Alt) });
 
+    private readonly string _layoutFile;
+    private readonly Grid _decompilerContent;
+    private readonly TextEditor OutputBox;
+    private readonly Border RewriteOverlay;
+    private readonly TextBox _outputLog;
+    private readonly ListBox _searchResults;
+    private readonly TreeView DllTree;
     private readonly DllAnalyzer _dllAnalyzer;
     // Quick-search state (type-to-select export by prefix)
     private string _searchText = string.Empty;
@@ -35,6 +43,12 @@ public partial class MainWindow : Window
     private const string RecentFilesKey = @"Software\\Vibe\\RecentFiles";
     private const string OpenDllsKey = @"Software\\Vibe\\OpenDlls";
     private readonly List<string> _recentFiles;
+
+    private sealed class ExportItem
+    {
+        public required LoadedDll Dll { get; init; }
+        public required string Name { get; init; }
+    }
 
     private void ShowLlmOverlay()
     {
@@ -60,9 +74,30 @@ public partial class MainWindow : Window
     public MainWindow()
     {
         InitializeComponent();
+
+        DllTree = (TreeView)FindResource("ExplorerControl");
+        _decompilerContent = (Grid)FindResource("DecompilerContent");
+        OutputBox = (TextEditor)_decompilerContent.Children[0];
+        RewriteOverlay = (Border)_decompilerContent.Children[1];
+        _outputLog = (TextBox)FindResource("OutputControl");
+        _searchResults = (ListBox)FindResource("SearchResultsControl");
+
+        CommandBindings.Add(new CommandBinding(ToggleExplorerCommand, (_, _) => ToggleAnchorable("Explorer")));
+        CommandBindings.Add(new CommandBinding(ToggleOutputCommand, (_, _) => ToggleAnchorable("Output")));
+        CommandBindings.Add(new CommandBinding(ToggleSearchCommand, (_, _) => ToggleAnchorable("SearchResults")));
+        CommandBindings.Add(new CommandBinding(ResetLayoutCommand, (_, _) => ResetLayout()));
+
         OutputBox.TextArea.TextView.LineTransformers.Add(new PseudoCodeColorizer());
+
+        var appData = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "Vibe");
+        Directory.CreateDirectory(appData);
+        _layoutFile = Path.Combine(appData, "layout.config");
+
         _recentFiles = LoadRecentFiles();
         _dllAnalyzer = new DllAnalyzer();
+
+        LoadLayout();
+
         var opened = LoadOpenDlls();
         if (opened.Count > 0)
         {
@@ -74,6 +109,73 @@ public partial class MainWindow : Window
             LoadCommonDlls();
         }
         UpdateRecentFilesMenu();
+
+        Closing += (_, _) => SaveLayout();
+    }
+
+    private void LoadLayout()
+    {
+        if (File.Exists(_layoutFile))
+        {
+            try
+            {
+                var serializer = new XmlLayoutSerializer(DockManager);
+                serializer.LayoutSerializationCallback += Serializer_LayoutSerializationCallback;
+                using var reader = new StreamReader(_layoutFile);
+                serializer.Deserialize(reader);
+                return;
+            }
+            catch
+            {
+            }
+        }
+        ResetLayout();
+    }
+
+    private void SaveLayout()
+    {
+        var serializer = new XmlLayoutSerializer(DockManager);
+        using var writer = new StreamWriter(_layoutFile);
+        serializer.Serialize(writer);
+    }
+
+    private void ResetLayout()
+    {
+        var serializer = new XmlLayoutSerializer(DockManager);
+        serializer.LayoutSerializationCallback += Serializer_LayoutSerializationCallback;
+        using var stream = Application.GetResourceStream(new Uri("DefaultLayout.config", UriKind.Relative))?.Stream;
+        if (stream != null)
+            serializer.Deserialize(stream);
+    }
+
+    private void Serializer_LayoutSerializationCallback(object? sender, LayoutSerializationCallbackEventArgs e)
+    {
+        switch (e.Model.ContentId)
+        {
+            case "Explorer":
+                e.Content = DllTree;
+                break;
+            case "DecompilerView":
+                e.Content = _decompilerContent;
+                break;
+            case "Output":
+                e.Content = _outputLog;
+                break;
+            case "SearchResults":
+                e.Content = _searchResults;
+                break;
+        }
+    }
+
+    private void ToggleAnchorable(string id)
+    {
+        var anchor = DockManager.Layout?.Descendents().OfType<LayoutAnchorable>().FirstOrDefault(a => a.ContentId == id);
+        if (anchor == null)
+            return;
+        if (anchor.IsHidden || anchor.IsAutoHidden)
+            anchor.Show();
+        else
+            anchor.Hide();
     }
 
     private void LoadDll(string path, bool showErrors)
