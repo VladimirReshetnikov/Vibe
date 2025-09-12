@@ -83,6 +83,14 @@ public partial class MainWindow : Window
         _outputLog = (TextBox)FindResource("OutputControl");
         _searchResults = (ListBox)FindResource("SearchResultsControl");
 
+        // Register animation targets within the overlay since the Grid is loaded from
+        // resources and its named elements are not automatically placed in the
+        // overlay's name scope.
+        var stripeTransform = ((TransformGroup)((LinearGradientBrush)RewriteOverlay.Background)
+            .RelativeTransform).Children.OfType<TranslateTransform>().First();
+        NameScope.SetNameScope(RewriteOverlay, new NameScope());
+        RewriteOverlay.RegisterName("StripeTransform", stripeTransform);
+
         CommandBindings.Add(new CommandBinding(ToggleExplorerCommand, (_, _) => ToggleAnchorable("Explorer")));
         CommandBindings.Add(new CommandBinding(ToggleOutputCommand, (_, _) => ToggleAnchorable("Output")));
         CommandBindings.Add(new CommandBinding(ToggleSearchCommand, (_, _) => ToggleAnchorable("SearchResults")));
