@@ -78,6 +78,6 @@
         </Menu>
         <ProgressBar x:Name="BusyBar" DockPanel.Dock="Bottom" Height="4" IsIndeterminate="True" Visibility="Collapsed"
                      Foreground="{StaticResource AccentBrush}" Background="{StaticResource PanelBrush}"/>
-        <ad:DockingManager x:Name="DockManager"/>
+        <DockingManager x:Name="DockManager"/>
     </DockPanel>
 </Window>

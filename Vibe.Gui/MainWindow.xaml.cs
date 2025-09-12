@@ -11,12 +11,12 @@ using System.Windows.Media.Animation;
 using System.Windows.Media.Effects;
 using System.Windows.Threading;
 using System.Windows.Input;
+using AvalonDock.Layout;
+using AvalonDock.Layout.Serialization;
 using Microsoft.Win32;
 using ICSharpCode.AvalonEdit;
 using Mono.Cecil;
 using Vibe.Decompiler;
-using Xceed.Wpf.AvalonDock.Layout;
-using Xceed.Wpf.AvalonDock.Layout.Serialization;
 
 namespace Vibe.Gui;
 
