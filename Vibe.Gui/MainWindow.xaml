@@ -56,6 +56,11 @@
                  IsReadOnly="True" VerticalScrollBarVisibility="Auto" />
         <ListBox x:Key="SearchResultsControl" Margin="4" Background="{StaticResource PanelBrush}"
                  BorderBrush="{StaticResource BorderBrush}" BorderThickness="1" />
+        <ListBox x:Key="ExceptionsControl" Margin="4"
+                 Background="{StaticResource PanelBrush}" BorderBrush="{StaticResource BorderBrush}"
+                 BorderThickness="1" Foreground="{StaticResource TextBrush}"
+                 FontFamily="Consolas" SelectionMode="Extended"
+                 KeyDown="ExceptionsList_OnKeyDown"/>
     </Window.Resources>
     <DockPanel>
         <Menu DockPanel.Dock="Top">

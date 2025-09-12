@@ -8,7 +8,8 @@ namespace Vibe.Gui;
 public static class ExceptionManager
 {
     private static readonly ObservableCollection<string> _exceptions = new();
-    private static ExceptionWindow? _window;
+    public static ObservableCollection<string> Exceptions => _exceptions;
+    public static Action? ShowExceptions { get; set; }
 
     public static void Handle(Exception ex)
     {
@@ -16,12 +17,7 @@ public static class ExceptionManager
         Application.Current.Dispatcher.Invoke(() =>
         {
             _exceptions.Add(ex.ToString());
-            if (_window == null)
-            {
-                _window = new ExceptionWindow(_exceptions);
-                _window.Closed += (_, _) => _window = null;
-                _window.Show();
-            }
+            ShowExceptions?.Invoke();
         });
     }
 }

@@ -34,6 +34,7 @@ public partial class MainWindow : Window
     private readonly Border RewriteOverlay;
     private readonly TextBox _outputLog;
     private readonly ListBox _searchResults;
+    private readonly ListBox _exceptionsList;
     private readonly TreeView DllTree;
     private readonly DllAnalyzer _dllAnalyzer;
     // Quick-search state (type-to-select export by prefix)
@@ -82,6 +83,13 @@ public partial class MainWindow : Window
         RewriteOverlay = (Border)_decompilerContent.Children[1];
         _outputLog = (TextBox)FindResource("OutputControl");
         _searchResults = (ListBox)FindResource("SearchResultsControl");
+        _exceptionsList = (ListBox)FindResource("ExceptionsControl");
+        _exceptionsList.DataContext = ExceptionManager.Exceptions;
+        ExceptionManager.ShowExceptions = () =>
+        {
+            var anchor = DockManager.Layout?.Descendents().OfType<LayoutAnchorable>().FirstOrDefault(a => a.ContentId == "Exceptions");
+            anchor?.Show();
+        };
 
         // Register animation targets within the overlay since the Grid is loaded from
         // resources and its named elements are not automatically placed in the
@@ -122,6 +130,18 @@ public partial class MainWindow : Window
         Closing += (_, _) => SaveLayout();
     }
 
+    private void ExceptionsList_OnKeyDown(object sender, KeyEventArgs e)
+    {
+        if (e.Key == Key.C && (Keyboard.Modifiers & ModifierKeys.Control) == ModifierKeys.Control)
+        {
+            if (sender is ListBox list && list.SelectedItems.Count > 0)
+            {
+                Clipboard.SetText(string.Join(Environment.NewLine, list.SelectedItems.Cast<string>()));
+                e.Handled = true;
+            }
+        }
+    }
+
     private void LoadLayout()
     {
         if (File.Exists(_layoutFile))
@@ -132,6 +152,7 @@ public partial class MainWindow : Window
                 serializer.LayoutSerializationCallback += Serializer_LayoutSerializationCallback;
                 using var reader = new StreamReader(_layoutFile);
                 serializer.Deserialize(reader);
+                EnsureExceptionPane();
                 return;
             }
             catch
@@ -155,6 +176,27 @@ public partial class MainWindow : Window
         using var stream = Application.GetResourceStream(new Uri("DefaultLayout.config", UriKind.Relative))?.Stream;
         if (stream != null)
             serializer.Deserialize(stream);
+        EnsureExceptionPane();
+    }
+
+    private void EnsureExceptionPane()
+    {
+        var anchor = DockManager.Layout?.Descendents().OfType<LayoutAnchorable>().FirstOrDefault(a => a.ContentId == "Exceptions");
+        if (anchor == null)
+        {
+            var bottomPane = DockManager.Layout?.Descendents().OfType<LayoutAnchorablePane>()
+                .FirstOrDefault(p => p.Children.Any(c => c.ContentId == "Output"));
+            if (bottomPane != null)
+            {
+                anchor = new LayoutAnchorable { Title = "Exceptions", ContentId = "Exceptions", CanClose = false, Content = _exceptionsList };
+                bottomPane.Children.Add(anchor);
+            }
+        }
+        else if (anchor.Content == null)
+        {
+            anchor.Content = _exceptionsList;
+        }
+        anchor?.Hide();
     }
 
     private void Serializer_LayoutSerializationCallback(object? sender, LayoutSerializationCallbackEventArgs e)
@@ -172,6 +214,9 @@ public partial class MainWindow : Window
                 break;
             case "SearchResults":
                 e.Content = _searchResults;
+                break;
+            case "Exceptions":
+                e.Content = _exceptionsList;
                 break;
         }
     }
