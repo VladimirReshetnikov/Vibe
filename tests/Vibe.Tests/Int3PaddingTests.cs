@@ -5,8 +5,16 @@ using Xunit;
 
 namespace Vibe.Tests;
 
+/// <summary>
+/// Verifies that consecutive INT3 instructions emitted for padding are collapsed
+/// into a single comment by the pretty printer.
+/// </summary>
 public class Int3PaddingTests
 {
+    /// <summary>
+    /// The pretty printer should compress sequences of INT3 bytes into a single
+    /// descriptive comment rather than emitting multiple lines.
+    /// </summary>
     [Fact]
     public void CollapsesInt3BlocksIntoSingleComment()
     {

@@ -7,8 +7,18 @@ using Xunit;
 
 namespace Vibe.Tests;
 
+/// <summary>
+/// Integration tests for <see cref="NativeLibraryProxy"/> ensuring that
+/// exported native functions can be invoked dynamically and that error cases are
+/// handled gracefully.
+/// </summary>
 public sealed class NativeLibraryProxyTests
 {
+    /// <summary>
+    /// Loads <c>kernel32.dll</c> on Windows platforms and returns the dynamic
+    /// proxy object.  On non-Windows systems the tests are skipped by returning
+    /// <c>null</c>.
+    /// </summary>
     private static dynamic LoadLibrary()
     {
         if (!RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
@@ -16,6 +26,10 @@ public sealed class NativeLibraryProxyTests
         return NativeLibraryProxy.Load("kernel32.dll");
     }
 
+    /// <summary>
+    /// Simple API call without special marshalling requirements should succeed
+    /// and return the expected value.
+    /// </summary>
     [Fact]
     public void InvokesSimpleFunction()
     {
@@ -33,6 +47,9 @@ public sealed class NativeLibraryProxyTests
         }
     }
 
+    /// <summary>
+    /// Functions with string parameters should marshal UTF-16 strings correctly.
+    /// </summary>
     [Fact]
     public void InvokesFunctionWithStringParameter()
     {
@@ -50,6 +67,10 @@ public sealed class NativeLibraryProxyTests
         }
     }
 
+    /// <summary>
+    /// Attempting to invoke a missing export should throw a
+    /// <see cref="MissingMethodException"/>.
+    /// </summary>
     [Fact]
     public void ThrowsForMissingExport()
     {
@@ -71,6 +92,10 @@ public sealed class NativeLibraryProxyTests
         public string Text;
     }
 
+    /// <summary>
+    /// Non-blittable parameter types are not supported and should trigger a
+    /// <see cref="NotSupportedException"/>.
+    /// </summary>
     [Fact]
     public void ThrowsForUnsupportedParameterType()
     {
@@ -87,6 +112,10 @@ public sealed class NativeLibraryProxyTests
         }
     }
 
+    /// <summary>
+    /// Delegates generated for native functions are cached so subsequent calls
+    /// reuse the same delegate instance.
+    /// </summary>
     [Fact]
     public void CachesDelegates()
     {

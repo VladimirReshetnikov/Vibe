@@ -4,8 +4,16 @@ using Xunit;
 
 namespace Vibe.Tests;
 
+/// <summary>
+/// Tests for <see cref="CompilerInfo"/> which analyses PE files to determine
+/// the toolchain used to produce them.
+/// </summary>
 public sealed class CompilerInfoTests
 {
+    /// <summary>
+    /// The analyzer should correctly identify managed assemblies produced by
+    /// the .NET toolchain.
+    /// </summary>
     [Fact]
     public void DetectsManagedAssembly()
     {

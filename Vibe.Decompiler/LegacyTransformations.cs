@@ -1,6 +1,13 @@
 // SPDX-License-Identifier: MIT-0
 namespace Vibe.Decompiler;
 
+/// <summary>
+/// Collection of legacy transformation passes that operate directly on the
+/// intermediate representation (IR) without the full pass infrastructure.
+/// These helpers originated from the early prototype and are gradually being
+/// replaced by dedicated transformation classes.  The methods remain useful for
+/// quick one-off rewrites or for passes that have not yet been refactored.
+/// </summary>
 public static class LegacyTransformations
 {
     // --- Helper rewriter ---
@@ -37,6 +44,13 @@ public static class LegacyTransformations
     // ----------------------------------------------------------------
     //  No-op placeholder: keep param names stable (RCX..R9 => p1..p4)
     // ----------------------------------------------------------------
+    /// <summary>
+    /// Legacy placeholder that would replace register based parameter references
+    /// with named parameters.  The current emitter already performs this mapping
+    /// (<c>RCX..R9</c> to <c>p1..p4</c>) so the method currently does nothing.
+    /// It remains for completeness and future experimentation.
+    /// </summary>
+    /// <param name="fn">Function whose statements should be inspected.</param>
     public static void ReplaceParamRegsWithParams(IR.FunctionIR fn)
     {
         // Our current emitter already names RCX..R9 as p1..p4; nothing to do here.
@@ -45,6 +59,12 @@ public static class LegacyTransformations
     // ----------------------------------------------------------------
     //  Simplify trivial assignments (x = x;)
     // ----------------------------------------------------------------
+    /// <summary>
+    /// Removes assignments where a register is assigned to itself
+    /// (<c>x = x;</c>).  Such statements are emitted by some analyses but carry
+    /// no semantic meaning and can safely be replaced by a no-op.
+    /// </summary>
+    /// <param name="fn">Function to transform.</param>
     public static void SimplifyRedundantAssign(IR.FunctionIR fn)
     {
         foreach (var bb in fn.Blocks)
@@ -63,6 +83,13 @@ public static class LegacyTransformations
     // ----------------------------------------------------------------
     //  Pass H: Frame object clustering & RSP aliasing
     // ----------------------------------------------------------------
+    /// <summary>
+    /// Groups contiguous stack frame regions that are zeroed via <c>memset</c>
+    /// calls and assigns them symbolic local variables.  Subsequent references to
+    /// <c>rsp + offset</c> inside those regions are rewritten to use the created
+    /// locals, greatly improving readability of stack heavy functions.
+    /// </summary>
+    /// <param name="fn">Function to analyse and rewrite.</param>
     public static void FrameObjectClusteringAndRspAlias(IR.FunctionIR fn)
     {
         var clusters = new List<(long Base, long Size, string Name)>();
@@ -219,6 +246,12 @@ public static class LegacyTransformations
     // ----------------------------------------------------------------
     //  Pass E (cleanup): drop redundant "__pseudo(CF = bit(...))"
     // ----------------------------------------------------------------
+    /// <summary>
+    /// Eliminates pseudo statements that resulted from pattern matching bit
+    /// test idioms.  When the bit test has no observable effect the placeholder
+    /// statement can be removed entirely.
+    /// </summary>
+    /// <param name="fn">Function whose statements should be cleaned up.</param>
     public static void DropRedundantBitTestPseudo(IR.FunctionIR fn)
     {
         foreach (var bb in fn.Blocks)
@@ -238,6 +271,15 @@ public static class LegacyTransformations
     // ----------------------------------------------------------------
     //  Pass 8 extension: map "ret = <const>;" to SymConst (NTSTATUS)
     // ----------------------------------------------------------------
+    /// <summary>
+    /// Replaces assignments of named return values with their symbolic
+    /// enumeration constants.  For example assigning <c>0xC0000005</c> becomes
+    /// <c>STATUS_ACCESS_VIOLATION</c> when the appropriate enum information is
+    /// available.
+    /// </summary>
+    /// <param name="fn">Function containing the assignments to rewrite.</param>
+    /// <param name="provider">Lookup service used to resolve constants.</param>
+    /// <param name="enumFullName">Fully qualified name of the enumeration containing the constants.</param>
     public static void MapNamedRetAssignConstants(IR.FunctionIR fn, IConstantNameProvider provider, string enumFullName)
     {
         static bool IsRetLhs(IR.Expr e)
@@ -275,6 +317,15 @@ public static class LegacyTransformations
     // ----------------------------------------------------------------
     //  Map return immediate to SymConst (if ReturnStmt uses a const)
     // ----------------------------------------------------------------
+    /// <summary>
+    /// Maps return constants in <c>return</c> statements to their symbolic
+    /// enumeration names.  This mirrors <see cref="MapNamedRetAssignConstants"/>
+    /// but operates on explicit return statements rather than temporary
+    /// assignments.
+    /// </summary>
+    /// <param name="fn">Function to process.</param>
+    /// <param name="provider">Lookup service used to resolve constants.</param>
+    /// <param name="enumFullName">Fully qualified name of the enumeration containing the constants.</param>
     public static void MapNamedReturnConstants(IR.FunctionIR fn, IConstantNameProvider provider, string enumFullName)
     {
         foreach (var bb in fn.Blocks)
@@ -304,6 +355,12 @@ public static class LegacyTransformations
     // ----------------------------------------------------------------
     //  Simplify arithmetic identities and boolean patterns
     // ----------------------------------------------------------------
+    /// <summary>
+    /// Applies basic arithmetic identities such as eliminating addition by zero
+    /// or multiplication by one.  These simplifications run after the primary
+    /// pass pipeline and act as a final cleanup step.
+    /// </summary>
+    /// <param name="fn">Function to simplify.</param>
     public static void SimplifyArithmeticIdentities(IR.FunctionIR fn)
     {
         IR.Expr Rewriter(IR.Expr e)

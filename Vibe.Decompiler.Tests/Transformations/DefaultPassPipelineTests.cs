@@ -5,8 +5,17 @@ using Xunit;
 
 namespace Vibe.Decompiler.Tests.Transformations;
 
+/// <summary>
+/// Unit tests ensuring that the default pass pipeline contains key
+/// optimisation passes and that they perform their intended mutations on the
+/// IR.
+/// </summary>
 public class DefaultPassPipelineTests
 {
+    /// <summary>
+    /// The pipeline should include <see cref="SimplifyRedundantAssignPass"/>
+    /// which removes pointless self-assignments.
+    /// </summary>
     [Fact]
     public void CreateIncludesSimplifyRedundantAssignPass()
     {
@@ -23,6 +32,9 @@ public class DefaultPassPipelineTests
         Assert.IsType<IR.NopStmt>(fn.Blocks[0].Statements[0]);
     }
 
+    /// <summary>
+    /// The pipeline should fold constant expressions to their computed value.
+    /// </summary>
     [Fact]
     public void CreateIncludesFoldConstantsPass()
     {
@@ -40,6 +52,10 @@ public class DefaultPassPipelineTests
         Assert.Equal(5, c.Value);
     }
 
+    /// <summary>
+    /// The pipeline includes <see cref="SimplifyBooleanTernaryPass"/> to reduce
+    /// boolean ternary expressions to simple registers when possible.
+    /// </summary>
     [Fact]
     public void CreateIncludesSimplifyBooleanTernaryPass()
     {
