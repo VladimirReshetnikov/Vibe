@@ -17,6 +17,7 @@ using Microsoft.Win32;
 using ICSharpCode.AvalonEdit;
 using Mono.Cecil;
 using Vibe.Decompiler;
+using Vibe.Decompiler.Models;
 using Vibe.Utils;
 
 namespace Vibe.Gui;
@@ -115,7 +116,16 @@ public partial class MainWindow : Window
         _layoutFile = Path.Combine(appData, "layout.config");
 
         _recentFiles = LoadRecentFiles();
-        _dllAnalyzer = new DllAnalyzer();
+
+        IModelProvider? provider = null;
+        var apiKey = App.ApiKey;
+        if (!string.IsNullOrWhiteSpace(apiKey))
+        {
+            var cfg = AppConfig.Current;
+            string model = string.IsNullOrWhiteSpace(cfg.LlmVersion) ? "gpt-4o-mini" : cfg.LlmVersion;
+            provider = new OpenAiModelProvider(apiKey, model, reasoningEffort: cfg.LlmReasoningEffort);
+        }
+        _dllAnalyzer = new DllAnalyzer(provider, DecompiledCodeCache.TryGet, DecompiledCodeCache.Save);
 
         LoadLayout();
 
