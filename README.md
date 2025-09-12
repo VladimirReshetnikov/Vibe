@@ -1,6 +1,6 @@
 # Vibe — The Explaining Decompiler for Native Code
 
-Vibe aims to turn opaque machine instructions into more readable stories. Built exclusively for x64 Windows binaries, it fuses lifting algorithms with AI refinement so you don't just see the code—you understand it.
+Vibe aims to turn opaque machine instructions into more readable stories. Currently supporting only x64 Windows binaries, it fuses lifting algorithms with AI refinement so you don't just see the code—you understand it.
 
 > Vibe is a quickly vibe-coded prototype with rough edges and a limited feature set. We find its capability impressive, but it's experimental software: it only supports x64 binaries, may misinterpret code, and we don't promise any particular results.
 
@@ -141,15 +141,8 @@ BOOL WINAPI MakeSureDirectoryPathExists(PCSTR path)
 ```
 
 ## Getting Started
-```bash
-# build
- dotnet build -c Release
+TODO
 
-# run
- dotnet run --project Vibe.Decompiler -- \
-    "C:\\Windows\\System32\\Microsoft-Edge-WebView\\msedge.dll" \
-    "CreateTestWebClientProxy"
-```
 If `OPENAI_API_KEY` or `ANTHROPIC_API_KEY` is set, Vibe will refine the pseudocode with the corresponding provider.
 
 ## Documentation
@@ -159,8 +152,5 @@ If `OPENAI_API_KEY` or `ANTHROPIC_API_KEY` is set, Vibe will refine the pseudoco
 - [Examples](docs/examples.md)
 - [Roadmap](docs/roadmap.md)
 
-## Contributing
-See [docs/coding-guidelines.md](docs/coding-guidelines.md) for coding conventions and formatting rules.
-
 ## License
-This project is licensed under the [MIT-0 license](LICENSE).
+This project is licensed under the [MIT-0 license](LICENSE). 
