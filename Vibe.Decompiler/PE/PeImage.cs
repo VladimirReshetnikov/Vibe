@@ -1,16 +1,13 @@
 // SPDX-License-Identifier: MIT-0
 
-using System;
 using System.Diagnostics;
-using System.IO;
-using System.Linq;
 using System.Reflection.Metadata;
 using System.Reflection.PortableExecutable;
 using System.Text;
 using PeNet;
 using Vibe.Utils;
 
-namespace Vibe.Decompiler;
+namespace Vibe.Decompiler.PE;
 
 /// <summary>
 /// Lightweight wrapper around the PeNet library exposing the bits of
@@ -66,7 +63,7 @@ public sealed class PeImage
     /// Gets a value indicating whether the image contains a CLI header and therefore .NET metadata.
     /// </summary>
     public bool HasDotNetMetadata => CliHeaderRva != 0;
-  
+
     public readonly Guid? Mvid;
 
     /// <summary>

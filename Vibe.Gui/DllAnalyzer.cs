@@ -8,12 +8,13 @@ using System.Text;
 using Mono.Cecil;
 using Mono.Cecil.Cil;
 using Vibe.Decompiler;
+using Vibe.Decompiler.Models;
 
 namespace Vibe.Gui;
 
 internal sealed class DllAnalyzer : IDisposable
 {
-    private readonly ILlmProvider? _provider;
+    private readonly IModelProvider? _provider;
     public bool HasLlmProvider => _provider != null;
 
     public DllAnalyzer()
@@ -23,7 +24,7 @@ internal sealed class DllAnalyzer : IDisposable
         {
             var cfg = AppConfig.Current;
             string model = string.IsNullOrWhiteSpace(cfg.LlmVersion) ? "gpt-4o-mini" : cfg.LlmVersion;
-            _provider = new OpenAiLlmProvider(apiKey, model, reasoningEffort: cfg.LlmReasoningEffort);
+            _provider = new OpenAiModelProvider(apiKey, model, reasoningEffort: cfg.LlmReasoningEffort);
         }
     }
 

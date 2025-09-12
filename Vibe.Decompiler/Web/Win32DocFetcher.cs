@@ -3,7 +3,7 @@
 using System.Text.Json;
 using Vibe.Utils;
 
-namespace Vibe.Decompiler;
+namespace Vibe.Decompiler.Web;
 
 public static class Win32DocFetcher
 {

@@ -7,12 +7,7 @@ using System.Text.Json.Serialization;
 using System.Text.RegularExpressions;
 using Vibe.Utils;
 
-namespace Vibe.Decompiler;
-
-public interface IDocPageEvaluator : IDisposable
-{
-    Task<bool> IsRelevantAsync(string functionName, string content, CancellationToken cancellationToken = default);
-}
+namespace Vibe.Decompiler.Web;
 
 public sealed class OpenAiDocPageEvaluator : IDocPageEvaluator
 {
