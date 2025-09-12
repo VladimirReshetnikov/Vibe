@@ -36,7 +36,6 @@ public partial class MainWindow : Window
         public required string Name { get; init; }
     }
 
-    private readonly AppConfig _config;
     private readonly ILlmProvider? _provider;
     // Quick-search state (type-to-select export by prefix)
     private string _searchText = string.Empty;
@@ -50,14 +49,14 @@ public partial class MainWindow : Window
     {
         InitializeComponent();
         OutputBox.TextArea.TextView.LineTransformers.Add(new PseudoCodeColorizer());
-        _config = AppConfig.AutoDetect() ?? new AppConfig();
         _recentFiles = LoadRecentFiles();
         UpdateRecentFilesMenu();
         var apiKey = App.ApiKey;
         if (!string.IsNullOrWhiteSpace(apiKey))
         {
-            string model = string.IsNullOrWhiteSpace(_config.LlmVersion) ? "gpt-4o-mini" : _config.LlmVersion;
-            _provider = new OpenAiLlmProvider(apiKey, model, reasoningEffort: _config.LlmReasoningEffort);
+            var cfg = AppConfig.Current;
+            string model = string.IsNullOrWhiteSpace(cfg.LlmVersion) ? "gpt-4o-mini" : cfg.LlmVersion;
+            _provider = new OpenAiLlmProvider(apiKey, model, reasoningEffort: cfg.LlmReasoningEffort);
         }
         LoadCommonDlls();
     }
@@ -151,8 +150,9 @@ public partial class MainWindow : Window
     {
         _recentFiles.Remove(path);
         _recentFiles.Insert(0, path);
-        if (_recentFiles.Count > _config.MaxRecentFiles)
-            _recentFiles.RemoveRange(_config.MaxRecentFiles, _recentFiles.Count - _config.MaxRecentFiles);
+        var cfg = AppConfig.Current;
+        if (_recentFiles.Count > cfg.MaxRecentFiles)
+            _recentFiles.RemoveRange(cfg.MaxRecentFiles, _recentFiles.Count - cfg.MaxRecentFiles);
         SaveRecentFiles();
         UpdateRecentFilesMenu();
     }
@@ -354,7 +354,7 @@ public partial class MainWindow : Window
                     {
                         token.ThrowIfCancellationRequested();
                         int off = pe2.RvaToOffsetChecked(export.FunctionRva);
-                        int maxLen = Math.Min(_config.MaxDataSizeBytes, pe2.Data.Length - off);
+                        int maxLen = Math.Min(AppConfig.Current.MaxDataSizeBytes, pe2.Data.Length - off);
                         var engine = new Engine();
                         return engine.ToPseudoCode(pe2.Data.AsMemory(off, maxLen), new Engine.Options
                         {
@@ -363,8 +363,8 @@ public partial class MainWindow : Window
                         });
                     }, token);
 
-                    if (_provider != null && _config.MaxLlmCodeLength > 0 && code.Length > _config.MaxLlmCodeLength)
-                        code = code[.._config.MaxLlmCodeLength];
+                    if (_provider != null && AppConfig.Current.MaxLlmCodeLength > 0 && code.Length > AppConfig.Current.MaxLlmCodeLength)
+                        code = code[..AppConfig.Current.MaxLlmCodeLength];
                     string output = code;
                     if (_provider != null)
                         output = await _provider.RefineAsync(code, null, token);
