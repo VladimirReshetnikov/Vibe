@@ -7,8 +7,10 @@ using System.Linq;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
+using System.Diagnostics;
 using Mono.Cecil;
 using Vibe.Decompiler.Models;
+using Vibe.Decompiler.PE;
 
 namespace Vibe.Decompiler;
 
@@ -132,10 +134,37 @@ public sealed class DllAnalyzer : IDisposable
 
         var output = code;
         if (_provider != null)
-            output = await _provider.RefineAsync(code, null, token);
+        {
+            var context = BuildLlmContext(dll);
+            output = await _provider.RefineAsync(context + code, null, token);
+        }
 
         _cacheSave?.Invoke(hash, name, output);
         return output;
+    }
+
+    private static string BuildLlmContext(LoadedDll dll)
+    {
+        var path = dll.Pe.FilePath;
+        var vi = FileVersionInfo.GetVersionInfo(path);
+        var sb = new StringBuilder();
+        sb.AppendLine("/*");
+        sb.AppendLine($"File: {Path.GetFileName(path)}");
+        sb.AppendLine($"Path: {path}");
+        sb.AppendLine($"Timestamp: 0x{dll.Pe.TimeDateStamp:X8} ({DateTimeOffset.FromUnixTimeSeconds(dll.Pe.TimeDateStamp).UtcDateTime:u})");
+        if (!string.IsNullOrWhiteSpace(vi.FileVersion))
+            sb.AppendLine($"File version: {vi.FileVersion}");
+        if (!string.IsNullOrWhiteSpace(vi.ProductVersion))
+            sb.AppendLine($"Informational version: {vi.ProductVersion}");
+        if (!string.IsNullOrWhiteSpace(vi.ProductName))
+            sb.AppendLine($"Product: {vi.ProductName}");
+        if (!string.IsNullOrWhiteSpace(vi.CompanyName))
+            sb.AppendLine($"Company: {vi.CompanyName}");
+        sb.AppendLine("*/");
+        var compilerInfo = CompilerInfo.Analyze(path).ToString();
+        if (!string.IsNullOrWhiteSpace(compilerInfo))
+            sb.AppendLine(compilerInfo);
+        return sb.ToString();
     }
 
     public string? FileName { get; set; }
