@@ -3,6 +3,7 @@ using System.Net.Http.Headers;
 using System.Text;
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using Vibe.Utils;
 
 namespace Vibe.Decompiler.Models;
 
@@ -66,6 +67,7 @@ public sealed class OpenAiModelProvider : IModelProvider
 
         var options = new JsonSerializerOptions { DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull };
         var json = JsonSerializer.Serialize(req, options);
+        Logger.Log($"OpenAI request: {json}");
         using var content = new StringContent(json, Encoding.UTF8, "application/json");
         using var resp = await _http.PostAsync("https://api.openai.com/v1/responses", content, cancellationToken);
 
@@ -114,7 +116,9 @@ public sealed class OpenAiModelProvider : IModelProvider
         if (string.IsNullOrEmpty(message))
             throw new InvalidOperationException("OpenAI API response missing text");
 
-        return message.Trim();
+        message = message.Trim();
+        Logger.Log($"OpenAI response: {message}");
+        return message;
     }
 
     /// <inheritdoc />

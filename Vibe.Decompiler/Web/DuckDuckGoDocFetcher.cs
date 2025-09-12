@@ -47,6 +47,7 @@ public sealed class OpenAiDocPageEvaluator : IDocPageEvaluator
 
         var options = new JsonSerializerOptions { DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull };
         var json = JsonSerializer.Serialize(req, options);
+        Logger.Log($"OpenAI doc eval request: {json}");
         using var httpContent = new StringContent(json, Encoding.UTF8, "application/json");
         using var resp = await _http.PostAsync("https://api.openai.com/v1/chat/completions", httpContent, cancellationToken);
 
@@ -65,7 +66,9 @@ public sealed class OpenAiDocPageEvaluator : IDocPageEvaluator
         if (message is null)
             return false;
 
-        return message.Trim().StartsWith("y", StringComparison.OrdinalIgnoreCase);
+        message = message.Trim();
+        Logger.Log($"OpenAI doc eval response: {message}");
+        return message.StartsWith("y", StringComparison.OrdinalIgnoreCase);
     }
 
     /// <inheritdoc />

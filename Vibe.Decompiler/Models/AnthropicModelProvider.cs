@@ -2,6 +2,7 @@
 
 using System.Text;
 using System.Text.Json;
+using Vibe.Utils;
 
 namespace Vibe.Decompiler.Models;
 
@@ -56,6 +57,7 @@ public sealed class AnthropicModelProvider : IModelProvider
         };
 
         var json = JsonSerializer.Serialize(req);
+        Logger.Log($"Anthropic request: {json}");
         using var content = new StringContent(json, Encoding.UTF8, "application/json");
         using var resp = await _http.PostAsync("https://api.anthropic.com/v1/messages", content, cancellationToken);
 
@@ -74,7 +76,9 @@ public sealed class AnthropicModelProvider : IModelProvider
         if (message is null)
             throw new InvalidOperationException("Anthropic API response missing text");
 
-        return message.Trim();
+        message = message.Trim();
+        Logger.Log($"Anthropic response: {message}");
+        return message;
     }
 
     /// <inheritdoc />

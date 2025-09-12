@@ -8,12 +8,13 @@ using System.Text;
 using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
+using Vibe.Decompiler.Models;
 using Xunit;
 
 namespace Vibe.Decompiler.Tests;
 
 /// <summary>
-/// Tests for the <see cref="OpenAiLlmProvider"/> to ensure HTTP requests are
+/// Tests for the <see cref="OpenAiModelProvider"/> to ensure HTTP requests are
 /// formed correctly and the JSON response is parsed as expected.
 /// </summary>
 public class OpenAiLlmProviderTests
@@ -56,20 +57,20 @@ public class OpenAiLlmProviderTests
     }
 
     /// <summary>
-    /// Ensures that <see cref="OpenAiLlmProvider.RefineAsync"/> targets the
+    /// Ensures that <see cref="OpenAiModelProvider.RefineAsync"/> targets the
     /// <c>/responses</c> endpoint and that the resulting text is extracted from
     /// the nested JSON structure.
     /// </summary>
     [Fact]
     public async Task RefineAsync_UsesResponsesEndpointAndParsesOutput()
     {
-        var jsonResponse = "{\"output\":[{\"content\":[{\"text\":\"result code\"}]}]}";
+        var jsonResponse = "{\"output\":[{\"type\":\"message\",\"content\":[{\"text\":\"result code\"}]}]}";
         var handler = new FakeHandler(jsonResponse);
         var client = new HttpClient(handler);
         client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", "test");
 
-        using var provider = new OpenAiLlmProvider("test");
-        var field = typeof(OpenAiLlmProvider).GetField("_http", BindingFlags.NonPublic | BindingFlags.Instance);
+        using var provider = new OpenAiModelProvider("test");
+        var field = typeof(OpenAiModelProvider).GetField("_http", BindingFlags.NonPublic | BindingFlags.Instance);
         Assert.NotNull(field);
         field!.SetValue(provider, client);
 
