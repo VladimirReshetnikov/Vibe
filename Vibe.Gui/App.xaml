@@ -7,18 +7,8 @@
         <ResourceDictionary>
             <ResourceDictionary.MergedDictionaries>
                 <ResourceDictionary Source="Icons.xaml" />
+                <ResourceDictionary Source="Colors.xaml" />
             </ResourceDictionary.MergedDictionaries>
-
-            <!-- Base palette -->
-            <Color x:Key="Color.Background">#FAFBF6</Color>
-            <Color x:Key="Color.Surface">#F3F6EA</Color>
-            <Color x:Key="Color.Border">#D8E0C7</Color>
-            <Color x:Key="Color.Foreground">#2F3A2A</Color>
-
-            <!-- Accents -->
-            <Color x:Key="Color.Accent">#9DB463</Color>
-            <Color x:Key="Color.Accent.Highlight">#C6DC1D</Color>
-
             <!-- Brushes -->
             <SolidColorBrush x:Key="WindowBackgroundBrush" Color="{StaticResource Color.Background}" />
             <SolidColorBrush x:Key="PanelBrush" Color="{StaticResource Color.Surface}" />
