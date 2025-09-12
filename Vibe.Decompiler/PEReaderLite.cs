@@ -55,12 +55,23 @@ public sealed class PEReaderLite
         ushort optHeaderSize = U16(coffOff + 16);
         int optOff = coffOff + 20;
 
-        // Optional header (we expect PE32+)
+        // Optional header: support PE32 and PE32+
         ushort magic = U16(optOff);
-        if (magic != 0x20B)
-            throw new NotSupportedException($"Not PE32+ (x64). Magic=0x{magic:X}");
+        bool isPe32Plus;
+        if (magic == 0x20B) // PE32+
+        {
+            isPe32Plus = true;
+        }
+        else if (magic == 0x10B) // PE32
+        {
+            isPe32Plus = false;
+        }
+        else
+        {
+            throw new NotSupportedException($"Unsupported PE magic 0x{magic:X}");
+        }
 
-        ImageBase = U64(optOff + 24);
+        ImageBase = isPe32Plus ? U64(optOff + 24) : U32(optOff + 28);
         MajorImageVersion = U16(optOff + 44);
         MinorImageVersion = U16(optOff + 46);
         MajorSubsystemVersion = U16(optOff + 48);
@@ -70,8 +81,8 @@ public sealed class PEReaderLite
         SizeOfHeaders = sizeOfHeaders; // capture SizeOfHeaders from optional header
         Subsystem = U16(optOff + 68);
         DllCharacteristics = U16(optOff + 70);
-        uint numberOfRvaAndSizes = U32(optOff + 108);
-        int dataDirOff = optOff + 112;
+        uint numberOfRvaAndSizes = U32(optOff + (isPe32Plus ? 108 : 92));
+        int dataDirOff = optOff + (isPe32Plus ? 112 : 96);
 
         if (numberOfRvaAndSizes < 1)
             throw new BadImageFormatException("No data directories.");
@@ -79,7 +90,8 @@ public sealed class PEReaderLite
         int dirCount = (int)Math.Min(numberOfRvaAndSizes, 16);
 
         // Ensure we don't read beyond the optional header bounds
-        int maxDirCount = (optHeaderSize - 112) / 8;
+        int dirStart = isPe32Plus ? 112 : 96;
+        int maxDirCount = (optHeaderSize - dirStart) / 8;
         dirCount = Math.Min(dirCount, maxDirCount);
 
         DataDirectories = new DataDirectory[dirCount];

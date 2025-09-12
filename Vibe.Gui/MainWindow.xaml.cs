@@ -13,6 +13,7 @@ using System.Windows.Threading;
 using System.Windows.Input;
 using Microsoft.Win32;
 using ICSharpCode.AvalonEdit;
+using Mono.Cecil;
 using Vibe.Decompiler;
 
 namespace Vibe.Gui;
@@ -219,19 +220,40 @@ public partial class MainWindow : Window
         var funcIcon = (ImageSource)FindResource("ExportedFunctionIconImage");
         try
         {
-            var names = await _dllAnalyzer.GetExportNamesAsync(dll, token);
-
-            int i = 0;
-            foreach (var name in names)
+            if (dll.IsManaged)
             {
-                token.ThrowIfCancellationRequested();
-                var funcHeader = new StackPanel { Orientation = Orientation.Horizontal };
-                funcHeader.Children.Add(new Image { Source = funcIcon, Width = 16, Height = 16, Margin = new Thickness(0, 0, 4, 0) });
-                funcHeader.Children.Add(new TextBlock { Text = name });
-                root.Items.Add(new TreeViewItem { Header = funcHeader, Tag = new ExportItem { Dll = dll, Name = name } });
-
-                if (++i % 20 == 0)
+                var types = await _dllAnalyzer.GetManagedTypesAsync(dll, token);
+                foreach (var type in types)
+                {
+                    token.ThrowIfCancellationRequested();
+                    var typeItem = new TreeViewItem { Header = type.FullName, Tag = type };
+                    foreach (var method in type.Methods)
+                    {
+                        var methodHeader = new StackPanel { Orientation = Orientation.Horizontal };
+                        methodHeader.Children.Add(new Image { Source = funcIcon, Width = 16, Height = 16, Margin = new Thickness(0, 0, 4, 0) });
+                        methodHeader.Children.Add(new TextBlock { Text = method.Name });
+                        typeItem.Items.Add(new TreeViewItem { Header = methodHeader, Tag = method });
+                    }
+                    root.Items.Add(typeItem);
                     await Dispatcher.Yield();
+                }
+            }
+            else
+            {
+                var names = await _dllAnalyzer.GetExportNamesAsync(dll, token);
+
+                int i = 0;
+                foreach (var name in names)
+                {
+                    token.ThrowIfCancellationRequested();
+                    var funcHeader = new StackPanel { Orientation = Orientation.Horizontal };
+                    funcHeader.Children.Add(new Image { Source = funcIcon, Width = 16, Height = 16, Margin = new Thickness(0, 0, 4, 0) });
+                    funcHeader.Children.Add(new TextBlock { Text = name });
+                    root.Items.Add(new TreeViewItem { Header = funcHeader, Tag = new ExportItem { Dll = dll, Name = name } });
+
+                    if (++i % 20 == 0)
+                        await Dispatcher.Yield();
+                }
             }
         }
         catch (OperationCanceledException)
@@ -357,6 +379,12 @@ public partial class MainWindow : Window
                         CancelCurrentRequest();
                 }
                 break;
+            case TypeDefinition td:
+                OutputBox.Text = $"Type: {td.FullName}";
+                return;
+            case MethodDefinition md:
+                OutputBox.Text = _dllAnalyzer.GetManagedMethodBody(md);
+                return;
         }
     }
 
