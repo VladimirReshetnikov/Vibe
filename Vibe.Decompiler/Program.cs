@@ -9,8 +9,17 @@ using Vibe.Utils;
 
 namespace Vibe.Decompiler;
 
+/// <summary>
+/// Entry point and helper utilities for the command-line sample that demonstrates the
+/// decompiler. It resolves an exported function from a system DLL, produces pseudocode and
+/// optionally refines the result using large language models.
+/// </summary>
 public static class Program
 {
+    /// <summary>
+    /// Executes the sample workflow when run from the command line.
+    /// </summary>
+    /// <param name="args">Command-line arguments.</param>
     static async Task Main(string[] args)
     {
         var config = AppConfig.Current;
@@ -239,6 +248,12 @@ public static class Program
     }
 
 
+    /// <summary>
+    /// Attempts to populate the constant database with Win32 metadata so that APIs and constants
+    /// can be rendered with meaningful names during decompilation. The method searches standard
+    /// locations such as the Windows SDK and the local NuGet cache.
+    /// </summary>
+    /// <param name="db">The database that receives the metadata.</param>
     static void TryLoadWin32Metadata(ConstantDatabase db)
     {
         try
