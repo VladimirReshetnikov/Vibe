@@ -387,6 +387,23 @@ public sealed class Engine
             if (ctx.Opt.EmitLabels && ctx.LabelByIp.TryGetValue(i.IP, out int lab))
                 block.Statements.Add(new IR.LabelStmt(new IR.LabelSymbol($"L{lab}", lab)));
 
+            // Collapse runs of INT3 (breakpoint/padding) into a single descriptive comment
+            if (i.Mnemonic == Mnemonic.Int3)
+            {
+                ulong startIp = i.IP;
+                int runLen = 1;
+                while (idx + runLen < ins.Count && ins[idx + runLen].Mnemonic == Mnemonic.Int3)
+                    runLen++;
+                ulong endIp = ins[idx + runLen - 1].IP;
+                string range = runLen == 1 ? $"0x{startIp:X}" : $"0x{startIp:X}-0x{endIp:X}";
+                string text = runLen == 1
+                    ? $"{range}: int3 (breakpoint or padding)"
+                    : $"{range}: int3 padding ({runLen} bytes)";
+                block.Statements.Add(new IR.AsmStmt(text));
+                idx += runLen - 1;
+                continue;
+            }
+
             // Always emit original disassembly as a comment (with IP)
             block.Statements.Add(new IR.AsmStmt(QuickAsmWithIp(i)));
 
