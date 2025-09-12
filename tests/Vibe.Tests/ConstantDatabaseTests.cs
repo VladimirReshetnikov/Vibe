@@ -4,6 +4,7 @@ using System.IO;
 using System.Linq;
 using FsCheck.Xunit;
 using Vibe.Decompiler;
+using Vibe.Utils;
 using Xunit;
 
 namespace Vibe.Tests;
@@ -239,7 +240,10 @@ public class ConstantDatabaseTests
                 dir = parent;
             }
         }
-        catch { }
+        catch (Exception ex)
+        {
+            Logger.LogException(ex);
+        }
 
         var roots = new List<string>();
         string? env = Environment.GetEnvironmentVariable("NUGET_PACKAGES");

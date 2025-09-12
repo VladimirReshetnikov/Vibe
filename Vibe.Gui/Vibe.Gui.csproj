@@ -8,6 +8,7 @@
   </PropertyGroup>
   <ItemGroup>
     <ProjectReference Include="..\Vibe.Decompiler\Vibe.Decompiler.csproj" />
+    <ProjectReference Include="..\Vibe.Utils\Vibe.Utils.csproj" />
   </ItemGroup>
   <ItemGroup>
     <PackageReference Include="ICSharpCode.AvalonEdit" Version="4.3.0-alpha-00000000" />

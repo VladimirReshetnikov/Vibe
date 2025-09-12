@@ -15,6 +15,7 @@ using Microsoft.Win32;
 using ICSharpCode.AvalonEdit;
 using Mono.Cecil;
 using Vibe.Decompiler;
+using Vibe.Utils;
 using Xceed.Wpf.AvalonDock.Layout;
 using Xceed.Wpf.AvalonDock.Layout.Serialization;
 
@@ -197,6 +198,8 @@ public partial class MainWindow : Window
         {
             if (showErrors)
                 ExceptionManager.Handle(ex);
+            else
+                Logger.LogException(ex);
         }
     }
 
@@ -266,8 +269,9 @@ public partial class MainWindow : Window
                 }
             }
         }
-        catch
+        catch (Exception ex)
         {
+            Logger.LogException(ex);
         }
         return list;
     }
@@ -287,8 +291,9 @@ public partial class MainWindow : Window
                 }
             }
         }
-        catch
+        catch (Exception ex)
         {
+            Logger.LogException(ex);
         }
         return list;
     }
@@ -306,8 +311,9 @@ public partial class MainWindow : Window
                     key.SetValue($"File{i}", _recentFiles[i]);
             }
         }
-        catch
+        catch (Exception ex)
         {
+            Logger.LogException(ex);
         }
     }
 
@@ -337,8 +343,9 @@ public partial class MainWindow : Window
                         key.SetValue($"File{i++}", dll.Pe.FilePath);
             }
         }
-        catch
+        catch (Exception ex)
         {
+            Logger.LogException(ex);
         }
     }
 
@@ -438,8 +445,9 @@ public partial class MainWindow : Window
                 }
             }
         }
-        catch (OperationCanceledException)
+        catch (OperationCanceledException ex)
         {
+            Logger.LogException(ex);
             // Ignore cancellation
         }
     }
@@ -548,6 +556,10 @@ public partial class MainWindow : Window
                     {
                         OutputBox.Text = $"Operation canceled: {ex.Message}";
                         ExceptionManager.Handle(ex);
+                    }
+                    else
+                    {
+                        Logger.LogException(ex);
                     }
                 }
                 catch (Exception ex)
