@@ -4,6 +4,8 @@ using System.Text;
 using System.Diagnostics;
 using System.IO;
 using System;
+using System.Reflection.Metadata;
+using System.Reflection.PortableExecutable;
 
 namespace Vibe.Decompiler;
 
@@ -17,6 +19,7 @@ public sealed class PEReaderLite
     public readonly uint ExportSize;
     public readonly uint CliHeaderRva;
     public readonly uint CliHeaderSize;
+    public readonly Guid? Mvid;
     public bool HasDotNetMetadata => CliHeaderRva != 0;
     public readonly List<ImportModule> Imports = new();
     public readonly uint SizeOfHeaders; // NEW: keep SizeOfHeaders for header-range RVA mapping
@@ -142,6 +145,21 @@ public sealed class PEReaderLite
 
         if (importRva != 0)
             ParseImports(importRva);
+
+        if (HasDotNetMetadata)
+        {
+            try
+            {
+                using var ms = new MemoryStream(Data, writable: false);
+                using var peReader = new PEReader(ms);
+                var mdReader = peReader.GetMetadataReader();
+                var moduleDef = mdReader.GetModuleDefinition();
+                Mvid = mdReader.GetGuid(moduleDef.Mvid);
+            }
+            catch
+            {
+            }
+        }
     }
 
     public Section? GetSectionForRva(uint rva)
@@ -353,6 +371,8 @@ public sealed class PEReaderLite
         sb.AppendLine($"SubsystemVersion: {MajorSubsystemVersion}.{MinorSubsystemVersion}");
         sb.AppendLine($"Subsystem: {Subsystem} {SubsystemToString(Subsystem)}");
         sb.AppendLine($"DllCharacteristics: 0x{DllCharacteristics:X4}");
+        if (HasDotNetMetadata && Mvid.HasValue)
+            sb.AppendLine($"MVID: {Mvid}");
         sb.AppendLine($"Number of Sections: {Sections.Count}");
         sb.AppendLine("Sections:");
         foreach (var s in Sections)
