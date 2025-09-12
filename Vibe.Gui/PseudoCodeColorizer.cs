@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Windows.Media;
+using System.Runtime.CompilerServices;
 using ICSharpCode.AvalonEdit.Document;
 using ICSharpCode.AvalonEdit.Rendering;
 
@@ -39,14 +40,133 @@ internal sealed class PseudoCodeColorizer : DocumentColorizingTransformer
         "define","undef","include","include_next","if","ifdef","ifndef","elif","else","endif","error","pragma","line","warning","import","region","endregion"
     };
 
+    private sealed class LineState
+    {
+        public bool InMultiLineComment;
+        public bool InString;
+        public bool RawString;
+        public char StringQuote;
+        public string? RawStringDelimiter;
+    }
+
     private bool _inMultiLineComment;
     private bool _inString;
     private bool _rawString;
     private char _stringQuote;
     private string? _rawStringDelimiter;
 
+    private readonly ConditionalWeakTable<DocumentLine, LineState> _lineStates = new();
+
+    private void SetState(LineState state)
+    {
+        _inMultiLineComment = state.InMultiLineComment;
+        _inString = state.InString;
+        _rawString = state.RawString;
+        _stringQuote = state.StringQuote;
+        _rawStringDelimiter = state.RawStringDelimiter;
+    }
+
+    private LineState CaptureState() => new()
+    {
+        InMultiLineComment = _inMultiLineComment,
+        InString = _inString,
+        RawString = _rawString,
+        StringQuote = _stringQuote,
+        RawStringDelimiter = _rawStringDelimiter
+    };
+
+    private void SaveLineState(DocumentLine line)
+    {
+        _lineStates.Remove(line);
+        _lineStates.Add(line, CaptureState());
+    }
+
+    private LineState GetStartState(DocumentLine line)
+    {
+        var prev = line.PreviousLine;
+        if (prev == null)
+            return new LineState();
+
+        if (_lineStates.TryGetValue(prev, out var state))
+            return state;
+
+        state = GetStartState(prev);
+        SetState(state);
+        ScanLineState(CurrentContext.Document.GetText(prev));
+        var captured = CaptureState();
+        _lineStates.Add(prev, captured);
+        return captured;
+    }
+
+    private void ScanLineState(string text)
+    {
+        int start = 0;
+
+        if (_inMultiLineComment)
+        {
+            int endComment = text.IndexOf("*/", start, StringComparison.Ordinal);
+            if (endComment >= 0)
+            {
+                _inMultiLineComment = false;
+                start = endComment + 2;
+            }
+            else
+            {
+                return;
+            }
+        }
+
+        if (_inString)
+        {
+            int endString = ContinueString(text, 0);
+            if (endString >= 0)
+            {
+                start = endString;
+            }
+            else
+            {
+                return;
+            }
+        }
+
+        while (start < text.Length)
+        {
+            char c = text[start];
+
+            if (c == '/' && start + 1 < text.Length)
+            {
+                if (text[start + 1] == '/')
+                    return;
+                if (text[start + 1] == '*')
+                {
+                    int endComment = text.IndexOf("*/", start + 2, StringComparison.Ordinal);
+                    if (endComment >= 0)
+                    {
+                        start = endComment + 2;
+                        continue;
+                    }
+                    else
+                    {
+                        _inMultiLineComment = true;
+                        return;
+                    }
+                }
+            }
+
+            if (IsStringStart(text, start))
+            {
+                start = ScanString(text, start, 0, false);
+                continue;
+            }
+
+            start++;
+        }
+    }
+
     protected override void ColorizeLine(DocumentLine line)
     {
+        SetState(GetStartState(line));
+
         string text = CurrentContext.Document.GetText(line);
         int lineOffset = line.Offset;
         int start = 0;
@@ -65,6 +185,7 @@ internal sealed class PseudoCodeColorizer : DocumentColorizingTransformer
             {
                 ChangeLinePart(lineOffset, line.EndOffset,
                     part => part.TextRunProperties.SetForegroundBrush(CommentBrush));
+                SaveLineState(line);
                 return;
             }
         }
@@ -82,6 +203,7 @@ internal sealed class PseudoCodeColorizer : DocumentColorizingTransformer
             {
                 ChangeLinePart(lineOffset, line.EndOffset,
                     part => part.TextRunProperties.SetForegroundBrush(StringBrush));
+                SaveLineState(line);
                 return;
             }
         }
@@ -130,6 +252,7 @@ internal sealed class PseudoCodeColorizer : DocumentColorizingTransformer
                 {
                     ChangeLinePart(lineOffset + start, line.EndOffset,
                         part => part.TextRunProperties.SetForegroundBrush(CommentBrush));
+                    SaveLineState(line);
                     return;
                 }
                 if (text[start + 1] == '*')
@@ -144,17 +267,18 @@ internal sealed class PseudoCodeColorizer : DocumentColorizingTransformer
                     }
                     else
                     {
-                        ChangeLinePart(lineOffset + start, line.EndOffset,
-                            part => part.TextRunProperties.SetForegroundBrush(CommentBrush));
-                        _inMultiLineComment = true;
-                        return;
-                    }
+                    ChangeLinePart(lineOffset + start, line.EndOffset,
+                        part => part.TextRunProperties.SetForegroundBrush(CommentBrush));
+                    _inMultiLineComment = true;
+                    SaveLineState(line);
+                    return;
                 }
+            }
             }
 
             if (IsStringStart(text, start))
             {
-                start = ScanString(text, start, lineOffset);
+                start = ScanString(text, start, lineOffset, true);
                 continue;
             }
 
@@ -210,6 +334,8 @@ internal sealed class PseudoCodeColorizer : DocumentColorizingTransformer
 
             start++;
         }
+
+        SaveLineState(line);
     }
 
     private bool IsStringStart(string text, int index)
@@ -239,7 +365,7 @@ internal sealed class PseudoCodeColorizer : DocumentColorizingTransformer
         return i < text.Length && (text[i] == '\"' || text[i] == '\'');
     }
 
-    private int ScanString(string text, int start, int lineOffset)
+    private int ScanString(string text, int start, int lineOffset, bool colorize)
     {
         int i = start;
 
@@ -277,14 +403,16 @@ internal sealed class PseudoCodeColorizer : DocumentColorizingTransformer
             if (end >= 0)
             {
                 end += terminator.Length;
-                ChangeLinePart(lineOffset + start, lineOffset + end,
-                    part => part.TextRunProperties.SetForegroundBrush(StringBrush));
+                if (colorize)
+                    ChangeLinePart(lineOffset + start, lineOffset + end,
+                        part => part.TextRunProperties.SetForegroundBrush(StringBrush));
                 return end;
             }
             else
             {
-                ChangeLinePart(lineOffset + start, lineOffset + text.Length,
-                    part => part.TextRunProperties.SetForegroundBrush(StringBrush));
+                if (colorize)
+                    ChangeLinePart(lineOffset + start, lineOffset + text.Length,
+                        part => part.TextRunProperties.SetForegroundBrush(StringBrush));
                 _inString = true;
                 _rawString = true;
                 _rawStringDelimiter = terminator;
@@ -301,15 +429,17 @@ internal sealed class PseudoCodeColorizer : DocumentColorizingTransformer
                 else if (text[end] == quote)
                 {
                     end++;
-                    ChangeLinePart(lineOffset + start, lineOffset + end,
-                        part => part.TextRunProperties.SetForegroundBrush(StringBrush));
+                    if (colorize)
+                        ChangeLinePart(lineOffset + start, lineOffset + end,
+                            part => part.TextRunProperties.SetForegroundBrush(StringBrush));
                     return end;
                 }
                 else end++;
             }
 
-            ChangeLinePart(lineOffset + start, lineOffset + text.Length,
-                part => part.TextRunProperties.SetForegroundBrush(StringBrush));
+            if (colorize)
+                ChangeLinePart(lineOffset + start, lineOffset + text.Length,
+                    part => part.TextRunProperties.SetForegroundBrush(StringBrush));
             _inString = true;
             _rawString = false;
             _stringQuote = quote;
