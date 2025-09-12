@@ -5,6 +5,7 @@ using System.Text;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using System.Text.RegularExpressions;
+using Vibe.Utils;
 
 namespace Vibe.Decompiler;
 
@@ -107,16 +108,19 @@ public static class DuckDuckGoDocFetcher
         {
             html = await _http.GetStringAsync(queryUrl, cancellationToken);
         }
-        catch (HttpRequestException)
+        catch (HttpRequestException ex)
         {
+            Logger.LogException(ex);
             return [];
         }
-        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        catch (OperationCanceledException ex) when (cancellationToken.IsCancellationRequested)
         {
+            Logger.LogException(ex);
             throw;
         }
-        catch (OperationCanceledException)
+        catch (OperationCanceledException ex)
         {
+            Logger.LogException(ex);
             return [];
         }
 
@@ -137,16 +141,19 @@ public static class DuckDuckGoDocFetcher
             {
                 page = await _http.GetStringAsync(link, cancellationToken);
             }
-            catch (HttpRequestException)
+            catch (HttpRequestException ex)
             {
+                Logger.LogException(ex);
                 continue;
             }
-            catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+            catch (OperationCanceledException ex) when (cancellationToken.IsCancellationRequested)
             {
+                Logger.LogException(ex);
                 throw;
             }
-            catch (OperationCanceledException)
+            catch (OperationCanceledException ex)
             {
+                Logger.LogException(ex);
                 continue;
             }
 
@@ -161,12 +168,14 @@ public static class DuckDuckGoDocFetcher
                         break;
                     }
                 }
-                catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+                catch (OperationCanceledException ex) when (cancellationToken.IsCancellationRequested)
                 {
+                    Logger.LogException(ex);
                     throw;
                 }
-                catch (Exception)
+                catch (Exception ex)
                 {
+                    Logger.LogException(ex);
                     // Ignore evaluator errors for this fragment
                 }
             }

@@ -5,6 +5,7 @@ using System.Reflection;
 using System.Windows;
 using System.Windows.Media;
 using System.Windows.Navigation;
+using Vibe.Utils;
 
 namespace Vibe.Gui;
 
@@ -54,6 +55,7 @@ public partial class AboutWindow : Window
         }
         catch (Exception ex)
         {
+            Logger.LogException(ex);
             MessageBox.Show(this, $"Unable to open config.json: {ex.Message}", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
         }
         e.Handled = true;

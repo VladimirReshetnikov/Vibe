@@ -1,6 +1,7 @@
 using System;
 using System.Collections.ObjectModel;
 using System.Windows;
+using Vibe.Utils;
 
 namespace Vibe.Gui;
 

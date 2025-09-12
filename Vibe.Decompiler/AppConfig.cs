@@ -56,8 +56,9 @@ public sealed class AppConfig
             Current = cfg;
             return cfg;
         }
-        catch
+        catch (Exception ex)
         {
+            Logger.LogException(ex);
             Current = AppConfig.Default;
             return Current;
         }

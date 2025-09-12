@@ -8,6 +8,7 @@ using System.Reflection.Metadata;
 using System.Reflection.PortableExecutable;
 using System.Text;
 using PeNet;
+using Vibe.Utils;
 
 namespace Vibe.Decompiler;
 
@@ -187,8 +188,9 @@ public sealed class PeImage
                 var moduleDef = mdReader.GetModuleDefinition();
                 Mvid = mdReader.GetGuid(moduleDef.Mvid);
             }
-            catch
+            catch (Exception ex)
             {
+                Logger.LogException(ex);
             }
         }
 
