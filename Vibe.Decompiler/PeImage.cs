@@ -4,6 +4,8 @@ using System;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
+using System.Reflection.Metadata;
+using System.Reflection.PortableExecutable;
 using System.Text;
 using PeNet;
 
@@ -63,6 +65,8 @@ public sealed class PeImage
     /// Gets a value indicating whether the image contains a CLI header and therefore .NET metadata.
     /// </summary>
     public bool HasDotNetMetadata => CliHeaderRva != 0;
+  
+    public readonly Guid? Mvid;
 
     /// <summary>
     /// Imported modules and symbols referenced by this image.
@@ -171,6 +175,21 @@ public sealed class PeImage
         {
             CliHeaderRva = DataDirectories[14].VirtualAddress;
             CliHeaderSize = DataDirectories[14].Size;
+        }
+
+        if (HasDotNetMetadata)
+        {
+            try
+            {
+                using var ms = new MemoryStream(Data, writable: false);
+                using var peReader = new PEReader(ms);
+                var mdReader = peReader.GetMetadataReader();
+                var moduleDef = mdReader.GetModuleDefinition();
+                Mvid = mdReader.GetGuid(moduleDef.Mvid);
+            }
+            catch
+            {
+            }
         }
 
         foreach (var sh in _pe.ImageSectionHeaders)
@@ -307,6 +326,8 @@ public sealed class PeImage
         sb.AppendLine($"SubsystemVersion: {MajorSubsystemVersion}.{MinorSubsystemVersion}");
         sb.AppendLine($"Subsystem: {Subsystem} {SubsystemToString(Subsystem)}");
         sb.AppendLine($"DllCharacteristics: 0x{DllCharacteristics:X4}");
+        if (HasDotNetMetadata && Mvid.HasValue)
+            sb.AppendLine($"MVID: {Mvid}");
         sb.AppendLine($"Number of Sections: {Sections.Count}");
         sb.AppendLine("Sections:");
         foreach (var s in Sections)
