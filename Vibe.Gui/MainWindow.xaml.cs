@@ -10,33 +10,20 @@ using System.Windows.Media;
 using System.Windows.Threading;
 using System.Windows.Input;
 using Microsoft.Win32;
-using Vibe.Decompiler;
 using ICSharpCode.AvalonEdit;
-using System.Security.Cryptography;
+using Vibe.Decompiler;
 
 namespace Vibe.Gui;
 
 public partial class MainWindow : Window
 {
-    private sealed class DllItem : IDisposable
-    {
-        public required PEReaderLite Pe { get; init; }
-        public required CancellationTokenSource Cts { get; init; }
-        public required string FileHash { get; init; }
-
-        public void Dispose()
-        {
-            Cts.Dispose();
-        }
-    }
-
     private sealed class ExportItem
     {
-        public required DllItem Dll { get; init; }
+        public required LoadedDll Dll { get; init; }
         public required string Name { get; init; }
     }
 
-    private readonly ILlmProvider? _provider;
+    private readonly DllAnalyzer _dllAnalyzer;
     // Quick-search state (type-to-select export by prefix)
     private string _searchText = string.Empty;
     private DateTime _lastKeyTime;
@@ -51,13 +38,7 @@ public partial class MainWindow : Window
         OutputBox.TextArea.TextView.LineTransformers.Add(new PseudoCodeColorizer());
         _recentFiles = LoadRecentFiles();
         UpdateRecentFilesMenu();
-        var apiKey = App.ApiKey;
-        if (!string.IsNullOrWhiteSpace(apiKey))
-        {
-            var cfg = AppConfig.Current;
-            string model = string.IsNullOrWhiteSpace(cfg.LlmVersion) ? "gpt-4o-mini" : cfg.LlmVersion;
-            _provider = new OpenAiLlmProvider(apiKey, model, reasoningEffort: cfg.LlmReasoningEffort);
-        }
+        _dllAnalyzer = new DllAnalyzer();
         LoadCommonDlls();
     }
 
@@ -65,10 +46,7 @@ public partial class MainWindow : Window
     {
         try
         {
-            using var fs = File.OpenRead(path);
-            using var sha = SHA256.Create();
-            var hash = Convert.ToHexString(sha.ComputeHash(fs));
-            var dll = new DllItem { Pe = new PEReaderLite(path), Cts = new CancellationTokenSource(), FileHash = hash };
+            var dll = _dllAnalyzer.Load(path);
 
             var dllIcon = (ImageSource)FindResource("DllIconImage");
             var headerPanel = new StackPanel { Orientation = Orientation.Horizontal };
@@ -203,9 +181,8 @@ public partial class MainWindow : Window
 
     private async void DllRoot_Expanded(object sender, RoutedEventArgs e)
     {
-        if (sender is not TreeViewItem { Tag: DllItem dll } root)
+        if (sender is not TreeViewItem { Tag: LoadedDll dll } root)
             return;
-        var pe = dll.Pe;
         var token = dll.Cts.Token;
 
         // Only load once when the placeholder is present
@@ -216,11 +193,7 @@ public partial class MainWindow : Window
         var funcIcon = (ImageSource)FindResource("ExportedFunctionIconImage");
         try
         {
-            var names = await Task.Run(() =>
-            {
-                token.ThrowIfCancellationRequested();
-                return pe.EnumerateExportNames().OrderBy(n => n).ToList();
-            }, token);
+            var names = await _dllAnalyzer.GetExportNamesAsync(dll, token);
 
             int i = 0;
             foreach (var name in names)
@@ -320,55 +293,19 @@ public partial class MainWindow : Window
 
         switch (item.Tag)
         {
-            case DllItem dll:
-                OutputBox.Text = dll.Pe.GetSummary();
+            case LoadedDll dll:
+                OutputBox.Text = _dllAnalyzer.GetSummary(dll);
                 return;
             case ExportItem exp:
-                var hash = exp.Dll.FileHash;
-                var cached = DecompiledCodeCache.TryGet(hash, exp.Name);
-                if (cached != null)
-                {
-                    OutputBox.Text = cached;
-                    return;
-                }
                 OutputBox.Text = string.Empty;
                 BusyBar.Visibility = Visibility.Visible;
                 var dllItem = exp.Dll;
-                var pe2 = dllItem.Pe;
                 _currentRequestCts = CancellationTokenSource.CreateLinkedTokenSource(dllItem.Cts.Token);
                 var token = _currentRequestCts.Token;
                 try
                 {
-                    var name = exp.Name;
-                    var export = pe2.FindExport(name);
-                    if (export.IsForwarder)
-                    {
-                        var forwarderText = $"{name} -> {export.ForwarderString}";
-                        DecompiledCodeCache.Save(hash, name, forwarderText);
-                        OutputBox.Text = forwarderText;
-                        return;
-                    }
-
-                    var code = await Task.Run(() =>
-                    {
-                        token.ThrowIfCancellationRequested();
-                        int off = pe2.RvaToOffsetChecked(export.FunctionRva);
-                        int maxLen = Math.Min(AppConfig.Current.MaxDataSizeBytes, pe2.Data.Length - off);
-                        var engine = new Engine();
-                        return engine.ToPseudoCode(pe2.Data.AsMemory(off, maxLen), new Engine.Options
-                        {
-                            BaseAddress = pe2.ImageBase + export.FunctionRva,
-                            FunctionName = name
-                        });
-                    }, token);
-
-                    if (_provider != null && AppConfig.Current.MaxLlmCodeLength > 0 && code.Length > AppConfig.Current.MaxLlmCodeLength)
-                        code = code[..AppConfig.Current.MaxLlmCodeLength];
-                    string output = code;
-                    OutputBox.Text = output;
-                    if (_provider != null)
-                        output = await _provider.RefineAsync(code, null, token);
-                    DecompiledCodeCache.Save(hash, name, output);
+                    var progress = new Progress<string>(t => OutputBox.Text = t);
+                    var output = await _dllAnalyzer.GetDecompiledExportAsync(dllItem, exp.Name, progress, token);
                     OutputBox.Text = output;
                 }
                 catch (OperationCanceledException ex)
@@ -412,10 +349,10 @@ public partial class MainWindow : Window
                 return;
 
             TreeViewItem root;
-            DllItem dll;
+            LoadedDll dll;
             switch (item.Tag)
             {
-                case DllItem di:
+                case LoadedDll di:
                     dll = di;
                     root = item;
                     break;
@@ -487,10 +424,10 @@ public partial class MainWindow : Window
         CancelCurrentRequest();
         // Dispose all DLL items to clean up CancellationTokenSource objects
         foreach (TreeViewItem item in DllTree.Items)
-            if (item.Tag is DllItem dll)
+            if (item.Tag is LoadedDll dll)
                 dll.Dispose();
 
-        _provider?.Dispose();
+        _dllAnalyzer.Dispose();
         base.OnClosed(e);
     }
 
