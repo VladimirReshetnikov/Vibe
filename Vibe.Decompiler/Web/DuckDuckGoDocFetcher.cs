@@ -94,10 +94,6 @@ public static class DuckDuckGoDocFetcher
     /// <param name="fragmentSize">Maximum size of page fragments passed to the evaluator.</param>
     /// <param name="timeoutSeconds">HTTP request timeout in seconds.</param>
     /// <param name="cancellationToken">Optional cancellation token.</param>
-    /// <summary>
-    /// Performs a web search for documentation and returns the pages deemed
-    /// relevant by <paramref name="evaluator"/>.
-    /// </summary>
     public static async Task<List<string>> FindDocumentationPagesAsync(
         string functionName,
         int maxPages,
