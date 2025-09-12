@@ -1,90 +1,181 @@
-using System.IO;
+using System.Collections.Generic;
 using System.Linq;
-using Spectre.Console;
 using Mono.Cecil;
+using Terminal.Gui;
 using Vibe.Cui;
 
 public class Program
 {
-    public static async Task Main()
+    static readonly DllAnalyzer Analyzer = new();
+    static LoadedDll? Dll;
+    static List<TypeDefinition> ManagedTypes = new();
+    static ListView ItemList = null!;
+    static TextView CodeView = null!;
+    static bool ShowingExports = true;
+
+    public static void Main()
     {
-        AnsiConsole.MarkupLine("[bold cyan]Vibe Console Interface[/]");
-        using var analyzer = new DllAnalyzer();
-        LoadedDll? dll = null;
+        Application.Init();
+        var top = Application.Top;
 
-        while (true)
+        var menu = new MenuBar(new[]
         {
-            if (dll == null)
+            new MenuBarItem("_File", new MenuItem[]
             {
-                var path = AnsiConsole.Ask<string>("Enter path to a DLL (empty to quit):");
-                if (string.IsNullOrWhiteSpace(path))
-                    return;
-                if (!File.Exists(path))
+                new MenuItem("_Open", string.Empty, OpenFile),
+                new MenuItem("_Quit", string.Empty, () => { Dll?.Dispose(); Application.RequestStop(); })
+            }),
+            new MenuBarItem("_View", new MenuItem[]
+            {
+                new MenuItem("_Exports", string.Empty, LoadExports, () => Dll != null),
+                new MenuItem("_Managed Types", string.Empty, LoadManagedTypes, () => Dll?.IsManaged ?? false)
+            })
+        });
+        top.Add(menu);
+
+        var statusBar = new StatusBar(new StatusItem[]
+        {
+            new StatusItem(Key.F9, "~F9~ Menu", () => menu.OpenMenu())
+        });
+        top.Add(statusBar);
+
+        var win = new Window("Vibe Console Interface")
+        {
+            X = 0,
+            Y = 1,
+            Width = Dim.Fill(),
+            Height = Dim.Fill(1)
+        };
+
+        var leftPane = new FrameView("Items")
+        {
+            X = 0,
+            Y = 0,
+            Width = Dim.Percent(30),
+            Height = Dim.Fill()
+        };
+
+        var rightPane = new FrameView("Details")
+        {
+            X = Pos.Right(leftPane),
+            Y = 0,
+            Width = Dim.Fill(),
+            Height = Dim.Fill()
+        };
+
+        ItemList = new ListView(new List<string>())
+        {
+            Width = Dim.Fill(),
+            Height = Dim.Fill(),
+            CanFocus = true
+        };
+
+        CodeView = new TextView()
+        {
+            ReadOnly = true,
+            WordWrap = false,
+            Width = Dim.Fill(),
+            Height = Dim.Fill()
+        };
+
+        ItemList.OpenSelectedItem += async args =>
+        {
+            if (Dll == null) return;
+            var selected = (string)args.Value;
+            if (ShowingExports)
+            {
+                CodeView.Text = "Loading...";
+                var code = await Analyzer.GetDecompiledExportAsync(
+                    Dll,
+                    selected,
+                    new Progress<string>(p => Application.MainLoop.Invoke(() => CodeView.Text = p)),
+                    Dll.Cts.Token);
+                Application.MainLoop.Invoke(() => CodeView.Text = code);
+            }
+            else
+            {
+                var type = ManagedTypes.First(t => t.FullName == selected);
+                if (!type.Methods.Any())
                 {
-                    AnsiConsole.MarkupLine("[red]File not found.[/]");
-                    continue;
-                }
-                dll = analyzer.Load(path);
-                AnsiConsole.WriteLine(analyzer.GetSummary(dll));
-            }
-
-            var action = AnsiConsole.Prompt(
-                new SelectionPrompt<string>()
-                    .Title("Choose action")
-                    .AddChoices("List exports", "List managed types", "Open another DLL", "Quit"));
-
-            switch (action)
-            {
-                case "List exports":
-                    var exports = await analyzer.GetExportNamesAsync(dll, dll.Cts.Token);
-                    if (exports.Count == 0)
-                    {
-                        AnsiConsole.MarkupLine("[yellow]No exports found.[/]");
-                        break;
-                    }
-                    var export = AnsiConsole.Prompt(
-                        new SelectionPrompt<string>()
-                            .Title("Select export")
-                            .PageSize(10)
-                            .AddChoices(exports));
-                    var code = await analyzer.GetDecompiledExportAsync(dll, export, null, dll.Cts.Token);
-                    AnsiConsole.WriteLine(code);
-                    break;
-                case "List managed types":
-                    var types = await analyzer.GetManagedTypesAsync(dll, dll.Cts.Token);
-                    if (types.Count == 0)
-                    {
-                        AnsiConsole.MarkupLine("[yellow]No managed types found.[/]");
-                        break;
-                    }
-                    var typeName = AnsiConsole.Prompt(
-                        new SelectionPrompt<string>()
-                            .Title("Select type")
-                            .PageSize(10)
-                            .AddChoices(types.Select(t => t.FullName)));
-                    var type = types.First(t => t.FullName == typeName);
-                    if (!type.Methods.Any())
-                    {
-                        AnsiConsole.MarkupLine("[yellow]Type has no methods.[/]");
-                        break;
-                    }
-                    var methodName = AnsiConsole.Prompt(
-                        new SelectionPrompt<string>()
-                            .Title("Select method")
-                            .PageSize(10)
-                            .AddChoices(type.Methods.Select(m => m.FullName)));
-                    var method = type.Methods.First(m => m.FullName == methodName);
-                    var body = analyzer.GetManagedMethodBody(method);
-                    AnsiConsole.WriteLine(body);
-                    break;
-                case "Open another DLL":
-                    dll.Dispose();
-                    dll = null;
-                    break;
-                case "Quit":
-                    dll.Dispose();
+                    CodeView.Text = "// Type has no methods";
                     return;
+                }
+
+                var methods = type.Methods.Select(m => m.FullName).ToList();
+                var methodList = new ListView(methods)
+                {
+                    Width = Dim.Fill(),
+                    Height = Dim.Fill()
+                };
+
+                var close = new Button("Close", is_default: true);
+                var dlg = new Dialog("Select Method", 60, 20, close);
+                dlg.Add(methodList);
+
+                methodList.OpenSelectedItem += args2 =>
+                {
+                    var methodName = (string)args2.Value;
+                    var method = type.Methods.First(m => m.FullName == methodName);
+                    var body = Analyzer.GetManagedMethodBody(method);
+                    CodeView.Text = body;
+                    Application.RequestStop();
+                };
+                close.Clicked += () => Application.RequestStop();
+
+                Application.Run(dlg);
             }
-        }
+        };
+
+        leftPane.Add(ItemList);
+        rightPane.Add(CodeView);
+        win.Add(leftPane, rightPane);
+        top.Add(win);
+
+        Application.Run();
+        Dll?.Dispose();
+        Application.Shutdown();
+    }
+
+    static async void OpenFile()
+    {
+        var dialog = new OpenDialog("Open DLL", "Select a DLL")
+        {
+            AllowsMultipleSelection = false,
+            CanChooseDirectories = false
+        };
+        Application.Run(dialog);
+        if (dialog.Canceled || string.IsNullOrEmpty(dialog.FilePath.ToString()))
+            return;
+
+        Dll?.Dispose();
+        Dll = Analyzer.Load(dialog.FilePath.ToString()!);
+        CodeView.Text = Analyzer.GetSummary(Dll);
+
+        await LoadExportsAsync();
+    }
+
+    static async void LoadExports() => await LoadExportsAsync();
+
+    static async Task LoadExportsAsync()
+    {
+        if (Dll == null) return;
+        var exports = await Analyzer.GetExportNamesAsync(Dll, Dll.Cts.Token);
+        Application.MainLoop.Invoke(() =>
+        {
+            ItemList.SetSource(exports);
+            ShowingExports = true;
+        });
+    }
+
+    static async void LoadManagedTypes()
+    {
+        if (Dll == null || !Dll.IsManaged) return;
+        ManagedTypes = await Analyzer.GetManagedTypesAsync(Dll, Dll.Cts.Token);
+        Application.MainLoop.Invoke(() =>
+        {
+            ItemList.SetSource(ManagedTypes.Select(t => t.FullName).ToList());
+            ShowingExports = false;
+        });
     }
 }
+
