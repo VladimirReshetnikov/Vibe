@@ -4,6 +4,9 @@ using System.IO;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
+using System.Text;
+using Mono.Cecil;
+using Mono.Cecil.Cil;
 using Vibe.Decompiler;
 
 namespace Vibe.Gui;
@@ -32,6 +35,39 @@ internal sealed class DllAnalyzer : IDisposable
     public Task<List<string>> GetExportNamesAsync(LoadedDll dll, CancellationToken token)
     {
         return dll.GetExportNamesAsync(token);
+    }
+
+    public Task<List<TypeDefinition>> GetManagedTypesAsync(LoadedDll dll, CancellationToken token)
+    {
+        if (!dll.IsManaged || dll.ManagedModule == null)
+            return Task.FromResult(new List<TypeDefinition>());
+
+        return Task.Run(() =>
+        {
+            token.ThrowIfCancellationRequested();
+            var result = new List<TypeDefinition>();
+            void Collect(TypeDefinition type)
+            {
+                result.Add(type);
+                foreach (var nested in type.NestedTypes)
+                    Collect(nested);
+            }
+            foreach (var type in dll.ManagedModule.Types)
+                Collect(type);
+            return result;
+        }, token);
+    }
+
+    public string GetManagedMethodBody(MethodDefinition method)
+    {
+        if (!method.HasBody)
+            return "// Method has no body";
+
+        var sb = new StringBuilder();
+        sb.AppendLine(method.FullName);
+        foreach (var instr in method.Body.Instructions)
+            sb.AppendLine(instr.ToString());
+        return sb.ToString();
     }
 
     public string GetSummary(LoadedDll dll) => dll.GetSummary();
