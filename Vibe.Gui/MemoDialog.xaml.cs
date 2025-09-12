@@ -4,6 +4,10 @@ using System.Windows.Media;
 
 namespace Vibe.Gui;
 
+/// <summary>
+/// Displays large blocks of text in a simple scrollable window. The dialog is
+/// typically used to show generated code or configuration files.
+/// </summary>
 public partial class MemoDialog : Window
 {
     /// <summary>

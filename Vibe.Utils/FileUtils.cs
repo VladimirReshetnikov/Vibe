@@ -1,12 +1,17 @@
 ﻿using System.IO.Compression;
-
 namespace Vibe.Utils;
 
 /// <summary>
-/// TODO
+/// Helper methods for discovering project directories and well-known
+/// file locations used by the application.
 /// </summary>
 public static class FileUtils
 {
+    /// <summary>
+    /// Walks upward from the application's base directory looking for a
+    /// <c>.git</c> folder and returns the containing path.
+    /// </summary>
+    /// <returns>The repository root if found; otherwise <c>null</c>.</returns>
     public static string? FindRepoRoot()
     {
         try
@@ -29,13 +34,18 @@ public static class FileUtils
         return null;
     }
 
+    /// <summary>
+    /// Searches the repository (or application directory when outside a repo)
+    /// for the first file matching the provided glob pattern.
+    /// </summary>
+    /// <param name="pattern">Glob pattern to match.</param>
+    /// <returns>The first matching file path or <c>null</c> if none.</returns>
     public static string? FindFile(string pattern) =>
         Directory.EnumerateFiles(
             FindRepoRoot() ?? AppContext.BaseDirectory,
             pattern,
             SearchOption.AllDirectories).FirstOrDefault();
 
-    /// <summary>
     /// Attempts to populate the constant database with Win32 metadata so that APIs and constants
     /// can be rendered with meaningful names during decompilation. The method searches standard
     /// locations such as the Windows SDK and the local NuGet cache.
@@ -103,6 +113,10 @@ public static class FileUtils
         }
     }
 
+    /// <summary>
+    /// Enumerates directories that may contain cached NuGet packages
+    /// based on environment variables and platform conventions.
+    /// </summary>
     public static IEnumerable<string> GetNuGetCacheDirectories()
     {
         var dirs = new List<string>();
@@ -124,3 +138,4 @@ public static class FileUtils
         return dirs;
     }
 }
+

@@ -9,8 +9,13 @@ using Vibe.Utils;
 
 namespace Vibe.Gui;
 
+/// <summary>
+/// Displays application version information and links to configuration files
+/// and project resources.
+/// </summary>
 public partial class AboutWindow : Window
 {
+    /// <summary>Initializes the window and populates product and version labels.</summary>
     public AboutWindow()
     {
         InitializeComponent();

@@ -9,6 +9,10 @@ using Vibe.Utils;
 
 namespace Vibe.Decompiler.Web;
 
+/// <summary>
+/// Uses an OpenAI model to decide whether downloaded documentation pages are
+/// relevant to a particular function.
+/// </summary>
 public sealed class OpenAiDocPageEvaluator : IDocPageEvaluator
 {
     private readonly HttpClient _http = new();
@@ -16,6 +20,9 @@ public sealed class OpenAiDocPageEvaluator : IDocPageEvaluator
     public string Model { get; }
     public string? ReasoningEffort { get; }
 
+    /// <summary>
+    /// Initializes a new evaluator that queries the specified OpenAI model.
+    /// </summary>
     public OpenAiDocPageEvaluator(string apiKey, string model = "gpt-4o-mini", string? reasoningEffort = null)
     {
         ApiKey = apiKey;
@@ -24,6 +31,7 @@ public sealed class OpenAiDocPageEvaluator : IDocPageEvaluator
         _http.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", ApiKey);
     }
 
+    /// <inheritdoc />
     public async Task<bool> IsRelevantAsync(string functionName, string content, CancellationToken cancellationToken = default)
     {
         var req = new
@@ -60,9 +68,14 @@ public sealed class OpenAiDocPageEvaluator : IDocPageEvaluator
         return message.Trim().StartsWith("y", StringComparison.OrdinalIgnoreCase);
     }
 
+    /// <inheritdoc />
     public void Dispose() => _http.Dispose();
 }
 
+/// <summary>
+/// Scrapes DuckDuckGo search results and filters pages using an
+/// <see cref="IDocPageEvaluator"/> implementation.
+/// </summary>
 public static class DuckDuckGoDocFetcher
 {
     private static readonly HttpClient _http = new();
@@ -182,6 +195,10 @@ public static class DuckDuckGoDocFetcher
         return pages;
     }
 
+    /// <summary>
+    /// Splits the HTML page into smaller fragments so that they can be analysed
+    /// individually by the evaluator without exceeding token limits.
+    /// </summary>
     private static IEnumerable<string> SplitFragments(string text, int maxLen)
     {
         int index = 0;

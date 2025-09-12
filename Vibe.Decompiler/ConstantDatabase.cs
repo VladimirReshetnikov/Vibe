@@ -51,6 +51,10 @@ public sealed class ConstantDatabase : IConstantNameProvider
         MapArgEnum("CreateFileW", 5, "Windows.Win32.Storage.FileSystem.FILE_FLAGS_AND_ATTRIBUTES");
     }
 
+    /// <summary>
+    /// Associates a function argument with an expected enumeration type so that
+    /// constants used in calls can later be formatted symbolically.
+    /// </summary>
     public void MapArgEnum(string callSymbolName, int argIndex, string enumFullName)
     {
         if (!_callArgEnums.TryGetValue(callSymbolName, out var map))
@@ -58,6 +62,9 @@ public sealed class ConstantDatabase : IConstantNameProvider
         map[argIndex] = enumFullName;
     }
 
+    /// <summary>
+    /// Attempts to determine the enumeration type expected for a given call argument.
+    /// </summary>
     public bool TryGetArgExpectedEnumType(string? callTargetSymbol, int argIndex, out string enumTypeFullName)
     {
         enumTypeFullName = "";
@@ -71,6 +78,7 @@ public sealed class ConstantDatabase : IConstantNameProvider
                _enums.ContainsKey(enumTypeFullName);
     }
 
+    /// <inheritdoc />
     public bool TryFormatValue(string enumTypeFullName, ulong value, out string formatted)
     {
         formatted = "";
@@ -105,6 +113,7 @@ public sealed class ConstantDatabase : IConstantNameProvider
         return false; // important: hex fallback is not a symbolic match
     }
 
+    /// <inheritdoc />
     public IEnumerable<ConstantMatch> FindByValue(ulong value, int bitWidth = 32)
     {
         ulong mask = bitWidth >= 64 ? ulong.MaxValue : (1UL << bitWidth) - 1UL;

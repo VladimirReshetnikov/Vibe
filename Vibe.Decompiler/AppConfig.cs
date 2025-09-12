@@ -5,6 +5,11 @@ using Vibe.Utils;
 
 namespace Vibe.Decompiler;
 
+/// <summary>
+/// Represents user and environment configuration for the decompiler. The
+/// settings are typically loaded from <c>config.json</c> and accessed via the
+/// static <see cref="Current"/> property.
+/// </summary>
 public sealed class AppConfig
 {
     private static AppConfig? _current;
@@ -30,12 +35,20 @@ public sealed class AppConfig
     public int MaxForwarderHops { get; set; } = 8;
     public int MaxRecentFiles { get; set; } = 10;
 
+    /// <summary>
+    /// Attempts to locate and load a configuration file relative to the
+    /// repository root or application directory.
+    /// </summary>
     public static AppConfig? AutoDetect()
     {
         var findFile = FileUtils.FindFile("config.json");
         return findFile is null ? null : Load(findFile);
     }
 
+    /// <summary>
+    /// Loads configuration from the specified JSON file path, falling back to
+    /// <see cref="Default"/> on error.
+    /// </summary>
     public static AppConfig Load(string path)
     {
         try

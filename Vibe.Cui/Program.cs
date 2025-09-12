@@ -4,6 +4,10 @@ using Mono.Cecil;
 using Terminal.Gui;
 using Vibe.Cui;
 
+/// <summary>
+/// Entry point and console user interface for exploring DLL exports and
+/// viewing decompiled output in a terminal environment.
+/// </summary>
 public class Program
 {
     static readonly DllAnalyzer Analyzer = new();
@@ -13,6 +17,9 @@ public class Program
     static TextView CodeView = null!;
     static bool ShowingExports = true;
 
+    /// <summary>
+    /// Launches the terminal UI and initializes application state.
+    /// </summary>
     public static void Main()
     {
         Application.Init();
@@ -136,6 +143,9 @@ public class Program
         Application.Shutdown();
     }
 
+    /// <summary>
+    /// Displays a file picker and loads the selected DLL into the analyzer.
+    /// </summary>
     static async void OpenFile()
     {
         var dialog = new OpenDialog("Open DLL", "Select a DLL")
@@ -154,8 +164,14 @@ public class Program
         await LoadExportsAsync();
     }
 
+    /// <summary>
+    /// Initiates asynchronous loading of export names from the current DLL.
+    /// </summary>
     static async void LoadExports() => await LoadExportsAsync();
 
+    /// <summary>
+    /// Retrieves export names from the loaded DLL and populates the left pane.
+    /// </summary>
     static async Task LoadExportsAsync()
     {
         if (Dll == null) return;
@@ -167,6 +183,9 @@ public class Program
         });
     }
 
+    /// <summary>
+    /// Loads the list of managed types from the currently opened DLL.
+    /// </summary>
     static async void LoadManagedTypes()
     {
         if (Dll == null || !Dll.IsManaged) return;

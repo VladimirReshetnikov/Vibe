@@ -5,11 +5,17 @@ using Vibe.Utils;
 
 namespace Vibe.Gui;
 
+/// <summary>
+/// Application entry point for the WPF GUI. Handles startup tasks such as API
+/// key acquisition and global exception logging.
+/// </summary>
 public partial class App : Application
 {
+    /// <summary>The API key used for optional LLM integration.</summary>
     public static string? ApiKey { get; private set; }
     public static WindowLogger WindowLogger { get; } = new();
 
+    /// <inheritdoc />
     protected override void OnStartup(StartupEventArgs e)
     {
         var envApiKey = Environment.GetEnvironmentVariable("OPENAI_API_KEY");
@@ -32,6 +38,7 @@ public partial class App : Application
         base.OnStartup(e);
     }
 
+    /// <summary>Initializes the application and wires global exception handlers.</summary>
     public App()
     {
         DispatcherUnhandledException += App_DispatcherUnhandledException;

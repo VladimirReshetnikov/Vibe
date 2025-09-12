@@ -4,6 +4,11 @@ using Microsoft.Data.Sqlite;
 
 namespace Vibe.Gui;
 
+/// <summary>
+/// Simple SQLite-backed cache that stores decompiled function bodies keyed by
+/// the file hash and function name. It avoids re-decompiling the same export
+/// across application runs.
+/// </summary>
 internal static class DecompiledCodeCache
 {
     private static readonly string DbPath;
@@ -27,6 +32,10 @@ internal static class DecompiledCodeCache
         cmd.ExecuteNonQuery();
     }
 
+    /// <summary>
+    /// Attempts to retrieve previously cached pseudocode for the specified
+    /// DLL and function.
+    /// </summary>
     public static string? TryGet(string fileHash, string funcName)
     {
         using var connection = new SqliteConnection($"Data Source={DbPath}");
@@ -39,6 +48,9 @@ internal static class DecompiledCodeCache
         return reader.Read() ? reader.GetString(0) : null;
     }
 
+    /// <summary>
+    /// Saves pseudocode for the given function so that subsequent runs can reuse it.
+    /// </summary>
     public static void Save(string fileHash, string funcName, string code)
     {
         using var connection = new SqliteConnection($"Data Source={DbPath}");

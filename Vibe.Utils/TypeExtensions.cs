@@ -8,6 +8,11 @@ using CSharpBinder = Microsoft.CSharp.RuntimeBinder.Binder;
 
 namespace Vibe.Utils;
 
+/// <summary>
+/// Extension helpers that enable dynamic access to the static members of
+/// <see cref="Type"/> instances. This is primarily used to call P/Invoke
+/// helpers without writing explicit bindings.
+/// </summary>
 public static class TypeExtensions
 {
     /// <summary>
