@@ -7,15 +7,37 @@ using System.Runtime.InteropServices;
 
 namespace Vibe.Decompiler;
 
+/// <summary>
+/// Represents a candidate symbolic name for a numeric constant.
+/// </summary>
+/// <param name="EnumFullName">Fully qualified enum or static class name.</param>
+/// <param name="Formatted">Formatted member name, e.g. <c>Enum.Value</c>.</param>
+public readonly record struct ConstantMatch(string EnumFullName, string Formatted);
+
+/// <summary>
+/// Exposes APIs for looking up symbolic constant names.
+/// </summary>
 public interface IConstantNameProvider
 {
+    /// <summary>
+    /// Attempts to format <paramref name="value"/> as a member of the specified enum type.
+    /// </summary>
+    /// <returns><c>true</c> when a symbolic name was found.</returns>
     bool TryFormatValue(string enumFullName, ulong value, out string name);
+
+    /// <summary>
+    /// Finds all constants across all loaded enums that match the given value.
+    /// </summary>
+    /// <param name="bitWidth">Width of the underlying type; values are masked accordingly.</param>
+    IEnumerable<ConstantMatch> FindByValue(ulong value, int bitWidth = 32);
 }
 
 public sealed class ConstantDatabase : IConstantNameProvider
 {
     private readonly Dictionary<string, EnumDesc> _enums = new(StringComparer.Ordinal);
     private readonly Dictionary<string, Dictionary<int, string>> _callArgEnums = new(StringComparer.OrdinalIgnoreCase);
+    private readonly Dictionary<ulong, List<ConstantMatch>> _valueIndex = new();
+    private readonly List<EnumDesc> _flagEnums = new();
 
     public ConstantDatabase()
     {
@@ -83,9 +105,63 @@ public sealed class ConstantDatabase : IConstantNameProvider
         return false; // important: hex fallback is not a symbolic match
     }
 
+    public IEnumerable<ConstantMatch> FindByValue(ulong value, int bitWidth = 32)
+    {
+        ulong mask = bitWidth >= 64 ? ulong.MaxValue : (1UL << bitWidth) - 1UL;
+        ulong masked = value & mask;
+
+        var seen = new HashSet<ConstantMatch>();
+
+        if (_valueIndex.TryGetValue(masked, out var list))
+        {
+            foreach (var m in list)
+            {
+                if (seen.Add(m))
+                    yield return m;
+            }
+        }
+
+        foreach (var ed in _flagEnums)
+        {
+            if (ed.UnderlyingBits > bitWidth) continue;
+
+            ulong remaining = masked;
+            var parts = new List<string>();
+            foreach (var p in ed.FlagParts)
+            {
+                if ((remaining & p.Mask) == p.Mask)
+                {
+                    parts.Add(p.Name);
+                    remaining &= ~p.Mask;
+                }
+            }
+
+            if (parts.Count > 0 && remaining == 0)
+            {
+                string fmt = string.Join(" | ", parts);
+                var match = new ConstantMatch(ed.FullName, fmt);
+                if (seen.Add(match))
+                    yield return match;
+            }
+        }
+    }
+
+    private void AddEnum(EnumDesc desc)
+    {
+        _enums[desc.FullName] = desc;
+        foreach (var kv in desc.ValueToName)
+        {
+            if (!_valueIndex.TryGetValue(kv.Key, out var list))
+                list = _valueIndex[kv.Key] = new List<ConstantMatch>();
+            list.Add(new ConstantMatch(desc.FullName, kv.Value));
+        }
+
+        if (desc.Flags || desc.LooksLikeFlags)
+            _flagEnums.Add(desc);
+    }
+
     public void LoadWin32MetadataFromWinmd(string winmdPath)
     {
-        Console.WriteLine($"Loading metadata from ${winmdPath}");
         using var fs = File.OpenRead(winmdPath);
         using var pe = new PEReader(fs, PEStreamOptions.PrefetchEntireImage);
         var md = pe.GetMetadataReader();
@@ -128,7 +204,7 @@ public sealed class ConstantDatabase : IConstantNameProvider
             }
 
             desc.FinalizeAfterLoad();
-            _enums[full] = desc;
+            AddEnum(desc);
         }
     }
 
@@ -152,28 +228,29 @@ public sealed class ConstantDatabase : IConstantNameProvider
                         desc.ValueToName[v] = $"{full}.{name}";
                 }
                 desc.FinalizeAfterLoad();
-                _enums[full] = desc;
+                AddEnum(desc);
             }
             else if (t.IsAbstract && t.IsSealed)
             {
+                var full = t.FullName ?? t.Name;
+                var desc = new EnumDesc(full) { Flags = false, UnderlyingBits = 32 };
                 foreach (var f in t.GetFields(BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Static))
                 {
                     if (!f.IsLiteral) continue;
                     object? val = f.GetRawConstantValue();
                     if (val is null) continue;
-                    var full = t.FullName ?? t.Name;
-                    if (!_enums.TryGetValue(full, out var desc))
-                    {
-                        desc = new EnumDesc(full) { Flags = false, UnderlyingBits = 32 };
-                        _enums[full] = desc;
-                    }
                     ulong v = ConvertToUInt64(val);
                     string key = $"{full}.{f.Name}";
-                    desc.ValueToName.TryAdd(v, key);
+                    if (!desc.ValueToName.ContainsKey(v))
+                        desc.ValueToName[v] = key;
+                }
+                if (desc.ValueToName.Count > 0)
+                {
+                    desc.FinalizeAfterLoad();
+                    AddEnum(desc);
                 }
             }
         }
-        foreach (var e in _enums.Values) e.FinalizeAfterLoad();
     }
 
     private static bool IsEnum(MetadataReader md, TypeDefinition td)
