@@ -23,7 +23,7 @@ public static class CompilerInfo
     /// </summary>
     /// <param name="Compiler">Vendor or family of the compiler.</param>
     /// <param name="Toolset">Version of the toolset or target framework.</param>
-    /// <param name="StandardLibrary">Associated standard library line.</param>
+    /// <param name="StandardLibrary">Associated standard library name.</param>
     /// <param name="Notes">Additional hints discovered during analysis.</param>
     public sealed record Result(string? Compiler, string? Toolset, string? StandardLibrary, string[] Notes);
 
