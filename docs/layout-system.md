@@ -1,6 +1,6 @@
 # Layout system
 
-This project uses [AvalonDock](https://github.com/xceedsoftware/wpftoolkit) to provide an IDE‑style layout with dockable tool windows and documents.
+This project uses the open-source [Dirkster.AvalonDock](https://github.com/Dirkster99/AvalonDock) to provide an IDE‑style layout with dockable tool windows and documents.
 
 ## Architecture
 
