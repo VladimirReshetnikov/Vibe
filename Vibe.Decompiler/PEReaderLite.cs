@@ -7,34 +7,134 @@ using System;
 
 namespace Vibe.Decompiler;
 
+/// <summary>
+/// Lightweight reader for Portable Executable (PE) files that extracts structural
+/// information, imports, exports and basic metadata without the overhead of full
+/// metadata libraries.
+/// </summary>
 public sealed class PEReaderLite
 {
+    /// <summary>
+    /// Raw bytes of the loaded PE file.
+    /// </summary>
     public readonly byte[] Data;
+
+    /// <summary>
+    /// Preferred load address encoded in the PE headers.
+    /// </summary>
     public readonly ulong ImageBase;
+
+    /// <summary>
+    /// Collection of section headers describing the layout of the image.
+    /// </summary>
     public readonly List<Section> Sections = new();
+
+    /// <summary>
+    /// Array of data directory entries as defined by the PE specification.
+    /// </summary>
     public readonly DataDirectory[] DataDirectories;
+
+    /// <summary>
+    /// Relative virtual address of the export directory, if present.
+    /// </summary>
     public readonly uint ExportRva;
+
+    /// <summary>
+    /// Size of the export directory in bytes.
+    /// </summary>
     public readonly uint ExportSize;
+
+    /// <summary>
+    /// Relative virtual address of the CLI header for managed assemblies.
+    /// </summary>
     public readonly uint CliHeaderRva;
+
+    /// <summary>
+    /// Size of the CLI header structure.
+    /// </summary>
     public readonly uint CliHeaderSize;
+
+    /// <summary>
+    /// Gets a value indicating whether the PE file contains .NET metadata.
+    /// </summary>
     public bool HasDotNetMetadata => CliHeaderRva != 0;
+
+    /// <summary>
+    /// List of modules and symbols imported by the image.
+    /// </summary>
     public readonly List<ImportModule> Imports = new();
-    public readonly uint SizeOfHeaders; // NEW: keep SizeOfHeaders for header-range RVA mapping
-    public readonly bool IsPe32Plus; // Indicates pointer size for import parsing
+
+    /// <summary>
+    /// Total size of the PE headers, used for mapping RVAs that fall within header ranges.
+    /// </summary>
+    public readonly uint SizeOfHeaders;
+
+    /// <summary>
+    /// Indicates whether the image uses the PE32+ (64-bit) format.
+    /// </summary>
+    public readonly bool IsPe32Plus;
 
     // Basic information about the module
+    /// <summary>
+    /// File system path of the loaded image.
+    /// </summary>
     public readonly string FilePath;
+
+    /// <summary>
+    /// The machine type for which the image was built.
+    /// </summary>
     public readonly ushort Machine;
+
+    /// <summary>
+    /// COFF timestamp representing when the image was linked.
+    /// </summary>
     public readonly uint TimeDateStamp;
+
+    /// <summary>
+    /// COFF characteristics flags.
+    /// </summary>
     public readonly ushort Characteristics;
+
+    /// <summary>
+    /// Total size of the loaded image in memory.
+    /// </summary>
     public readonly uint SizeOfImage;
+
+    /// <summary>
+    /// Subsystem the executable expects to run under.
+    /// </summary>
     public readonly ushort Subsystem;
+
+    /// <summary>
+    /// Additional DLL characteristics flags.
+    /// </summary>
     public readonly ushort DllCharacteristics;
+
+    /// <summary>
+    /// Major version of the image as specified in the optional header.
+    /// </summary>
     public readonly ushort MajorImageVersion;
+
+    /// <summary>
+    /// Minor version of the image as specified in the optional header.
+    /// </summary>
     public readonly ushort MinorImageVersion;
+
+    /// <summary>
+    /// Major version of the subsystem required to run the image.
+    /// </summary>
     public readonly ushort MajorSubsystemVersion;
+
+    /// <summary>
+    /// Minor version of the subsystem required to run the image.
+    /// </summary>
     public readonly ushort MinorSubsystemVersion;
 
+    /// <summary>
+    /// Initializes a new instance of <see cref="PEReaderLite"/> by loading and parsing the
+    /// specified PE file.
+    /// </summary>
+    /// <param name="path">Path to the PE file on disk.</param>
     public PEReaderLite(string path)
     {
         FilePath = path;
@@ -144,6 +244,11 @@ public sealed class PEReaderLite
             ParseImports(importRva);
     }
 
+    /// <summary>
+    /// Finds the section that contains the specified relative virtual address (RVA).
+    /// </summary>
+    /// <param name="rva">The RVA to locate.</param>
+    /// <returns>The section containing the RVA, or <c>null</c> if none match.</returns>
     public Section? GetSectionForRva(uint rva)
     {
         foreach (var s in Sections)
@@ -155,6 +260,14 @@ public sealed class PEReaderLite
         return null;
     }
 
+    /// <summary>
+    /// Converts an RVA into a file offset, validating that it maps to a known region
+    /// of the image. RVAs that point into the header range are also supported.
+    /// </summary>
+    /// <param name="rva">The relative virtual address to translate.</param>
+    /// <returns>The corresponding file offset.</returns>
+    /// <exception cref="ArgumentOutOfRangeException">Thrown when <paramref name="rva"/> is zero.</exception>
+    /// <exception cref="InvalidOperationException">Thrown when the RVA cannot be mapped.</exception>
     public int RvaToOffsetChecked(uint rva)
     {
         if (rva == 0)
@@ -174,6 +287,12 @@ public sealed class PEReaderLite
         return (int)off;
     }
 
+    /// <summary>
+    /// Locates an exported function by name and returns information about it.
+    /// </summary>
+    /// <param name="name">Name of the export to search for.</param>
+    /// <returns>Details of the export, including RVA or forwarder string.</returns>
+    /// <exception cref="InvalidOperationException">Thrown when the module has no export directory.</exception>
     public ExportInfo FindExport(string name)
     {
         if (ExportRva == 0 || ExportSize == 0)
@@ -308,6 +427,11 @@ public sealed class PEReaderLite
         }
     }
 
+    /// <summary>
+    /// Enumerates the names of all exported functions from the image in the order
+    /// they appear in the export table.
+    /// </summary>
+    /// <returns>An enumerable sequence of export names.</returns>
     public IEnumerable<string> EnumerateExportNames()
     {
         if (ExportRva == 0 || ExportSize == 0)
@@ -328,6 +452,11 @@ public sealed class PEReaderLite
         }
     }
 
+    /// <summary>
+    /// Builds a human-readable summary of the PE file including version information
+    /// and section layout details.
+    /// </summary>
+    /// <returns>A string containing descriptive information about the image.</returns>
     public string GetSummary()
     {
         var sb = new StringBuilder();
@@ -420,31 +549,87 @@ public sealed class PEReaderLite
         return Encoding.ASCII.GetString(Data, off, i - off);
     }
 
+    /// <summary>
+    /// Represents a single entry in the PE data directory table.
+    /// </summary>
     public readonly struct DataDirectory
     {
+        /// <summary>
+        /// RVA of the table or data structure referenced by the directory entry.
+        /// </summary>
         public uint VirtualAddress { get; init; }
+
+        /// <summary>
+        /// Size in bytes of the referenced table or data structure.
+        /// </summary>
         public uint Size { get; init; }
     }
 
+    /// <summary>
+    /// Describes a section within the PE image.
+    /// </summary>
     public readonly struct Section
     {
+        /// <summary>
+        /// Name of the section as stored in the header.
+        /// </summary>
         public string Name { get; init; }
+
+        /// <summary>
+        /// RVA at which the section is loaded in memory.
+        /// </summary>
         public uint VirtualAddress { get; init; }
+
+        /// <summary>
+        /// Actual size of the section's data in memory.
+        /// </summary>
         public uint VirtualSize { get; init; }
+
+        /// <summary>
+        /// Size of the section's data stored in the file.
+        /// </summary>
         public uint SizeOfRawData { get; init; }
+
+        /// <summary>
+        /// File offset to the section's raw data.
+        /// </summary>
         public uint PointerToRawData { get; init; }
     }
 
+    /// <summary>
+    /// Represents a module imported by the image along with its symbols.
+    /// </summary>
     public sealed class ImportModule
     {
+        /// <summary>
+        /// Name of the imported module.
+        /// </summary>
         public string Name { get; init; } = string.Empty;
+
+        /// <summary>
+        /// Symbols imported from the module.
+        /// </summary>
         public List<ImportSymbol> Symbols { get; } = new();
     }
 
+    /// <summary>
+    /// Describes a single imported symbol which may be identified by name or ordinal.
+    /// </summary>
     public readonly struct ImportSymbol
     {
+        /// <summary>
+        /// Name of the symbol, or <c>null</c> if imported by ordinal.
+        /// </summary>
         public string? Name { get; }
+
+        /// <summary>
+        /// Ordinal value used when the symbol is imported by ordinal.
+        /// </summary>
         public ushort Ordinal { get; }
+
+        /// <summary>
+        /// Gets a value indicating whether the symbol is imported by ordinal rather than by name.
+        /// </summary>
         public bool IsOrdinal => Name == null;
 
         private ImportSymbol(string? name, ushort ord)
@@ -453,22 +638,52 @@ public sealed class PEReaderLite
             Ordinal = ord;
         }
 
+        /// <summary>
+        /// Creates an <see cref="ImportSymbol"/> representing an import by name.
+        /// </summary>
         public static ImportSymbol FromName(string name) => new(name, 0);
+
+        /// <summary>
+        /// Creates an <see cref="ImportSymbol"/> representing an import by ordinal.
+        /// </summary>
         public static ImportSymbol FromOrdinal(ushort ord) => new(null, ord);
     }
 
+    /// <summary>
+    /// Provides information about an exported function.
+    /// </summary>
     public readonly struct ExportInfo
     {
+        /// <summary>
+        /// Gets a value indicating whether the export is a forwarder to another module.
+        /// </summary>
         public bool IsForwarder { get; }
+
+        /// <summary>
+        /// RVA of the exported function if it is not a forwarder.
+        /// </summary>
         public uint FunctionRva { get; }
+
+        /// <summary>
+        /// Forwarder string in the form "module.func" when <see cref="IsForwarder"/> is <c>true</c>.
+        /// </summary>
         public string ForwarderString { get; }
 
         private ExportInfo(bool fwd, uint rva, string s)
         {
-            IsForwarder = fwd; FunctionRva = rva; ForwarderString = s;
+            IsForwarder = fwd;
+            FunctionRva = rva;
+            ForwarderString = s;
         }
 
+        /// <summary>
+        /// Creates an <see cref="ExportInfo"/> representing a forwarder to another module.
+        /// </summary>
         public static ExportInfo Forwarder(string s) => new(true, 0, s);
+
+        /// <summary>
+        /// Creates an <see cref="ExportInfo"/> representing a direct export at the specified RVA.
+        /// </summary>
         public static ExportInfo Direct(uint rva) => new(false, rva, "");
     }
 }
