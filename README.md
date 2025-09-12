@@ -6,8 +6,8 @@ Vibe turns opaque machine instructions into readable stories. Built exclusively 
 
 ## Why Vibe?
 - **Explains as it decompiles.** Vibe narrates the intent of native code, emitting C‑style pseudocode and assembly side‑by‑side.
-- **Powered by a unique blend of algorithms and AI.** Our IR engine rebuilds complex control flow, while large language models polish the result into human‑like C.
-- **Engineered for professionals.** Whether you're auditing third‑party libraries or learning from system internals, Vibe gives you clarity at speed.
+- **Combines algorithms and AI for code analysis.** The IR engine reconstructs control flow, and language models help refine the output into readable C-like pseudocode.
+- **Designed for code analysis tasks.** Useful for auditing third‑party libraries or exploring system internals, Vibe aims to provide understandable output efficiently.
 
 ## See it in action
 Below is real output produced by Vibe for `MakeSureDirectoryPathExists` from `dbghelp.dll`:
