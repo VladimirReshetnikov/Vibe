@@ -81,12 +81,39 @@ public sealed class OpenAiLlmProvider : ILlmProvider
         if (!doc.RootElement.TryGetProperty("output", out var output) || output.GetArrayLength() == 0)
             throw new InvalidOperationException("OpenAI API returned no output");
 
-        var contentArr = output[0].GetProperty("content");
-        if (contentArr.GetArrayLength() == 0)
+        JsonElement messageObj = default;
+        var foundMessage = false;
+        foreach (var element in output.EnumerateArray())
+        {
+            if (element.TryGetProperty("type", out var typeProp) &&
+                typeProp.GetString() == "message")
+            {
+                messageObj = element;
+                foundMessage = true;
+                break;
+            }
+        }
+
+        if (!foundMessage)
+            throw new InvalidOperationException("OpenAI API response missing message");
+
+        if (!messageObj.TryGetProperty("content", out var contentArr) ||
+            contentArr.ValueKind != JsonValueKind.Array ||
+            contentArr.GetArrayLength() == 0)
             throw new InvalidOperationException("OpenAI API response missing content");
 
-        var message = contentArr[0].GetProperty("text").GetString();
-        if (message is null)
+        string? message = null;
+        foreach (var part in contentArr.EnumerateArray())
+        {
+            if (part.TryGetProperty("text", out var textProp))
+            {
+                message = textProp.GetString();
+                if (!string.IsNullOrEmpty(message))
+                    break;
+            }
+        }
+
+        if (string.IsNullOrEmpty(message))
             throw new InvalidOperationException("OpenAI API response missing text");
 
         return message.Trim();
