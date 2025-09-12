@@ -8,6 +8,7 @@ namespace Vibe.Gui;
 public partial class App : Application
 {
     public static string? ApiKey { get; private set; }
+    public static WindowLogger WindowLogger { get; } = new();
 
     protected override void OnStartup(StartupEventArgs e)
     {
@@ -34,7 +35,7 @@ public partial class App : Application
     public App()
     {
         DispatcherUnhandledException += App_DispatcherUnhandledException;
-        Logger.Instance = new CompositeLogger(Logger.Instance, new WindowLogger());
+        Logger.Instance = new CompositeLogger(Logger.Instance, WindowLogger);
     }
 
     private static void App_DispatcherUnhandledException(object sender, DispatcherUnhandledExceptionEventArgs e)
