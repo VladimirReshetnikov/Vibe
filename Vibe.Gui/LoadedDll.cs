@@ -19,7 +19,7 @@ internal sealed class LoadedDll : IDisposable
     /// <summary>
     /// Gets the PE reader used to inspect low-level information about the loaded DLL.
     /// </summary>
-    internal PEReaderLite Pe { get; }
+    internal PeImage Pe { get; }
 
     /// <summary>
     /// Gets the MD5 hash of the DLL's raw bytes.
@@ -68,7 +68,7 @@ internal sealed class LoadedDll : IDisposable
         Sha2Hash = Convert.ToHexString(sha512.ComputeHash(fs));
         fs.Position = 0;
         FileHash = Convert.ToHexString(sha256.ComputeHash(fs));
-        Pe = new PEReaderLite(path);
+        Pe = new PeImage(path);
         if (Pe.HasDotNetMetadata)
             ManagedModule = ModuleDefinition.ReadModule(path);
     }

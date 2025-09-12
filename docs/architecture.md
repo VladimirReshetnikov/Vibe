@@ -70,18 +70,17 @@ Features:
 - Flags support: the formatter can decompose a value into `Name1 | Name2 | ...` when it matches a pure OR of known bits.
 - `MapArgEnum(callName, argIndex, enumFullName)` — register expected enum types for call-site arguments.
 
-## PEReader (minimal PE32+ reader)
-File: [Vibe.Decompiler/PEReaderLite.cs](../Vibe.Decompiler/PEReaderLite.cs)
+## PeImage
+File: [Vibe.Decompiler/PeImage.cs](../Vibe.Decompiler/PeImage.cs)
 
-A tiny read-only PE32+ parser that’s just enough for this tool:
-- Validates headers and parses sections, the export directory, and the import table.
-- Flags managed images by detecting the .NET metadata directory but does not parse it.
+A thin wrapper over the open-source [PeNet](https://github.com/secana/PeNet) library used for reading
+native Windows binaries.  It exposes just the bits of metadata needed by the rest of the project:
+- Sections, data directories, imports and exports.
 - `FindExport(name)` scans the export name table and detects forwarders.
 - `RvaToOffsetChecked(rva)` maps an RVA to a file offset within its section.
 
-Limitations by design:
-- Only x64 PE (PE32+).
-- For forwarders by ordinal ("NTDLL.#123"), `Program.ParseForwarder` throws `NotSupportedException`. Name-forwarders are supported and followed up to 8 hops.
+The wrapper works with both PE32 and PE32+ files and simply reports basic properties for managed
+assemblies without attempting to parse IL metadata.
 
 ## Program entry point
 File: [Vibe.Decompiler/Program.cs](../Vibe.Decompiler/Program.cs)
@@ -102,7 +101,7 @@ public static Dictionary<string,string> DisassembleExportsToPseudo(
 
 Steps:
 1. Resolve a System32 path (handles WOW64 via `Sysnative`).
-2. Use `PEReader` to locate the export and follow forwarders up to eight hops.
+2. Use `PeImage` to locate the export and follow forwarders up to eight hops.
 3. Slice bytes from the function start up to the end of its section (capped by `maxBytes`).
 4. Create a `ConstantDatabase` and load Win32 metadata from a local `.winmd` if available.
 5. Run the `Engine` with labels, prologue detection, and constant mapping enabled.
