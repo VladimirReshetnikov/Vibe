@@ -12,19 +12,36 @@ using Xunit;
 
 namespace Vibe.Decompiler.Tests;
 
+/// <summary>
+/// Tests for the <see cref="OpenAiLlmProvider"/> to ensure HTTP requests are
+/// formed correctly and the JSON response is parsed as expected.
+/// </summary>
 public class OpenAiLlmProviderTests
 {
+    /// <summary>
+    /// Fake <see cref="HttpMessageHandler"/> used to capture outgoing requests
+    /// and supply a predefined JSON response without contacting the real API.
+    /// </summary>
     private sealed class FakeHandler : HttpMessageHandler
     {
         private readonly string _responseJson;
+
+        /// <summary>The last request issued by the provider.</summary>
         public HttpRequestMessage? LastRequest { get; private set; }
+
+        /// <summary>The serialized body of the last request.</summary>
         public string? LastRequestBody { get; private set; }
 
+        /// <summary>
+        /// Initializes the handler with the JSON payload to return.
+        /// </summary>
+        /// <param name="responseJson">JSON string to send back to callers.</param>
         public FakeHandler(string responseJson)
         {
             _responseJson = responseJson;
         }
 
+        /// <inheritdoc />
         protected override async Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
         {
             LastRequest = request;
@@ -38,6 +55,11 @@ public class OpenAiLlmProviderTests
         }
     }
 
+    /// <summary>
+    /// Ensures that <see cref="OpenAiLlmProvider.RefineAsync"/> targets the
+    /// <c>/responses</c> endpoint and that the resulting text is extracted from
+    /// the nested JSON structure.
+    /// </summary>
     [Fact]
     public async Task RefineAsync_UsesResponsesEndpointAndParsesOutput()
     {

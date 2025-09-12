@@ -2,8 +2,17 @@ using System;
 using Xunit;
 using Vibe.Decompiler;
 
+/// <summary>
+/// Tests the <see cref="Engine"/>'s <c>TrivialAsm</c> option which emits a
+/// function body consisting solely of an inline assembly block.
+/// </summary>
 public class TrivialAsmModeTests
 {
+    /// <summary>
+    /// Asserts that enabling <c>TrivialAsm</c> produces a raw mnemonic dump
+    /// wrapped in a C style <c>__asm__</c> block instead of the usual IR based
+    /// decompilation output.
+    /// </summary>
     [Fact]
     public void EmitsInlineAsmBlockWithMnemonics()
     {
