@@ -1,6 +1,7 @@
 using System;
 using System.Windows;
 using System.Windows.Threading;
+using Vibe.Utils;
 
 namespace Vibe.Gui;
 
@@ -33,6 +34,7 @@ public partial class App : Application
     public App()
     {
         DispatcherUnhandledException += App_DispatcherUnhandledException;
+        Logger.Instance = new CompositeLogger(Logger.Instance, new WindowLogger());
     }
 
     private static void App_DispatcherUnhandledException(object sender, DispatcherUnhandledExceptionEventArgs e)

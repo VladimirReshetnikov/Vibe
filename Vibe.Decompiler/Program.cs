@@ -42,7 +42,10 @@ public static class Program
                 if (msDoc is not null)
                     docs.Add(msDoc);
             }
-            catch { }
+            catch (Exception ex)
+            {
+                Logger.LogException(ex);
+            }
         }
 
         ILlmProvider? provider = null;
@@ -68,7 +71,10 @@ public static class Program
                                 config.DocTimeoutSeconds);
                             docs.AddRange(pages);
                         }
-                        catch { }
+                        catch (Exception ex)
+                        {
+                            Logger.LogException(ex);
+                        }
                     }
                     break;
                 }
@@ -110,6 +116,7 @@ public static class Program
             {
                 Console.WriteLine();
                 Console.WriteLine($"// ---- LLM refinement failed: {ex.Message} ----");
+                Logger.LogException(ex);
             }
             finally
             {
@@ -285,28 +292,34 @@ public static class Program
                 foreach (var nupkg in Directory.EnumerateFiles(cache, "Microsoft.Windows.SDK.Win32Metadata*.nupkg",
                              SearchOption.AllDirectories))
                 {
-                    try
-                    {
-                        using var zip = ZipFile.OpenRead(nupkg);
-                        var entry = zip.Entries.FirstOrDefault(e =>
-                            e.FullName.EndsWith("Windows.Win32.winmd", StringComparison.OrdinalIgnoreCase));
-                        if (entry is null) continue;
-                        string tempPath = Path.Combine(Path.GetTempPath(), Path.GetRandomFileName() + ".winmd");
-                        entry.ExtractToFile(tempPath, true);
                         try
                         {
-                            db.LoadWin32MetadataFromWinmd(tempPath);
+                            using var zip = ZipFile.OpenRead(nupkg);
+                            var entry = zip.Entries.FirstOrDefault(e =>
+                                e.FullName.EndsWith("Windows.Win32.winmd", StringComparison.OrdinalIgnoreCase));
+                            if (entry is null) continue;
+                            string tempPath = Path.Combine(Path.GetTempPath(), Path.GetRandomFileName() + ".winmd");
+                            entry.ExtractToFile(tempPath, true);
+                            try
+                            {
+                                db.LoadWin32MetadataFromWinmd(tempPath);
+                            }
+                            finally
+                            {
+                                try { File.Delete(tempPath); } catch (Exception ex) { Logger.LogException(ex); }
+                            }
+                            return;
                         }
-                        finally
+                        catch (Exception ex)
                         {
-                            try { File.Delete(tempPath); } catch { }
+                            Logger.LogException(ex);
                         }
-                        return;
-                    }
-                    catch { }
                 }
             }
         }
-        catch { }
+        catch (Exception ex)
+        {
+            Logger.LogException(ex);
+        }
     }
 }

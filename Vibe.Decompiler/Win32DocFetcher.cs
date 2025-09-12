@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT-0
 
 using System.Text.Json;
+using Vibe.Utils;
 
 namespace Vibe.Decompiler;
 
@@ -51,23 +52,27 @@ public static class Win32DocFetcher
             // Clone the results array so it survives after the JsonDocument is disposed
             results = resultsElement.Clone();
         }
-        catch (HttpRequestException)
+        catch (HttpRequestException ex)
         {
+            Logger.LogException(ex);
             // Search API request failed - return null to maintain "Try*" semantics
             return null;
         }
-        catch (JsonException)
+        catch (JsonException ex)
         {
+            Logger.LogException(ex);
             // Invalid JSON response - return null to maintain "Try*" semantics
             return null;
         }
-        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        catch (OperationCanceledException ex) when (cancellationToken.IsCancellationRequested)
         {
+            Logger.LogException(ex);
             // User requested cancellation - propagate immediately
             throw;
         }
-        catch (OperationCanceledException)
+        catch (OperationCanceledException ex)
         {
+            Logger.LogException(ex);
             // Timeout occurred - return null to maintain "Try*" semantics
             return null;
         }
@@ -87,17 +92,20 @@ public static class Win32DocFetcher
             {
                 return await _http.GetStringAsync(resultUrl, cancellationToken);
             }
-            catch (HttpRequestException)
+            catch (HttpRequestException ex)
             {
+                Logger.LogException(ex);
                 // Skip and try next result.
             }
-            catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+            catch (OperationCanceledException ex) when (cancellationToken.IsCancellationRequested)
             {
+                Logger.LogException(ex);
                 // User requested cancellation - propagate immediately
                 throw;
             }
-            catch (OperationCanceledException)
+            catch (OperationCanceledException ex)
             {
+                Logger.LogException(ex);
                 // Timeout occurred - skip and try next result.
             }
         }

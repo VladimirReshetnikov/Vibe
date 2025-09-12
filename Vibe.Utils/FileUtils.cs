@@ -20,7 +20,10 @@ public static class FileUtils
                 dir = parent;
             }
         }
-        catch { }
+        catch (Exception ex)
+        {
+            Logger.LogException(ex);
+        }
         return null;
     }
 
