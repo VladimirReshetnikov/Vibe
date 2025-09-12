@@ -7,6 +7,8 @@ namespace Vibe.Decompiler;
 
 public sealed class AppConfig
 {
+    public static AppConfig Default => new AppConfig();
+    public string LoadedFrom { get; set; } = "";
     public bool UseWin32DocsLookup { get; set; } = true;
     public bool UseWebSearch { get; set; } = true;
     public string LlmProvider { get; set; } = "";
@@ -32,7 +34,7 @@ public sealed class AppConfig
         try
         {
             if (!File.Exists(path))
-                return new AppConfig();
+                return AppConfig.Default;
 
             var json = File.ReadAllText(path);
             var options = new JsonSerializerOptions
@@ -40,11 +42,12 @@ public sealed class AppConfig
                 PropertyNameCaseInsensitive = true
             };
             var cfg = JsonSerializer.Deserialize<AppConfig>(json, options);
-            return cfg ?? new AppConfig();
+            cfg.LoadedFrom = path;
+            return cfg;
         }
         catch
         {
-            return new AppConfig();
+            return AppConfig.Default;
         }
     }
 }
