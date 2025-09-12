@@ -1,11 +1,11 @@
 # Vibe — The Explaining Decompiler for Native Code
 
-Vibe aims to turn opaque machine instructions into more readable stories. Currently supporting only x64 Windows binaries, it fuses lifting algorithms with AI refinement so you don't just see the code—you understand it.
+Vibe aims to turn opaque machine instructions into more readable stories. Currently supporting only x64 Windows binaries, it fuses lifting algorithms with AI refinement to produce high‑level pseudocode with helpful comments so you don't just see the code—you understand it. This unique blend lets Vibe tell the story behind the instructions in a way traditional decompilers don't.
 
 > Vibe is a quickly vibe-coded prototype with rough edges and a limited feature set. We find its capability impressive, but it's experimental software: it only supports x64 binaries, may misinterpret code, and we don't promise any particular results.
 
 ## Why Vibe?
-- **Explains as it decompiles.** Vibe narrates the intent of native code, emitting C‑style pseudocode and assembly side‑by‑side, though the interpretation might not always be accurate.
+- **Explains as it decompiles.** Vibe narrates the intent of native code, emitting high‑level C‑style pseudocode with helpful inline commentary alongside the original assembly, though the interpretation might not always be accurate.
 - **Combines algorithms and AI for code analysis.** The IR engine reconstructs control flow, and language models help refine the output into readable C-like pseudocode, but manual review is still required.
 - **Intended for exploratory code analysis.** Useful for auditing third‑party libraries or exploring system internals, but the output can be incomplete or incorrect.
 
@@ -15,6 +15,16 @@ Vibe aims to turn opaque machine instructions into more readable stories. Curren
 - Emits a linear IR with labels and gotos; region structuring is minimal.
 - Output may be incomplete or inaccurate; verify against the original binaries.
 - We don't guarantee any particular results.
+
+## Solution structure
+
+The repository is split into several projects that work together:
+
+- **Vibe.Decompiler** — the heart of the system and our public API (`Vibe.Decompiler.dll`). It implements all core decompilation features and is consumed by both GUI and CUI front ends.
+- **Vibe.Gui** — a desktop WPF application for those who prefer a traditional graphical experience.
+- **Vibe.Cui** — a text‑based console UI (CUI) with a surprisingly rich interface: panels, dialogs, and even draggable windows that you can move with the mouse, all designed to mimic the WPF layout as closely as a terminal allows.
+- **Vibe.Decompiler.Tests** — unit tests ensuring the decompiler behaves.
+- **Vibe.Utils** — shared helpers used across the solution.
 
 ## See it in action
 Below is real output produced by Vibe for `MakeSureDirectoryPathExists` from `dbghelp.dll`:
