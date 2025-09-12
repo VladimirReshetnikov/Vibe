@@ -93,6 +93,7 @@ public partial class MainWindow : Window
             root.Expanded += DllRoot_Expanded;
             DllTree.Items.Add(root);
             root.IsExpanded = false;
+            SaveOpenDlls();
         }
         catch (Exception ex)
         {
@@ -474,6 +475,7 @@ public partial class MainWindow : Window
             dll.Cts.Cancel();
             dll.Dispose();
             DllTree.Items.Remove(root);
+            SaveOpenDlls();
             CancelCurrentRequest();
             if (ReferenceEquals(item, DllTree.SelectedItem))
                 OutputBox.Text = string.Empty;
