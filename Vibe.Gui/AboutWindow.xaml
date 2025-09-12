@@ -4,7 +4,9 @@
         Title="About"
         WindowStartupLocation="CenterOwner"
         ResizeMode="NoResize"
-        SizeToContent="WidthAndHeight">
+        SizeToContent="WidthAndHeight"
+        Background="{StaticResource WindowBackgroundBrush}"
+        Foreground="{StaticResource TextBrush}">
     <StackPanel Margin="20" Width="320">
         <TextBlock x:Name="ProgramName" FontWeight="Bold" FontSize="14" Margin="0,0,0,10" />
         <TextBlock x:Name="VersionText" Margin="0,0,0,10" />

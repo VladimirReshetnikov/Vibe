@@ -7,7 +7,9 @@
         ShowInTaskbar="False"
         WindowStartupLocation="CenterOwner"
         SizeToContent="Manual"
-        MinWidth="200" MinHeight="120">
+        MinWidth="200" MinHeight="120"
+        Background="{StaticResource WindowBackgroundBrush}"
+        Foreground="{StaticResource TextBrush}">
 
     <Window.CommandBindings>
         <CommandBinding Command="ApplicationCommands.Close" Executed="OnCloseCommand"/>
@@ -27,5 +29,6 @@
              Cursor="IBeam"
              SpellCheck.IsEnabled="False"
              ContextMenu="{x:Null}"
-    />
+             Background="{StaticResource PanelBrush}"
+             Foreground="{StaticResource TextBrush}"/>
 </Window>
