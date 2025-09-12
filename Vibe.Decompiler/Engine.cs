@@ -7,6 +7,7 @@ using System.Linq;
 using Iced.Intel;
 using Decoder = Iced.Intel.Decoder;
 using System.Runtime.InteropServices;
+using Vibe.Decompiler.PE;
 using Vibe.Decompiler.Transformations;
 
 namespace Vibe.Decompiler;
@@ -46,6 +47,7 @@ public sealed class Engine
         public IConstantNameProvider? ConstantProvider { get; set; } = new ConstantDatabase();
 
         public string ReturnEnumTypeFullName { get; set; } = "Windows.Win32.Foundation.NTSTATUS";
+        public string? FilePath { get; set; }
     }
 
     private sealed class LastCmp
@@ -144,7 +146,14 @@ public sealed class Engine
             CommentSignednessOnCmp = true,
             UseStdIntNames = true
         });
-        return pp.Print(fn);
+        // TODO: Include also relevant information about the DLL: name, full path, version, info version, product, company,
+        // timestamp etc. - we already show all that when a DLL is selected in the tree view
+        // The goal is to provide maximum relevant context to an LLM that tries to make sense of the preliminary version
+        // ove the decompiled code and rewrite it in a human-readable form approximating its most likely original source code.
+        var compilerInfo = opt.FilePath is null ?
+            string.Empty
+            : CompilerInfo.Analyze(opt.FilePath) + Environment.NewLine;
+        return compilerInfo + pp.Print(fn);
     }
 
     // --------- Decode --------------------------------------------------------

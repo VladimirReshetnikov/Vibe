@@ -2,6 +2,7 @@
 
 using System.Reflection.Metadata;
 using System.Reflection.PortableExecutable;
+using System.Text;
 using System.Text.RegularExpressions;
 using PeNet;
 
@@ -21,7 +22,23 @@ public static class CompilerInfo
     /// <param name="Toolset">Version of the toolset or target framework.</param>
     /// <param name="StandardLibrary">Associated standard library name.</param>
     /// <param name="Notes">Additional hints discovered during analysis.</param>
-    public sealed record Result(string? Compiler, string? Toolset, string? StandardLibrary, string[] Notes);
+    public sealed record Result(string? Compiler, string? Toolset, string? StandardLibrary, string[] Notes)
+    {
+        public override string ToString()
+        {
+            var sb = new StringBuilder();
+            if (!string.IsNullOrEmpty(Compiler))
+                sb.AppendLine($"Compiler: {Compiler}");
+            if (!string.IsNullOrEmpty(Toolset))
+                sb.AppendLine($"Toolset: {Toolset}");
+            if (!string.IsNullOrEmpty(StandardLibrary))
+                sb.AppendLine($"Standard Library: {StandardLibrary}");
+            if (Notes.Length > 0)
+                sb.AppendLine(string.Join(Environment.NewLine, Notes));
+            var info = sb.ToString();
+            return string.IsNullOrWhiteSpace(info) ? string.Empty : $"/*\n{info}\n*/";
+        }
+    }
 
     /// <summary>
     /// Analyzes the specified DLL and returns information about the
@@ -51,7 +68,7 @@ public static class CompilerInfo
             .Where(n => !string.IsNullOrEmpty(n))
             .Select(n => n!.ToLowerInvariant())
             .Distinct()
-            .ToArray() ?? Array.Empty<string>();
+            .ToArray() ?? [];
 
         string? compiler = null;
         string? toolset = linker;
@@ -112,16 +129,15 @@ public static class CompilerInfo
             {
                 var ca = reader.GetCustomAttribute(handle);
                 var type = GetAttributeType(reader, ca);
-                if (type == "System.Runtime.Versioning.TargetFrameworkAttribute")
-                {
-                    var blob = reader.GetBlobReader(ca.Value);
-                    if (blob.ReadUInt16() == 0x0001)
-                        return blob.ReadSerializedString();
-                }
+                if (type != "System.Runtime.Versioning.TargetFrameworkAttribute") continue;
+                var blob = reader.GetBlobReader(ca.Value);
+                if (blob.ReadUInt16() == 0x0001)
+                    return blob.ReadSerializedString();
             }
         }
         catch
         {
+            // TODO: Log
         }
         return null;
     }
@@ -132,16 +148,20 @@ public static class CompilerInfo
         {
             case HandleKind.MemberReference:
                 var mr = reader.GetMemberReference((MemberReferenceHandle)ca.Constructor);
-                if (mr.Parent.Kind == HandleKind.TypeReference)
+                switch (mr.Parent.Kind)
                 {
-                    var tr = reader.GetTypeReference((TypeReferenceHandle)mr.Parent);
-                    return reader.GetString(tr.Namespace) + "." + reader.GetString(tr.Name);
+                    case HandleKind.TypeReference:
+                    {
+                        var tr = reader.GetTypeReference((TypeReferenceHandle)mr.Parent);
+                        return reader.GetString(tr.Namespace) + "." + reader.GetString(tr.Name);
+                    }
+                    case HandleKind.TypeDefinition:
+                    {
+                        var td = reader.GetTypeDefinition((TypeDefinitionHandle)mr.Parent);
+                        return reader.GetString(td.Namespace) + "." + reader.GetString(td.Name);
+                    }
                 }
-                if (mr.Parent.Kind == HandleKind.TypeDefinition)
-                {
-                    var td = reader.GetTypeDefinition((TypeDefinitionHandle)mr.Parent);
-                    return reader.GetString(td.Namespace) + "." + reader.GetString(td.Name);
-                }
+
                 break;
             case HandleKind.MethodDefinition:
                 var md = reader.GetMethodDefinition((MethodDefinitionHandle)ca.Constructor);
@@ -173,6 +193,7 @@ public static class CompilerInfo
         }
         catch
         {
+            // TODO: Log
         }
         return null;
     }

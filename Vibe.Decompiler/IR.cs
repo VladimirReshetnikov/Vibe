@@ -248,7 +248,7 @@ public static class IR
         {
             _sb.Clear();
             _indent = 0;
-
+#if EMIT_HEADER_COMMENT
             if (_opt.EmitHeaderComment)
             {
                 EmitLine("/*");
@@ -259,7 +259,7 @@ public static class IR
                 EmitLine(" */");
                 _sb.AppendLine();
             }
-
+#endif
             if (fn.Tags.ContainsKey("ByteCount") || fn.Tags.ContainsKey("InstructionCount"))
             {
                 var bytes = GetTag(fn, "ByteCount", 0);

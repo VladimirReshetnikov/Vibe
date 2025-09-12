@@ -123,7 +123,8 @@ internal sealed class DllAnalyzer : IDisposable
             return engine.ToPseudoCode(dll.Pe.Data.AsMemory(off, maxLen), new Engine.Options
             {
                 BaseAddress = dll.Pe.ImageBase + export.FunctionRva,
-                FunctionName = name
+                FunctionName = name,
+                FilePath = dll.Pe.FilePath
             });
         }, token);
 
@@ -139,6 +140,8 @@ internal sealed class DllAnalyzer : IDisposable
         DecompiledCodeCache.Save(hash, name, output);
         return output;
     }
+
+    public string? FileName { get; set; }
 
     /// <summary>Releases resources including any LLM provider.</summary>
     public void Dispose()
