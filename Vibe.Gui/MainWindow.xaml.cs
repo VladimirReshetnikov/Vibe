@@ -511,17 +511,26 @@ public partial class MainWindow : Window
             if (dll.IsManaged)
             {
                 var types = await _dllAnalyzer.GetManagedTypesAsync(dll, token);
-                foreach (var type in types)
+                var groups = types
+                    .GroupBy(t => string.IsNullOrEmpty(t.Namespace) ? "(global)" : t.Namespace)
+                    .OrderBy(g => g.Key, StringComparer.Ordinal);
+                foreach (var group in groups)
                 {
                     token.ThrowIfCancellationRequested();
-                    var typeItem = new TreeViewItem { Header = type.FullName, Tag = type };
-                    foreach (var method in type.Methods)
+                    var nsItem = new TreeViewItem { Header = group.Key, IsExpanded = false };
+                    foreach (var type in group.OrderBy(t => t.Name, StringComparer.Ordinal))
                     {
-                        var methodItem = CreateTreeViewItemWithIcon(method.Name, funcIcon, method);
-                        typeItem.Items.Add(methodItem);
+                        token.ThrowIfCancellationRequested();
+                        var typeItem = new TreeViewItem { Header = type.Name, Tag = type };
+                        foreach (var method in type.Methods)
+                        {
+                            var methodItem = CreateTreeViewItemWithIcon(method.Name, funcIcon, method);
+                            typeItem.Items.Add(methodItem);
+                        }
+                        nsItem.Items.Add(typeItem);
+                        await Dispatcher.Yield();
                     }
-                    root.Items.Add(typeItem);
-                    await Dispatcher.Yield();
+                    root.Items.Add(nsItem);
                 }
             }
             else
