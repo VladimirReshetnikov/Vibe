@@ -612,13 +612,30 @@ public partial class MainWindow : Window
         SaveOpenDlls();
     }
 
+    private int _pendingRequests;
+
+    private void BeginRequest()
+    {
+        Interlocked.Increment(ref _pendingRequests);
+        BusyBar.Visibility = Visibility.Visible;
+    }
+
+    private void EndRequest()
+    {
+        if (Interlocked.Decrement(ref _pendingRequests) == 0)
+            BusyBar.Visibility = Visibility.Collapsed;
+    }
+
     private void CancelCurrentRequest()
     {
-        _currentRequestCts?.Cancel();
-        _currentRequestCts?.Dispose();
+        if (_currentRequestCts == null)
+            return;
+
+        _currentRequestCts.Cancel();
+        _currentRequestCts.Dispose();
         _currentRequestCts = null;
 
-        BusyBar.Visibility = Visibility.Collapsed;
+        EndRequest();
         HideLlmOverlay();
     }
 
@@ -756,24 +773,24 @@ public partial class MainWindow : Window
 
     private async void DllTree_SelectedItemChanged(object sender, RoutedPropertyChangedEventArgs<object> e)
     {
-        CancelCurrentRequest();
-
         if (DllTree.SelectedItem is not TreeViewItem item)
             return;
-
-        var mainDoc = DockManager.Layout?
-            .Descendents()
-            .OfType<LayoutDocument>()
-            .FirstOrDefault(d => d.ContentId == "DecompilerView");
 
         if ((Keyboard.Modifiers & ModifierKeys.Control) == ModifierKeys.Control)
         {
             if (item.Tag is ExportItem or MethodDefinition)
             {
-                await OpenItemInNewTabAsync(item);
+                await OpenItemInNewTabAsync(item, activate: false);
                 return;
             }
         }
+
+        CancelCurrentRequest();
+
+        var mainDoc = DockManager.Layout?
+            .Descendents()
+            .OfType<LayoutDocument>()
+            .FirstOrDefault(d => d.ContentId == "DecompilerView");
 
         switch (item.Tag)
         {
@@ -786,7 +803,7 @@ public partial class MainWindow : Window
             case ExportItem exp:
                 OutputBox.SetSyntaxHighlighting(SyntaxHighlightingMode.Cpp);
                 OutputBox.Text = string.Empty;
-                BusyBar.Visibility = Visibility.Visible;
+                BeginRequest();
                 var dllItem = exp.Dll;
                 _currentRequestCts = CancellationTokenSource.CreateLinkedTokenSource(dllItem.Cts.Token);
                 var token = _currentRequestCts.Token;
@@ -824,6 +841,8 @@ public partial class MainWindow : Window
                 {
                     if (_currentRequestCts?.Token == token)
                         CancelCurrentRequest();
+                    else
+                        EndRequest();
                 }
                 break;
             case TypeDefinition td:
@@ -835,7 +854,7 @@ public partial class MainWindow : Window
             case MethodDefinition md:
                 OutputBox.SetSyntaxHighlighting(SyntaxHighlightingMode.CSharp);
                 OutputBox.Text = string.Empty;
-                BusyBar.Visibility = Visibility.Visible;
+                BeginRequest();
                 if (GetRootItem(item).Tag is LoadedDll rootDll)
                 {
                     _currentRequestCts = CancellationTokenSource.CreateLinkedTokenSource(rootDll.Cts.Token);
@@ -874,7 +893,13 @@ public partial class MainWindow : Window
                     {
                         if (_currentRequestCts?.Token == mtoken)
                             CancelCurrentRequest();
+                        else
+                            EndRequest();
                     }
+                }
+                else
+                {
+                    EndRequest();
                 }
                 return;
         }
@@ -889,7 +914,7 @@ public partial class MainWindow : Window
         return clone;
     }
 
-    private async Task OpenItemInNewTabAsync(TreeViewItem item)
+    private async Task OpenItemInNewTabAsync(TreeViewItem item, bool activate = true)
     {
         var pane = DockManager.Layout?.Descendents().OfType<LayoutDocumentPane>().FirstOrDefault();
         if (pane == null)
@@ -900,15 +925,17 @@ public partial class MainWindow : Window
         var doc = new LayoutDocument { Title = title, Content = content };
         var previous = pane.SelectedContent as LayoutContent;
         pane.Children.Add(doc);
-        if (previous is not null)
-            previous.IsActive = true;
+        if (activate)
+            doc.IsActive = true;
+        // if (previous is not null)
+        //    previous.IsActive = true;
 
         switch (item.Tag)
         {
             case ExportItem exp:
                 editor.SetSyntaxHighlighting(SyntaxHighlightingMode.Cpp);
                 editor.Text = string.Empty;
-                BusyBar.Visibility = Visibility.Visible;
+                BeginRequest();
                 var dllItem = exp.Dll;
                 using (var cts = CancellationTokenSource.CreateLinkedTokenSource(dllItem.Cts.Token))
                 {
@@ -936,13 +963,16 @@ public partial class MainWindow : Window
                         editor.Text = $"Error: {ex.Message}";
                         ExceptionManager.Handle(ex);
                     }
+                    finally
+                    {
+                        EndRequest();
+                    }
                 }
-                BusyBar.Visibility = Visibility.Collapsed;
                 break;
             case MethodDefinition md:
                 editor.SetSyntaxHighlighting(SyntaxHighlightingMode.CSharp);
                 editor.Text = string.Empty;
-                BusyBar.Visibility = Visibility.Visible;
+                BeginRequest();
                 if (GetRootItem(item).Tag is LoadedDll rootDll)
                 {
                     using var cts = CancellationTokenSource.CreateLinkedTokenSource(rootDll.Cts.Token);
@@ -970,8 +1000,15 @@ public partial class MainWindow : Window
                         editor.Text = $"Error: {ex.Message}";
                         ExceptionManager.Handle(ex);
                     }
+                    finally
+                    {
+                        EndRequest();
+                    }
                 }
-                BusyBar.Visibility = Visibility.Collapsed;
+                else
+                {
+                    EndRequest();
+                }
                 break;
         }
     }
