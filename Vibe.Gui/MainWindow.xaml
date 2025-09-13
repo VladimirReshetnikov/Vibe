@@ -162,7 +162,7 @@
                      Foreground="{StaticResource AccentBrush}" Background="{StaticResource PanelBrush}"/>
         <DockingManager x:Name="DockManager">
             <DockingManager.Resources>
-                <Style TargetType="{x:Type ad:LayoutDocumentTabItem}">
+                <Style TargetType="{x:Type LayoutDocumentTabItem}">
                     <Setter Property="MinWidth" Value="40" />
                 </Style>
             </DockingManager.Resources>
