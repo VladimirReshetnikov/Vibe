@@ -30,23 +30,28 @@ public partial class App : Application
 
         if (runFromCopy && !isTemp)
         {
-            var current = Process.GetCurrentProcess().MainModule!.FileName!;
-            var directory = Path.GetDirectoryName(current)!;
-            var tempPath = Path.Combine(directory,
-                $"{Path.GetFileNameWithoutExtension(current)}-{Guid.NewGuid():N}{Path.GetExtension(current)}");
-            File.Copy(current, tempPath, true);
-
-            var args = e.Args.Where(a => a != RunFromCopySwitch)
-                .Select(a => $"\"{a}\"");
-            var psi = new ProcessStartInfo(tempPath)
+            var mainModule = Process.GetCurrentProcess().MainModule;
+            var current = mainModule?.FileName;
+            var directory = current != null ? Path.GetDirectoryName(current) : null;
+            if (!string.IsNullOrEmpty(current) && !string.IsNullOrEmpty(directory))
             {
-                Arguments = string.Join(" ", args),
-                UseShellExecute = false
-            };
-            psi.EnvironmentVariables[TempMarkerEnv] = "1";
-            Process.Start(psi);
-            Shutdown();
-            return;
+                var tempPath = Path.Combine(directory,
+                    $"{Path.GetFileNameWithoutExtension(current)}-{Guid.NewGuid():N}{Path.GetExtension(current)}");
+                File.Copy(current, tempPath, true);
+
+                var psi = new ProcessStartInfo(tempPath)
+                {
+                    UseShellExecute = false
+                };
+                foreach (var arg in e.Args.Where(a => a != RunFromCopySwitch))
+                {
+                    psi.ArgumentList.Add(arg);
+                }
+                psi.EnvironmentVariables[TempMarkerEnv] = "1";
+                Process.Start(psi);
+                Shutdown();
+                return;
+            }
         }
 
         var envApiKey = Environment.GetEnvironmentVariable("OPENAI_API_KEY");
@@ -87,8 +92,12 @@ public partial class App : Application
     {
         if (Environment.GetEnvironmentVariable(TempMarkerEnv) == "1")
         {
-            var current = Process.GetCurrentProcess().MainModule!.FileName!;
-            ScheduleSelfDeletion(current);
+            var mainModule = Process.GetCurrentProcess().MainModule;
+            var current = mainModule?.FileName;
+            if (!string.IsNullOrEmpty(current))
+            {
+                ScheduleSelfDeletion(current);
+            }
         }
 
         base.OnExit(e);
