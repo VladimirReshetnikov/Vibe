@@ -415,6 +415,7 @@ public partial class MainWindow : Window
                 foreach (var inline in FormatTypeName(git.GenericArguments[i], typeBrush, keywordBrush))
                     yield return inline;
             }
+
             yield return new Run(">") { Foreground = typeBrush };
             yield break;
         }
@@ -427,35 +428,35 @@ public partial class MainWindow : Window
             yield break;
         }
 
-        string name;
+        string keyword;
         bool isKeyword = true;
         switch (type.FullName)
         {
-            case "System.Void": name = "void"; break;
-            case "System.Object": name = "object"; break;
-            case "System.String": name = "string"; break;
-            case "System.Boolean": name = "bool"; break;
-            case "System.Byte": name = "byte"; break;
-            case "System.SByte": name = "sbyte"; break;
-            case "System.Int16": name = "short"; break;
-            case "System.UInt16": name = "ushort"; break;
-            case "System.Int32": name = "int"; break;
-            case "System.UInt32": name = "uint"; break;
-            case "System.Int64": name = "long"; break;
-            case "System.UInt64": name = "ulong"; break;
-            case "System.Char": name = "char"; break;
-            case "System.Single": name = "float"; break;
-            case "System.Double": name = "double"; break;
-            case "System.Decimal": name = "decimal"; break;
-            case "System.IntPtr": name = "nint"; break;
-            case "System.UIntPtr": name = "nuint"; break;
+            case "System.Void": keyword = "void"; break;
+            case "System.Object": keyword = "object"; break;
+            case "System.String": keyword = "string"; break;
+            case "System.Boolean": keyword = "bool"; break;
+            case "System.Byte": keyword = "byte"; break;
+            case "System.SByte": keyword = "sbyte"; break;
+            case "System.Int16": keyword = "short"; break;
+            case "System.UInt16": keyword = "ushort"; break;
+            case "System.Int32": keyword = "int"; break;
+            case "System.UInt32": keyword = "uint"; break;
+            case "System.Int64": keyword = "long"; break;
+            case "System.UInt64": keyword = "ulong"; break;
+            case "System.Char": keyword = "char"; break;
+            case "System.Single": keyword = "float"; break;
+            case "System.Double": keyword = "double"; break;
+            case "System.Decimal": keyword = "decimal"; break;
+            case "System.IntPtr": keyword = "nint"; break;
+            case "System.UIntPtr": keyword = "nuint"; break;
             default:
-                name = type.Name;
+                keyword = type.Name;
                 isKeyword = false;
                 break;
         }
 
-        yield return new Run(name) { Foreground = isKeyword ? keywordBrush : typeBrush };
+        yield return new Run(keyword) { Foreground = isKeyword ? keywordBrush : typeBrush };
     }
 
     private void LoadCommonDlls()
