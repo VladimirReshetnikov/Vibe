@@ -6,6 +6,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Documents;
 using System.Windows.Media;
 using System.Windows.Media.Animation;
 using System.Windows.Media.Effects;
@@ -301,9 +302,8 @@ public partial class MainWindow : Window
         }
     }
 
-    private TreeViewItem CreateTreeViewItemWithIcon(string text, ImageSource icon, object tag)
+    private TreeViewItem CreateTreeViewItemWithIcon(TextBlock textBlock, ImageSource icon, object tag)
     {
-        var textBlock = new TextBlock { Text = text };
         var border = new Border { Padding = new Thickness(1, 0, 1, 0), Child = textBlock };
         var panel = new StackPanel { Orientation = Orientation.Horizontal };
         panel.Children.Add(new Image { Source = icon, Width = 16, Height = 16, Margin = new Thickness(0, 0, 4, 0) });
@@ -334,15 +334,54 @@ public partial class MainWindow : Window
         return item;
     }
 
-    private static string FormatMethodSignature(MethodDefinition method)
+    private TreeViewItem CreateTreeViewItemWithIcon(string text, ImageSource icon, object tag)
+        => CreateTreeViewItemWithIcon(new TextBlock { Text = text }, icon, tag);
+
+    private TreeViewItem CreateTreeViewItemWithIcon(IEnumerable<Inline> inlines, ImageSource icon, object tag)
     {
-        var parameters = string.Join(", ", method.Parameters.Select(p => FormatTypeName(p.ParameterType)));
-        if (method.IsConstructor)
-            return $"{method.DeclaringType.Name}({parameters})";
-        return $"{FormatTypeName(method.ReturnType)} {method.Name}({parameters})";
+        var textBlock = new TextBlock();
+        foreach (var inline in inlines)
+            textBlock.Inlines.Add(inline);
+        return CreateTreeViewItemWithIcon(textBlock, icon, tag);
     }
 
-    private static string FormatTypeName(TypeReference type)
+    private static IEnumerable<Inline> FormatMethodSignature(MethodDefinition method)
+    {
+        var methodBrush = (Brush)Application.Current.FindResource("AccentBrush");
+        var typeBrush = (Brush)Application.Current.FindResource("TextBrush");
+        var keywordBrush = new SolidColorBrush(Color.FromRgb(0x8F, 0x9E, 0xB2));
+
+        var parts = new List<Inline>();
+        var name = method.IsConstructor ? method.DeclaringType.Name : method.Name;
+        parts.Add(new Run(name) { Foreground = methodBrush });
+        parts.Add(new Run("(") { Foreground = typeBrush });
+
+        for (int i = 0; i < method.Parameters.Count; i++)
+        {
+            if (i > 0)
+                parts.Add(new Run(", ") { Foreground = typeBrush });
+            var p = method.Parameters[i];
+            var paramType = p.ParameterType;
+            if (paramType is ByReferenceType br)
+            {
+                var modifier = p.IsOut ? "out " : p.IsIn ? "in " : "ref ";
+                parts.Add(new Run(modifier) { Foreground = keywordBrush });
+                paramType = br.ElementType;
+            }
+            parts.AddRange(FormatTypeName(paramType, typeBrush, keywordBrush));
+        }
+
+        parts.Add(new Run(")") { Foreground = typeBrush });
+        if (!method.IsConstructor)
+        {
+            parts.Add(new Run(" : ") { Foreground = typeBrush });
+            parts.AddRange(FormatTypeName(method.ReturnType, typeBrush, keywordBrush));
+        }
+
+        return parts;
+    }
+
+    private static IEnumerable<Inline> FormatTypeName(TypeReference type, Brush typeBrush, Brush keywordBrush)
     {
         if (type is GenericInstanceType git)
         {
@@ -350,35 +389,56 @@ public partial class MainWindow : Window
             var tick = name.IndexOf('`');
             if (tick >= 0)
                 name = name[..tick];
-            var args = string.Join(", ", git.GenericArguments.Select(FormatTypeName));
-            return $"{name}<{args}>";
+            yield return new Run(name) { Foreground = typeBrush };
+            yield return new Run("<") { Foreground = typeBrush };
+            for (int i = 0; i < git.GenericArguments.Count; i++)
+            {
+                if (i > 0)
+                    yield return new Run(", ") { Foreground = typeBrush };
+                foreach (var inline in FormatTypeName(git.GenericArguments[i], typeBrush, keywordBrush))
+                    yield return inline;
+            }
+            yield return new Run(">") { Foreground = typeBrush };
+            yield break;
         }
 
         if (type is ArrayType at)
-            return $"{FormatTypeName(at.ElementType)}[{new string(',', at.Rank - 1)}]";
-
-        return type.FullName switch
         {
-            "System.Void" => "void",
-            "System.Object" => "object",
-            "System.String" => "string",
-            "System.Boolean" => "bool",
-            "System.Byte" => "byte",
-            "System.SByte" => "sbyte",
-            "System.Int16" => "short",
-            "System.UInt16" => "ushort",
-            "System.Int32" => "int",
-            "System.UInt32" => "uint",
-            "System.Int64" => "long",
-            "System.UInt64" => "ulong",
-            "System.Char" => "char",
-            "System.Single" => "float",
-            "System.Double" => "double",
-            "System.Decimal" => "decimal",
-            "System.IntPtr" => "nint",
-            "System.UIntPtr" => "nuint",
-            _ => type.Name
-        };
+            foreach (var inline in FormatTypeName(at.ElementType, typeBrush, keywordBrush))
+                yield return inline;
+            yield return new Run($"[{new string(',', at.Rank - 1)}]") { Foreground = typeBrush };
+            yield break;
+        }
+
+        string name;
+        bool isKeyword = true;
+        switch (type.FullName)
+        {
+            case "System.Void": name = "void"; break;
+            case "System.Object": name = "object"; break;
+            case "System.String": name = "string"; break;
+            case "System.Boolean": name = "bool"; break;
+            case "System.Byte": name = "byte"; break;
+            case "System.SByte": name = "sbyte"; break;
+            case "System.Int16": name = "short"; break;
+            case "System.UInt16": name = "ushort"; break;
+            case "System.Int32": name = "int"; break;
+            case "System.UInt32": name = "uint"; break;
+            case "System.Int64": name = "long"; break;
+            case "System.UInt64": name = "ulong"; break;
+            case "System.Char": name = "char"; break;
+            case "System.Single": name = "float"; break;
+            case "System.Double": name = "double"; break;
+            case "System.Decimal": name = "decimal"; break;
+            case "System.IntPtr": name = "nint"; break;
+            case "System.UIntPtr": name = "nuint"; break;
+            default:
+                name = type.Name;
+                isKeyword = false;
+                break;
+        }
+
+        yield return new Run(name) { Foreground = isKeyword ? keywordBrush : typeBrush };
     }
 
     private void LoadCommonDlls()
@@ -572,7 +632,7 @@ public partial class MainWindow : Window
                     {
                         token.ThrowIfCancellationRequested();
                         var typeItem = new TreeViewItem { Header = type.Name, Tag = type };
-                        foreach (var method in type.Methods)
+                        foreach (var method in type.Methods.OrderBy(m => m.Name, StringComparer.Ordinal))
                         {
                             var methodItem = CreateTreeViewItemWithIcon(FormatMethodSignature(method), funcIcon, method);
                             typeItem.Items.Add(methodItem);
