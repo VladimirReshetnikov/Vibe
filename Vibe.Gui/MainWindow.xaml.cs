@@ -1238,12 +1238,36 @@ public partial class MainWindow : Window
                 DecompiledCodeCache.Remove(exp.Dll.FileHash, exp.Name);
                 DllTree_SelectedItemChanged(DllTree, new RoutedPropertyChangedEventArgs<object?>(null, item));
                 break;
-            case MethodDefinition:
-                DllTree_SelectedItemChanged(DllTree, new RoutedPropertyChangedEventArgs<object?>(null, item));
-                break;
+            case MethodDefinition methodDef:
+                {
+                    // Attempt to find the LoadedDll for this method
+                    var loadedDll = FindLoadedDllForMethod(methodDef);
+                    if (loadedDll != null)
+                    {
+                        DecompiledCodeCache.Remove(loadedDll.FileHash, methodDef.FullName);
+                    }
+                    DllTree_SelectedItemChanged(DllTree, new RoutedPropertyChangedEventArgs<object?>(null, item));
+                    break;
+                }
         }
     }
 
+    /// <summary>
+    /// Finds the LoadedDll instance that contains the given MethodDefinition.
+    /// </summary>
+    private LoadedDll? FindLoadedDllForMethod(MethodDefinition methodDef)
+    {
+        foreach (TreeViewItem rootItem in DllTree.Items)
+        {
+            if (rootItem.Tag is LoadedDll dll)
+            {
+                // Compare by module
+                if (dll.Module == methodDef.Module)
+                    return dll;
+            }
+        }
+        return null;
+    }
     private async void ViewAssembly_Click(object sender, RoutedEventArgs e)
     {
         if (DllTree.SelectedItem is not TreeViewItem item)
