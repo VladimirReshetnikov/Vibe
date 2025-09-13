@@ -40,6 +40,7 @@ public partial class MainWindow : Window
     private readonly TextBox _outputLog;
     private readonly ListBox _searchResults;
     private readonly ListBox _exceptionsList;
+    private readonly ListBox _logList;
     private readonly TreeView DllTree;
     private readonly DllAnalyzer _dllAnalyzer;
     // Quick-search state (type-to-select export by prefix)
@@ -89,6 +90,8 @@ public partial class MainWindow : Window
         _outputLog = (TextBox)FindResource("OutputControl");
         _searchResults = (ListBox)FindResource("SearchResultsControl");
         _exceptionsList = (ListBox)FindResource("ExceptionsControl");
+        _logList = (ListBox)FindResource("LogControl");
+        _logList.DataContext = App.WindowLogger.Messages;
         _exceptionsList.DataContext = ExceptionManager.Exceptions;
         ExceptionManager.ShowExceptions = () =>
         {
@@ -167,6 +170,7 @@ public partial class MainWindow : Window
                 using var reader = new StreamReader(_layoutFile);
                 serializer.Deserialize(reader);
                 EnsureExceptionPane();
+                EnsureLogPane();
                 return;
             }
             catch
@@ -191,6 +195,7 @@ public partial class MainWindow : Window
         if (stream != null)
             serializer.Deserialize(stream);
         EnsureExceptionPane();
+        EnsureLogPane();
     }
 
     private void EnsureExceptionPane()
@@ -213,6 +218,26 @@ public partial class MainWindow : Window
         anchor?.Hide();
     }
 
+    private void EnsureLogPane()
+    {
+        var anchor = DockManager.Layout?.Descendents().OfType<LayoutAnchorable>().FirstOrDefault(a => a.ContentId == "Log");
+        if (anchor == null)
+        {
+            var bottomPane = DockManager.Layout?.Descendents().OfType<LayoutAnchorablePane>()
+                .FirstOrDefault(p => p.Children.Any(c => c.ContentId == "Output"));
+            if (bottomPane != null)
+            {
+                anchor = new LayoutAnchorable { Title = "Log", ContentId = "Log", CanClose = false, Content = _logList };
+                bottomPane.Children.Add(anchor);
+            }
+        }
+        else if (anchor.Content == null)
+        {
+            anchor.Content = _logList;
+        }
+        anchor?.Hide();
+    }
+
     private void Serializer_LayoutSerializationCallback(object? sender, LayoutSerializationCallbackEventArgs e)
     {
         switch (e.Model.ContentId)
@@ -231,6 +256,9 @@ public partial class MainWindow : Window
                 break;
             case "Exceptions":
                 e.Content = _exceptionsList;
+                break;
+            case "Log":
+                e.Content = _logList;
                 break;
         }
     }
@@ -757,7 +785,8 @@ public partial class MainWindow : Window
 
     private void Log_Click(object sender, RoutedEventArgs e)
     {
-        App.WindowLogger.Show();
+        EnsureLogPane();
+        ToggleAnchorable("Log");
     }
 
     private void About_Click(object sender, RoutedEventArgs e)
