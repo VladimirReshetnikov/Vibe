@@ -73,7 +73,7 @@ public sealed class DllAnalyzer : IDisposable
     /// <summary>
     /// Returns decompiled C# code for the specified managed method.
     /// </summary>
-    public string GetManagedMethodBody(MethodDefinition method)
+    public string GetManagedMethodBody(LoadedDll dll, MethodDefinition method)
     {
         if (!method.HasBody)
             return "// Method has no body";
@@ -86,7 +86,18 @@ public sealed class DllAnalyzer : IDisposable
 
             var decompiler = new CSharpDecompiler(modulePath, new DecompilerSettings());
             var handle = MetadataTokens.EntityHandle(method.MetadataToken.ToInt32());
-            return decompiler.DecompileAsString(handle);
+            var code = decompiler.DecompileAsString(handle);
+
+            if (_provider != null && AppConfig.Current.MaxLlmCodeLength > 0 && code.Length > AppConfig.Current.MaxLlmCodeLength)
+                code = code[..AppConfig.Current.MaxLlmCodeLength];
+
+            if (_provider != null)
+            {
+                var context = BuildLlmContext(dll);
+                code = _provider.RefineAsync(context + code, null, CancellationToken.None).GetAwaiter().GetResult();
+            }
+
+            return code;
         }
         catch (Exception ex)
         {
