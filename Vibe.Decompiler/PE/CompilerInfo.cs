@@ -114,6 +114,41 @@ public static class CompilerInfo
                 notes.Add($"MSVC toolset {m.Groups[1].Value} from PDB path.");
         }
 
+        try
+        {
+            var fileBytes = File.ReadAllBytes(path);
+            var text = Encoding.ASCII.GetString(fileBytes);
+
+            if (text.IndexOf("GCC: (GNU)", StringComparison.OrdinalIgnoreCase) >= 0)
+            {
+                compiler ??= "GCC";
+                notes.Add("Found GCC version string.");
+            }
+
+            if (text.IndexOf("mingw", StringComparison.OrdinalIgnoreCase) >= 0 ||
+                text.IndexOf("_sjlj_init", StringComparison.Ordinal) >= 0)
+            {
+                compiler = "GCC (MinGW)";
+                notes.Add("Detected MinGW-specific runtime markers.");
+            }
+
+            if (text.IndexOf("__security_init_cookie", StringComparison.Ordinal) >= 0)
+            {
+                compiler ??= "MSVC";
+                notes.Add("References __security_init_cookie (MSVC /GS).");
+            }
+
+            if (text.IndexOf("Microsoft (R) C/C++", StringComparison.Ordinal) >= 0)
+            {
+                compiler ??= "MSVC";
+                notes.Add("Found 'Microsoft (R) C/C++' signature.");
+            }
+        }
+        catch
+        {
+            // TODO: Log
+        }
+
         return new Result(compiler, toolset, stdlib, [.. notes]);
     }
 

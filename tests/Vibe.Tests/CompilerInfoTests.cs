@@ -1,3 +1,5 @@
+using System;
+using System.IO;
 using Vibe.Decompiler;
 using Vibe.Decompiler.PE;
 using Xunit;
@@ -23,4 +25,5 @@ public sealed class CompilerInfoTests
         Assert.Contains("Version=v8.0", info.Toolset);
         Assert.Equal("System.Private.CoreLib", info.StandardLibrary);
     }
+
 }

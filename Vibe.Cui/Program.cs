@@ -96,7 +96,7 @@ public class Program
                     Dll,
                     selected,
                     new Progress<string>(p => Application.MainLoop.Invoke(() => CodeView.Text = p)),
-                    Dll.Cts.Token);
+                    Dll.Cts.Token).ConfigureAwait(false);
                 Application.MainLoop.Invoke(() => CodeView.Text = code);
             }
             else
@@ -124,7 +124,11 @@ public class Program
                     var methodName = (string)args2.Value;
                     var method = type.Methods.First(m => m.FullName == methodName);
                     CodeView.Text = "Loading...";
-                    var body = await Analyzer.GetManagedMethodBodyAsync(Dll!, method);
+                    var body = await Analyzer.GetManagedMethodBodyAsync(
+                        Dll!,
+                        method,
+                        new Progress<string>(p => Application.MainLoop.Invoke(() => CodeView.Text = p)),
+                        Dll.Cts.Token).ConfigureAwait(false);
                     Application.MainLoop.Invoke(() =>
                     {
                         CodeView.Text = body;
@@ -165,13 +169,13 @@ public class Program
         Dll = Analyzer.Load(dialog.FilePath.ToString()!);
         CodeView.Text = Analyzer.GetSummary(Dll);
 
-        await LoadExportsAsync();
+        await LoadExportsAsync().ConfigureAwait(false);
     }
 
     /// <summary>
     /// Initiates asynchronous loading of export names from the current DLL.
     /// </summary>
-    static async void LoadExports() => await LoadExportsAsync();
+    static async void LoadExports() => await LoadExportsAsync().ConfigureAwait(false);
 
     /// <summary>
     /// Retrieves export names from the loaded DLL and populates the left pane.
@@ -179,7 +183,7 @@ public class Program
     static async Task LoadExportsAsync()
     {
         if (Dll == null) return;
-        var exports = await Analyzer.GetExportNamesAsync(Dll, Dll.Cts.Token);
+        var exports = await Analyzer.GetExportNamesAsync(Dll, Dll.Cts.Token).ConfigureAwait(false);
         Application.MainLoop.Invoke(() =>
         {
             ItemList.SetSource(exports);
@@ -193,7 +197,7 @@ public class Program
     static async void LoadManagedTypes()
     {
         if (Dll == null || !Dll.IsManaged) return;
-        ManagedTypes = await Analyzer.GetManagedTypesAsync(Dll, Dll.Cts.Token);
+        ManagedTypes = await Analyzer.GetManagedTypesAsync(Dll, Dll.Cts.Token).ConfigureAwait(false);
         Application.MainLoop.Invoke(() =>
         {
             ItemList.SetSource(ManagedTypes.Select(t => t.FullName).ToList());

@@ -64,15 +64,15 @@ public sealed class AnthropicModelProvider : IModelProvider
         var json = JsonSerializer.Serialize(req);
         Logger.Log($"Anthropic request: {json}");
         using var content = new StringContent(json, Encoding.UTF8, "application/json");
-        using var resp = await _http.PostAsync("https://api.anthropic.com/v1/messages", content, cancellationToken);
+        using var resp = await _http.PostAsync("https://api.anthropic.com/v1/messages", content, cancellationToken).ConfigureAwait(false);
 
         if (!resp.IsSuccessStatusCode)
         {
-            var errorContent = await resp.Content.ReadAsStringAsync(cancellationToken);
+            var errorContent = await resp.Content.ReadAsStringAsync(cancellationToken).ConfigureAwait(false);
             throw new HttpRequestException($"Anthropic API request failed with status {resp.StatusCode}: {errorContent}");
         }
 
-        using var doc = JsonDocument.Parse(await resp.Content.ReadAsStringAsync(cancellationToken));
+        using var doc = JsonDocument.Parse(await resp.Content.ReadAsStringAsync(cancellationToken).ConfigureAwait(false));
         var contentArr = doc.RootElement.GetProperty("content");
         if (contentArr.GetArrayLength() == 0)
             throw new InvalidOperationException("Anthropic API returned no content");

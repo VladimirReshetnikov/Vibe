@@ -72,9 +72,15 @@ public sealed class DllAnalyzer : IDisposable
     }
 
     /// <summary>
-    /// Returns decompiled C# code for the specified managed method.
+    /// Returns decompiled C# code for the specified managed method.  When an
+    /// LLM provider is available the raw decompilation is reported via
+    /// <paramref name="progress"/> while the refined result is awaited.
     /// </summary>
-    public async Task<string> GetManagedMethodBodyAsync(LoadedDll dll, MethodDefinition method)
+    public async Task<string> GetManagedMethodBodyAsync(
+        LoadedDll dll,
+        MethodDefinition method,
+        IProgress<string>? progress,
+        CancellationToken token)
     {
         if (!method.HasBody)
             return "// Method has no body";
@@ -85,20 +91,31 @@ public sealed class DllAnalyzer : IDisposable
             if (string.IsNullOrEmpty(modulePath))
                 return "// Cannot locate module file";
 
-            var decompiler = new CSharpDecompiler(modulePath, new DecompilerSettings());
-            var handle = MetadataTokens.EntityHandle(method.MetadataToken.ToInt32());
-            var code = decompiler.DecompileAsString(handle);
+            var code = await Task.Run(() =>
+            {
+                token.ThrowIfCancellationRequested();
+                var decompiler = new CSharpDecompiler(modulePath, new DecompilerSettings());
+                var handle = MetadataTokens.EntityHandle(method.MetadataToken.ToInt32());
+                return decompiler.DecompileAsString(handle);
+            }, token).ConfigureAwait(false);
 
             if (_provider != null && AppConfig.Current.MaxLlmCodeLength > 0 && code.Length > AppConfig.Current.MaxLlmCodeLength)
                 code = code[..AppConfig.Current.MaxLlmCodeLength];
 
+            progress?.Report(code);
+
+            var output = code;
             if (_provider != null)
             {
                 var context = BuildLlmContext(dll);
-                code = await _provider.RefineAsync(context + code, "C#", null, CancellationToken.None);
+                output = await _provider.RefineAsync(context + code, "C#", null, token).ConfigureAwait(false);
             }
 
-            return code;
+            return output;
+        }
+        catch (OperationCanceledException)
+        {
+            throw;
         }
         catch (Exception ex)
         {
@@ -133,18 +150,18 @@ public sealed class DllAnalyzer : IDisposable
         }
 
         var code = await Task.Run(() =>
-        {
-            token.ThrowIfCancellationRequested();
-            int off = dll.Pe.RvaToOffsetChecked(export.FunctionRva);
-            int maxLen = Math.Min(AppConfig.Current.MaxDataSizeBytes, dll.Pe.Data.Length - off);
-            var engine = new Engine();
-            return engine.ToPseudoCode(dll.Pe.Data.AsMemory(off, maxLen), new Engine.Options
             {
-                BaseAddress = dll.Pe.ImageBase + export.FunctionRva,
-                FunctionName = name,
-                FilePath = dll.Pe.FilePath
-            });
-        }, token);
+                token.ThrowIfCancellationRequested();
+                int off = dll.Pe.RvaToOffsetChecked(export.FunctionRva);
+                int maxLen = Math.Min(AppConfig.Current.MaxDataSizeBytes, dll.Pe.Data.Length - off);
+                var engine = new Engine();
+                return engine.ToPseudoCode(dll.Pe.Data.AsMemory(off, maxLen), new Engine.Options
+                {
+                    BaseAddress = dll.Pe.ImageBase + export.FunctionRva,
+                    FunctionName = name,
+                    FilePath = dll.Pe.FilePath
+                });
+            }, token).ConfigureAwait(false);
 
         if (_provider != null && AppConfig.Current.MaxLlmCodeLength > 0 && code.Length > AppConfig.Current.MaxLlmCodeLength)
             code = code[..AppConfig.Current.MaxLlmCodeLength];
@@ -162,7 +179,7 @@ public sealed class DllAnalyzer : IDisposable
                 cancellationToken: token);
 #endif
             var context = BuildLlmContext(dll);
-            output = await _provider.RefineAsync(context + code, "C/C++", null, token);
+            output = await _provider.RefineAsync(context + code, "C/C++", null, token).ConfigureAwait(false);
         }
 
         _cacheSave?.Invoke(hash, name, output);

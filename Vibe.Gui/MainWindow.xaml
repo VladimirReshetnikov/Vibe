@@ -61,6 +61,12 @@
                  BorderThickness="1" Foreground="{StaticResource TextBrush}"
                  FontFamily="Consolas" SelectionMode="Extended"
                  KeyDown="ExceptionsList_OnKeyDown"/>
+        <ListBox x:Key="LogControl" Margin="4"
+                 ItemsSource="{Binding}"
+                 Background="{StaticResource PanelBrush}"
+                 BorderBrush="{StaticResource BorderBrush}" BorderThickness="1"
+                 Foreground="{StaticResource TextBrush}" FontFamily="Consolas"
+                 SelectionMode="Extended" />
     </Window.Resources>
     <DockPanel>
         <Menu DockPanel.Dock="Top">
