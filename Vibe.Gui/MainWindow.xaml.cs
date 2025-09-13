@@ -838,9 +838,8 @@ public partial class MainWindow : Window
                 finally
                 {
                     if (_currentRequestCts?.Token == token)
-                        CancelCurrentRequest();
-                    else
-                        EndRequest();
+                        CancelCurrentRequest(); // matched token -> cancel and decrement
+                    // mismatched token already accounted for via CancelCurrentRequest()
                 }
                 break;
             case TypeDefinition td:
@@ -888,9 +887,8 @@ public partial class MainWindow : Window
                     finally
                     {
                         if (_currentRequestCts?.Token == mtoken)
-                            CancelCurrentRequest();
-                        else
-                            EndRequest();
+                            CancelCurrentRequest(); // matched token -> cancel and decrement
+                        // mismatched token already accounted for via CancelCurrentRequest()
                     }
                 }
                 else
