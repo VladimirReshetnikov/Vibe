@@ -6,11 +6,13 @@ using System.Threading;
 using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Documents;
 using System.Windows.Media;
 using System.Windows.Media.Animation;
 using System.Windows.Media.Effects;
 using System.Windows.Threading;
 using System.Windows.Input;
+using System.Windows.Markup;
 using AvalonDock.Layout;
 using AvalonDock.Layout.Serialization;
 using Microsoft.Win32;
@@ -40,7 +42,7 @@ public partial class MainWindow : Window
     private readonly Border RewriteOverlay;
     private readonly ListBox _searchResults;
     private readonly ListBox _exceptionsList;
-    private readonly ListBox _logList;
+    private readonly TextBox _logBox;
     private readonly TreeView DllTree;
     private readonly DllAnalyzer _dllAnalyzer;
     // Quick-search state (type-to-select export by prefix)
@@ -89,8 +91,16 @@ public partial class MainWindow : Window
         RewriteOverlay = (Border)_decompilerContent.Children[1];
         _searchResults = (ListBox)FindResource("SearchResultsControl");
         _exceptionsList = (ListBox)FindResource("ExceptionsControl");
-        _logList = (ListBox)FindResource("LogControl");
-        _logList.DataContext = App.WindowLogger.Messages;
+        _logBox = (TextBox)FindResource("LogControl");
+        App.WindowLogger.Messages.CollectionChanged += (_, e) =>
+        {
+            if (e.NewItems == null) return;
+            foreach (var item in e.NewItems)
+            {
+                _logBox.AppendText(item + Environment.NewLine);
+            }
+            _logBox.ScrollToEnd();
+        };
         _exceptionsList.DataContext = ExceptionManager.Exceptions;
         ExceptionManager.ShowExceptions = () =>
         {
@@ -156,6 +166,14 @@ public partial class MainWindow : Window
                 Clipboard.SetText(string.Join(Environment.NewLine, list.SelectedItems.Cast<string>()));
                 e.Handled = true;
             }
+        }
+    }
+
+    private void LogWordWrap_Click(object sender, RoutedEventArgs e)
+    {
+        if (sender is MenuItem item)
+        {
+            _logBox.TextWrapping = item.IsChecked ? TextWrapping.Wrap : TextWrapping.NoWrap;
         }
     }
 
@@ -227,13 +245,13 @@ public partial class MainWindow : Window
                 .FirstOrDefault(p => p.Children.Any(c => c.ContentId == "SearchResults"));
             if (bottomPane != null)
             {
-                anchor = new LayoutAnchorable { Title = "Log", ContentId = "Log", CanClose = false, Content = _logList };
+                anchor = new LayoutAnchorable { Title = "Log", ContentId = "Log", CanClose = false, Content = _logBox };
                 bottomPane.Children.Add(anchor);
             }
         }
         else if (anchor.Content == null)
         {
-            anchor.Content = _logList;
+            anchor.Content = _logBox;
         }
         anchor?.Hide();
     }
@@ -249,7 +267,7 @@ public partial class MainWindow : Window
                 e.Content = _decompilerContent;
                 break;
             case "Output":
-                e.Content = _logList;
+                e.Content = _logBox;
                 e.Model.ContentId = "Log";
                 if (e.Model is LayoutAnchorable la)
                     la.Title = "Log";
@@ -261,7 +279,7 @@ public partial class MainWindow : Window
                 e.Content = _exceptionsList;
                 break;
             case "Log":
-                e.Content = _logList;
+                e.Content = _logBox;
                 break;
         }
     }
@@ -301,9 +319,8 @@ public partial class MainWindow : Window
         }
     }
 
-    private TreeViewItem CreateTreeViewItemWithIcon(string text, ImageSource icon, object tag)
+    private TreeViewItem CreateTreeViewItemWithIcon(TextBlock textBlock, ImageSource icon, object tag)
     {
-        var textBlock = new TextBlock { Text = text };
         var border = new Border { Padding = new Thickness(1, 0, 1, 0), Child = textBlock };
         var panel = new StackPanel { Orientation = Orientation.Horizontal };
         panel.Children.Add(new Image { Source = icon, Width = 16, Height = 16, Margin = new Thickness(0, 0, 4, 0) });
@@ -334,15 +351,54 @@ public partial class MainWindow : Window
         return item;
     }
 
-    private static string FormatMethodSignature(MethodDefinition method)
+    private TreeViewItem CreateTreeViewItemWithIcon(string text, ImageSource icon, object tag)
+        => CreateTreeViewItemWithIcon(new TextBlock { Text = text }, icon, tag);
+
+    private TreeViewItem CreateTreeViewItemWithIcon(IEnumerable<Inline> inlines, ImageSource icon, object tag)
     {
-        var parameters = string.Join(", ", method.Parameters.Select(p => FormatTypeName(p.ParameterType)));
-        if (method.IsConstructor)
-            return $"{method.DeclaringType.Name}({parameters})";
-        return $"{FormatTypeName(method.ReturnType)} {method.Name}({parameters})";
+        var textBlock = new TextBlock();
+        foreach (var inline in inlines)
+            textBlock.Inlines.Add(inline);
+        return CreateTreeViewItemWithIcon(textBlock, icon, tag);
     }
 
-    private static string FormatTypeName(TypeReference type)
+    private static IEnumerable<Inline> FormatMethodSignature(MethodDefinition method)
+    {
+        var methodBrush = (Brush)Application.Current.FindResource("AccentBrush");
+        var typeBrush = (Brush)Application.Current.FindResource("TextBrush");
+        var keywordBrush = new SolidColorBrush(Color.FromRgb(0x8F, 0x9E, 0xB2));
+
+        var parts = new List<Inline>();
+        var name = method.IsConstructor ? method.DeclaringType.Name : method.Name;
+        parts.Add(new Run(name) { Foreground = methodBrush });
+        parts.Add(new Run("(") { Foreground = typeBrush });
+
+        for (int i = 0; i < method.Parameters.Count; i++)
+        {
+            if (i > 0)
+                parts.Add(new Run(", ") { Foreground = typeBrush });
+            var p = method.Parameters[i];
+            var paramType = p.ParameterType;
+            if (paramType is ByReferenceType br)
+            {
+                var modifier = p.IsOut ? "out " : p.IsIn ? "in " : "ref ";
+                parts.Add(new Run(modifier) { Foreground = keywordBrush });
+                paramType = br.ElementType;
+            }
+            parts.AddRange(FormatTypeName(paramType, typeBrush, keywordBrush));
+        }
+
+        parts.Add(new Run(")") { Foreground = typeBrush });
+        if (!method.IsConstructor)
+        {
+            parts.Add(new Run(" : ") { Foreground = typeBrush });
+            parts.AddRange(FormatTypeName(method.ReturnType, typeBrush, keywordBrush));
+        }
+
+        return parts;
+    }
+
+    private static IEnumerable<Inline> FormatTypeName(TypeReference type, Brush typeBrush, Brush keywordBrush)
     {
         if (type is GenericInstanceType git)
         {
@@ -350,35 +406,57 @@ public partial class MainWindow : Window
             var tick = name.IndexOf('`');
             if (tick >= 0)
                 name = name[..tick];
-            var args = string.Join(", ", git.GenericArguments.Select(FormatTypeName));
-            return $"{name}<{args}>";
+            yield return new Run(name) { Foreground = typeBrush };
+            yield return new Run("<") { Foreground = typeBrush };
+            for (int i = 0; i < git.GenericArguments.Count; i++)
+            {
+                if (i > 0)
+                    yield return new Run(", ") { Foreground = typeBrush };
+                foreach (var inline in FormatTypeName(git.GenericArguments[i], typeBrush, keywordBrush))
+                    yield return inline;
+            }
+
+            yield return new Run(">") { Foreground = typeBrush };
+            yield break;
         }
 
         if (type is ArrayType at)
-            return $"{FormatTypeName(at.ElementType)}[{new string(',', at.Rank - 1)}]";
-
-        return type.FullName switch
         {
-            "System.Void" => "void",
-            "System.Object" => "object",
-            "System.String" => "string",
-            "System.Boolean" => "bool",
-            "System.Byte" => "byte",
-            "System.SByte" => "sbyte",
-            "System.Int16" => "short",
-            "System.UInt16" => "ushort",
-            "System.Int32" => "int",
-            "System.UInt32" => "uint",
-            "System.Int64" => "long",
-            "System.UInt64" => "ulong",
-            "System.Char" => "char",
-            "System.Single" => "float",
-            "System.Double" => "double",
-            "System.Decimal" => "decimal",
-            "System.IntPtr" => "nint",
-            "System.UIntPtr" => "nuint",
-            _ => type.Name
-        };
+            foreach (var inline in FormatTypeName(at.ElementType, typeBrush, keywordBrush))
+                yield return inline;
+            yield return new Run($"[{new string(',', at.Rank - 1)}]") { Foreground = typeBrush };
+            yield break;
+        }
+
+        string keyword;
+        bool isKeyword = true;
+        switch (type.FullName)
+        {
+            case "System.Void": keyword = "void"; break;
+            case "System.Object": keyword = "object"; break;
+            case "System.String": keyword = "string"; break;
+            case "System.Boolean": keyword = "bool"; break;
+            case "System.Byte": keyword = "byte"; break;
+            case "System.SByte": keyword = "sbyte"; break;
+            case "System.Int16": keyword = "short"; break;
+            case "System.UInt16": keyword = "ushort"; break;
+            case "System.Int32": keyword = "int"; break;
+            case "System.UInt32": keyword = "uint"; break;
+            case "System.Int64": keyword = "long"; break;
+            case "System.UInt64": keyword = "ulong"; break;
+            case "System.Char": keyword = "char"; break;
+            case "System.Single": keyword = "float"; break;
+            case "System.Double": keyword = "double"; break;
+            case "System.Decimal": keyword = "decimal"; break;
+            case "System.IntPtr": keyword = "nint"; break;
+            case "System.UIntPtr": keyword = "nuint"; break;
+            default:
+                keyword = type.Name;
+                isKeyword = false;
+                break;
+        }
+
+        yield return new Run(keyword) { Foreground = isKeyword ? keywordBrush : typeBrush };
     }
 
     private void LoadCommonDlls()
@@ -573,7 +651,7 @@ public partial class MainWindow : Window
                     {
                         token.ThrowIfCancellationRequested();
                         var typeItem = new TreeViewItem { Header = type.Name, Tag = type };
-                        foreach (var method in type.Methods)
+                        foreach (var method in type.Methods.OrderBy(m => m.Name, StringComparer.Ordinal))
                         {
                             var methodItem = CreateTreeViewItemWithIcon(FormatMethodSignature(method), managedFuncIcon, method);
                             typeItem.Items.Add(methodItem);
@@ -683,6 +761,15 @@ public partial class MainWindow : Window
         if (DllTree.SelectedItem is not TreeViewItem item)
             return;
 
+        if ((Keyboard.Modifiers & ModifierKeys.Control) == ModifierKeys.Control)
+        {
+            if (item.Tag is ExportItem or MethodDefinition)
+            {
+                await OpenItemInNewTabAsync(item);
+                return;
+            }
+        }
+
         switch (item.Tag)
         {
             case LoadedDll dll:
@@ -773,6 +860,98 @@ public partial class MainWindow : Window
                     }
                 }
                 return;
+        }
+    }
+
+    private Grid CloneDecompilerContent(out TextEditor editor)
+    {
+        var template = (Grid)FindResource("DecompilerContent");
+        var clone = (Grid)XamlReader.Parse(XamlWriter.Save(template));
+        editor = (TextEditor)clone.Children[0];
+        editor.TextArea.TextView.LineTransformers.Add(new PseudoCodeColorizer());
+        return clone;
+    }
+
+    private async Task OpenItemInNewTabAsync(TreeViewItem item)
+    {
+        var pane = DockManager.Layout?.Descendents().OfType<LayoutDocumentPane>().FirstOrDefault();
+        if (pane == null)
+            return;
+
+        var content = CloneDecompilerContent(out var editor);
+        string title = item.Header is FrameworkElement fe && fe is StackPanel sp && sp.Children.OfType<Border>().FirstOrDefault()?.Child is TextBlock tb ? tb.Text : "View";
+        var doc = new LayoutDocument { Title = title, Content = content };
+        pane.Children.Add(doc);
+        doc.IsActive = true;
+
+        switch (item.Tag)
+        {
+            case ExportItem exp:
+                editor.Text = string.Empty;
+                BusyBar.Visibility = Visibility.Visible;
+                var dllItem = exp.Dll;
+                using (var cts = CancellationTokenSource.CreateLinkedTokenSource(dllItem.Cts.Token))
+                {
+                    var token = cts.Token;
+                    try
+                    {
+                        var progress = new Progress<string>(t => editor.Text = t);
+                        var output = await _dllAnalyzer.GetDecompiledExportAsync(dllItem, exp.Name, progress, token);
+                        editor.Text = output;
+                    }
+                    catch (OperationCanceledException ex)
+                    {
+                        if (!token.IsCancellationRequested)
+                        {
+                            editor.Text = $"Operation canceled: {ex.Message}";
+                            ExceptionManager.Handle(ex);
+                        }
+                        else
+                        {
+                            Logger.LogException(ex);
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        editor.Text = $"Error: {ex.Message}";
+                        ExceptionManager.Handle(ex);
+                    }
+                }
+                BusyBar.Visibility = Visibility.Collapsed;
+                break;
+            case MethodDefinition md:
+                editor.Text = string.Empty;
+                BusyBar.Visibility = Visibility.Visible;
+                if (GetRootItem(item).Tag is LoadedDll rootDll)
+                {
+                    using var cts = CancellationTokenSource.CreateLinkedTokenSource(rootDll.Cts.Token);
+                    var token = cts.Token;
+                    try
+                    {
+                        var progress = new Progress<string>(t => editor.Text = t);
+                        var body = await _dllAnalyzer.GetManagedMethodBodyAsync(rootDll, md, progress, token);
+                        editor.Text = body;
+                    }
+                    catch (OperationCanceledException ex)
+                    {
+                        if (!token.IsCancellationRequested)
+                        {
+                            editor.Text = $"Operation canceled: {ex.Message}";
+                            ExceptionManager.Handle(ex);
+                        }
+                        else
+                        {
+                            Logger.LogException(ex);
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        editor.Text = $"Error: {ex.Message}";
+                        ExceptionManager.Handle(ex);
+                    }
+                }
+                BusyBar.Visibility = Visibility.Collapsed;
+                break;
         }
     }
 

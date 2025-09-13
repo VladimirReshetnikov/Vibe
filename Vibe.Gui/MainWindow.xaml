@@ -59,12 +59,23 @@
                  BorderThickness="1" Foreground="{StaticResource TextBrush}"
                  FontFamily="Consolas" SelectionMode="Extended"
                  KeyDown="ExceptionsList_OnKeyDown"/>
-        <ListBox x:Key="LogControl" Margin="4"
-                 ItemsSource="{Binding}"
+        <TextBox x:Key="LogControl" Margin="4"
                  Background="{StaticResource PanelBrush}"
                  BorderBrush="{StaticResource BorderBrush}" BorderThickness="1"
                  Foreground="{StaticResource TextBrush}" FontFamily="Consolas"
-                 SelectionMode="Extended" />
+                 IsReadOnly="True" IsReadOnlyCaretVisible="True"
+                 TextWrapping="NoWrap"
+                 HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Auto">
+            <TextBox.ContextMenu>
+                <ContextMenu>
+                    <MenuItem Command="ApplicationCommands.Copy"/>
+                    <MenuItem Command="ApplicationCommands.SelectAll"/>
+                    <Separator/>
+                    <MenuItem Header="Word Wrap" IsCheckable="True"
+                              Click="LogWordWrap_Click"/>
+                </ContextMenu>
+            </TextBox.ContextMenu>
+        </TextBox>
     </Window.Resources>
     <DockPanel>
         <Menu DockPanel.Dock="Top">

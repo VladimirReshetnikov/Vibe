@@ -32,10 +32,10 @@ public sealed class LoadedDll : IDisposable
     /// <summary>SHA-256 hash of the DLL file.</summary>
     public string FileHash { get; }
 
-    /// <summary>Cancellation token for long running operations initiated on this DLL.</summary>
+    /// <summary>Cancellation token for long-running operations initiated on this DLL.</summary>
     public CancellationTokenSource Cts { get; } = new();
 
-    internal ModuleDefinition? ManagedModule { get; }
+    public ModuleDefinition? ManagedModule { get; }
 
     /// <summary>Gets a value indicating whether the DLL contains .NET metadata.</summary>
     public bool IsManaged => ManagedModule != null;
