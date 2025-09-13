@@ -672,8 +672,46 @@ public partial class MainWindow : Window
                 OutputBox.Text = $"Type: {td.FullName}";
                 return;
             case MethodDefinition md:
+                OutputBox.Text = string.Empty;
+                BusyBar.Visibility = Visibility.Visible;
                 if (GetRootItem(item).Tag is LoadedDll rootDll)
-                    OutputBox.Text = await _dllAnalyzer.GetManagedMethodBodyAsync(rootDll, md);
+                {
+                    _currentRequestCts = CancellationTokenSource.CreateLinkedTokenSource(rootDll.Cts.Token);
+                    var mtoken = _currentRequestCts.Token;
+                    try
+                    {
+                        var progress = new Progress<string>(t =>
+                        {
+                            OutputBox.Text = t;
+                            if (_dllAnalyzer.HasLlmProvider)
+                                ShowLlmOverlay();
+                        });
+                        var body = await _dllAnalyzer.GetManagedMethodBodyAsync(rootDll, md, progress, mtoken);
+                        OutputBox.Text = body;
+                    }
+                    catch (OperationCanceledException ex)
+                    {
+                        if (!mtoken.IsCancellationRequested)
+                        {
+                            OutputBox.Text = $"Operation canceled: {ex.Message}";
+                            ExceptionManager.Handle(ex);
+                        }
+                        else
+                        {
+                            Logger.LogException(ex);
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        OutputBox.Text = $"Error: {ex.Message}";
+                        ExceptionManager.Handle(ex);
+                    }
+                    finally
+                    {
+                        if (_currentRequestCts?.Token == mtoken)
+                            CancelCurrentRequest();
+                    }
+                }
                 return;
         }
     }

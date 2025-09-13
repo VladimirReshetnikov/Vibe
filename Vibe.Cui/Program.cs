@@ -124,7 +124,11 @@ public class Program
                     var methodName = (string)args2.Value;
                     var method = type.Methods.First(m => m.FullName == methodName);
                     CodeView.Text = "Loading...";
-                    var body = await Analyzer.GetManagedMethodBodyAsync(Dll!, method);
+                    var body = await Analyzer.GetManagedMethodBodyAsync(
+                        Dll!,
+                        method,
+                        new Progress<string>(p => Application.MainLoop.Invoke(() => CodeView.Text = p)),
+                        Dll.Cts.Token).ConfigureAwait(false);
                     Application.MainLoop.Invoke(() =>
                     {
                         CodeView.Text = body;
