@@ -62,4 +62,18 @@ internal static class DecompiledCodeCache
         cmd.Parameters.AddWithValue("@c", code);
         cmd.ExecuteNonQuery();
     }
+
+    /// <summary>
+    /// Removes any cached entry for the specified function.
+    /// </summary>
+    public static void Remove(string fileHash, string funcName)
+    {
+        using var connection = new SqliteConnection($"Data Source={DbPath}");
+        connection.Open();
+        using var cmd = connection.CreateCommand();
+        cmd.CommandText = "DELETE FROM cache WHERE file_hash = @h AND func_name = @f";
+        cmd.Parameters.AddWithValue("@h", fileHash);
+        cmd.Parameters.AddWithValue("@f", funcName);
+        cmd.ExecuteNonQuery();
+    }
 }

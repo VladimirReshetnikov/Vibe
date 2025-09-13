@@ -21,6 +21,7 @@ using Mono.Cecil;
 using Vibe.Decompiler;
 using Vibe.Decompiler.Models;
 using Vibe.Utils;
+using System.Diagnostics;
 
 namespace Vibe.Gui;
 
@@ -1039,6 +1040,35 @@ public partial class MainWindow : Window
         return item;
     }
 
+    private void UnloadItem(TreeViewItem item)
+    {
+        switch (item.Tag)
+        {
+            case LoadedDll di:
+                di.Cts.Cancel();
+                di.Dispose();
+                DllTree.Items.Remove(item);
+                break;
+            case ExportItem exp:
+                var dll = exp.Dll;
+                dll.Cts.Cancel();
+                dll.Dispose();
+                DllTree.Items.Remove(GetRootItem(item));
+                break;
+            case InvalidDll:
+                DllTree.Items.Remove(item);
+                break;
+            default:
+                return;
+        }
+
+        SaveOpenDlls();
+        UpdateRecentFilesMenu();
+        CancelCurrentRequest();
+        if (ReferenceEquals(item, DllTree.SelectedItem))
+            OutputBox.Text = string.Empty;
+    }
+
     private void DllTree_KeyDown(object sender, KeyEventArgs e)
     {
         // Delete: remove the selected DLL (or an export under it)
@@ -1046,32 +1076,7 @@ public partial class MainWindow : Window
         {
             if (DllTree.SelectedItem is not TreeViewItem item)
                 return;
-
-            switch (item.Tag)
-            {
-                case LoadedDll di:
-                    di.Cts.Cancel();
-                    di.Dispose();
-                    DllTree.Items.Remove(item);
-                    break;
-                case ExportItem exp:
-                    var dll = exp.Dll;
-                    dll.Cts.Cancel();
-                    dll.Dispose();
-                    DllTree.Items.Remove(GetRootItem(item));
-                    break;
-                case InvalidDll:
-                    DllTree.Items.Remove(item);
-                    break;
-                default:
-                    return;
-            }
-
-            SaveOpenDlls();
-            UpdateRecentFilesMenu();
-            CancelCurrentRequest();
-            if (ReferenceEquals(item, DllTree.SelectedItem))
-                OutputBox.Text = string.Empty;
+            UnloadItem(item);
             e.Handled = true;
             return;
         }
@@ -1107,6 +1112,261 @@ public partial class MainWindow : Window
         }
 
         e.Handled = true;
+    }
+
+    private void DllTree_PreviewMouseRightButtonDown(object sender, MouseButtonEventArgs e)
+    {
+        if (e.OriginalSource is not DependencyObject source)
+            return;
+        var item = VisualUpwardSearch(source);
+        if (item != null)
+            item.IsSelected = true;
+    }
+
+    private static TreeViewItem? VisualUpwardSearch(DependencyObject? source)
+    {
+        while (source != null && source is not TreeViewItem)
+            source = VisualTreeHelper.GetParent(source);
+        return source as TreeViewItem;
+    }
+
+    private void DllTree_ContextMenuOpening(object sender, ContextMenuEventArgs e)
+    {
+        if (DllTree.SelectedItem is not TreeViewItem item)
+        {
+            e.Handled = true;
+            return;
+        }
+
+        var menu = new ContextMenu();
+        var path = GetItemPath(item);
+        var root = GetRootItem(item);
+
+        if (root.Tag is LoadedDll or InvalidDll)
+        {
+            menu.Items.Add(new MenuItem { Header = "Unload", Click = Unload_Click });
+            menu.Items.Add(new Separator());
+            menu.Items.Add(new MenuItem { Header = "Open Path", Click = OpenPath_Click, IsEnabled = path != null });
+            menu.Items.Add(new MenuItem { Header = "Copy Path", Click = CopyPath_Click, IsEnabled = path != null });
+            menu.Items.Add(new MenuItem { Header = "Properties", Click = Properties_Click, IsEnabled = path != null });
+        }
+
+        if (item.Tag is ExportItem or MethodDefinition)
+        {
+            if (menu.Items.Count > 0)
+                menu.Items.Add(new Separator());
+            menu.Items.Add(new MenuItem { Header = "Re-decompile", Click = ReDecompile_Click });
+            menu.Items.Add(new MenuItem { Header = "View Assembly", Click = ViewAssembly_Click });
+        }
+
+        if (menu.Items.Count == 0)
+        {
+            e.Handled = true;
+            return;
+        }
+
+        DllTree.ContextMenu = menu;
+    }
+
+    private static string? GetItemPath(TreeViewItem item)
+    {
+        var root = GetRootItem(item);
+        return root.Tag switch
+        {
+            LoadedDll ld => ld.Pe.FilePath,
+            InvalidDll id => id.FilePath,
+            _ => null
+        };
+    }
+
+    private void Unload_Click(object sender, RoutedEventArgs e)
+    {
+        if (DllTree.SelectedItem is TreeViewItem item)
+            UnloadItem(item);
+    }
+
+    private void OpenPath_Click(object sender, RoutedEventArgs e)
+    {
+        if (DllTree.SelectedItem is not TreeViewItem item)
+            return;
+        var path = GetItemPath(item);
+        if (string.IsNullOrEmpty(path))
+            return;
+        try
+        {
+            Process.Start(new ProcessStartInfo("explorer.exe", $"/select,\"{path}\"") { UseShellExecute = true });
+        }
+        catch (Exception ex)
+        {
+            ExceptionManager.Handle(ex);
+        }
+    }
+
+    private void CopyPath_Click(object sender, RoutedEventArgs e)
+    {
+        if (DllTree.SelectedItem is not TreeViewItem item)
+            return;
+        var path = GetItemPath(item);
+        if (!string.IsNullOrEmpty(path))
+            Clipboard.SetText(path);
+    }
+
+    private void Properties_Click(object sender, RoutedEventArgs e)
+    {
+        if (DllTree.SelectedItem is not TreeViewItem item)
+            return;
+        var path = GetItemPath(item);
+        if (string.IsNullOrEmpty(path))
+            return;
+        try
+        {
+            Process.Start(new ProcessStartInfo(path) { UseShellExecute = true, Verb = "properties" });
+        }
+        catch (Exception ex)
+        {
+            ExceptionManager.Handle(ex);
+        }
+    }
+
+    private void ReDecompile_Click(object sender, RoutedEventArgs e)
+    {
+        if (DllTree.SelectedItem is not TreeViewItem item)
+            return;
+        switch (item.Tag)
+        {
+            case ExportItem exp:
+                DecompiledCodeCache.Remove(exp.Dll.FileHash, exp.Name);
+                DllTree_SelectedItemChanged(DllTree, new RoutedPropertyChangedEventArgs<object?>(null, item));
+                break;
+            case MethodDefinition methodDef:
+                {
+                    // Attempt to find the LoadedDll for this method
+                    var loadedDll = FindLoadedDllForMethod(methodDef);
+                    if (loadedDll != null)
+                    {
+                        DecompiledCodeCache.Remove(loadedDll.FileHash, methodDef.FullName);
+                    }
+                    DllTree_SelectedItemChanged(DllTree, new RoutedPropertyChangedEventArgs<object?>(null, item));
+                    break;
+                }
+        }
+    }
+
+    /// <summary>
+    /// Finds the LoadedDll instance that contains the given MethodDefinition.
+    /// </summary>
+    private LoadedDll? FindLoadedDllForMethod(MethodDefinition methodDef)
+    {
+        foreach (TreeViewItem rootItem in DllTree.Items)
+        {
+            if (rootItem.Tag is LoadedDll dll)
+            {
+                // Compare by module
+                if (dll.Module == methodDef.Module)
+                    return dll;
+            }
+        }
+        return null;
+    }
+    private async void ViewAssembly_Click(object sender, RoutedEventArgs e)
+    {
+        if (DllTree.SelectedItem is not TreeViewItem item)
+            return;
+
+        CancelCurrentRequest();
+
+        var mainDoc = DockManager.Layout?
+            .Descendents()
+            .OfType<LayoutDocument>()
+            .FirstOrDefault(d => d.ContentId == "DecompilerView");
+
+        switch (item.Tag)
+        {
+            case ExportItem exp:
+                OutputBox.SetSyntaxHighlighting(SyntaxHighlightingMode.Cpp);
+                OutputBox.Text = string.Empty;
+                BeginRequest();
+                var dllItem = exp.Dll;
+                _currentRequestCts = CancellationTokenSource.CreateLinkedTokenSource(dllItem.Cts.Token);
+                var token = _currentRequestCts.Token;
+                if (mainDoc != null)
+                    mainDoc.Title = exp.Name + " (asm)";
+                try
+                {
+                    var asm = await _dllAnalyzer.GetExportAssemblyAsync(dllItem, exp.Name, token);
+                    OutputBox.Text = asm;
+                }
+                catch (OperationCanceledException ex)
+                {
+                    if (!token.IsCancellationRequested)
+                    {
+                        OutputBox.Text = $"Operation canceled: {ex.Message}";
+                        ExceptionManager.Handle(ex);
+                    }
+                    else
+                    {
+                        Logger.LogException(ex);
+                    }
+                }
+                catch (Exception ex)
+                {
+                    OutputBox.Text = $"Error: {ex.Message}";
+                    ExceptionManager.Handle(ex);
+                }
+                finally
+                {
+                    if (_currentRequestCts?.Token == token)
+                        CancelCurrentRequest();
+                    else
+                        EndRequest();
+                }
+                break;
+            case MethodDefinition md:
+                OutputBox.SetSyntaxHighlighting(SyntaxHighlightingMode.Plain);
+                OutputBox.Text = string.Empty;
+                BeginRequest();
+                if (GetRootItem(item).Tag is LoadedDll rootDll)
+                {
+                    _currentRequestCts = CancellationTokenSource.CreateLinkedTokenSource(rootDll.Cts.Token);
+                    var mtoken = _currentRequestCts.Token;
+                    if (mainDoc != null)
+                        mainDoc.Title = md.Name + " (IL)";
+                    try
+                    {
+                        var il = await _dllAnalyzer.GetManagedMethodIlAsync(rootDll, md, mtoken);
+                        OutputBox.Text = il;
+                    }
+                    catch (OperationCanceledException ex)
+                    {
+                        if (!mtoken.IsCancellationRequested)
+                        {
+                            OutputBox.Text = $"Operation canceled: {ex.Message}";
+                            ExceptionManager.Handle(ex);
+                        }
+                        else
+                        {
+                            Logger.LogException(ex);
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        OutputBox.Text = $"Error: {ex.Message}";
+                        ExceptionManager.Handle(ex);
+                    }
+                    finally
+                    {
+                        if (_currentRequestCts?.Token == mtoken)
+                            CancelCurrentRequest();
+                        else
+                            EndRequest();
+                    }
+                }
+                else
+                {
+                    EndRequest();
+                }
+                break;
+        }
     }
 
     private static char? KeyToChar(Key key)

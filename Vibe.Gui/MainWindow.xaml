@@ -40,6 +40,8 @@
         <TreeView x:Key="ExplorerControl" Margin="4"
                   Background="{StaticResource PanelBrush}" BorderBrush="{StaticResource BorderBrush}" BorderThickness="1"
                   SelectedItemChanged="DllTree_SelectedItemChanged" KeyDown="DllTree_KeyDown"
+                  PreviewMouseRightButtonDown="DllTree_PreviewMouseRightButtonDown"
+                  ContextMenuOpening="DllTree_ContextMenuOpening"
                   VirtualizingStackPanel.IsVirtualizing="True" VirtualizingStackPanel.VirtualizationMode="Recycling">
             <TreeView.Resources>
                 <Style TargetType="TreeViewItem">
