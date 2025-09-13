@@ -70,7 +70,11 @@ public class PrettyPrinterTests
         var pp = new IR.PrettyPrinter();
         var text = pp.Print(fn);
 
+#if EMIT_HEADER_COMMENT
         Assert.Contains("C-like pseudocode", text);
+#else
+        Assert.DoesNotContain("C-like pseudocode", text);
+#endif
     }
 
     /// <summary>
