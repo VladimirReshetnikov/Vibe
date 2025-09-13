@@ -7,6 +7,7 @@ using ICSharpCode.Decompiler;
 using ICSharpCode.Decompiler.CSharp;
 using Vibe.Decompiler.Models;
 using Vibe.Decompiler.PE;
+using Vibe.Decompiler.Web;
 using MethodDefinition = Mono.Cecil.MethodDefinition;
 using TypeDefinition = Mono.Cecil.TypeDefinition;
 
@@ -153,6 +154,13 @@ public sealed class DllAnalyzer : IDisposable
         var output = code;
         if (_provider != null)
         {
+#if false
+            var fileName = Path.GetFileName(dll.Pe.FilePath);
+            var docs = await Win32DocFetcher.TryDownloadExportDocAsync(
+                fileName,
+                name,
+                cancellationToken: token);
+#endif
             var context = BuildLlmContext(dll);
             output = await _provider.RefineAsync(context + code, "C/C++", null, token);
         }
