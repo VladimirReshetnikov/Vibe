@@ -13,6 +13,19 @@ public static class Win32DocFetcher
 {
     private static readonly HttpClient _http = new();
 
+    static Win32DocFetcher()
+    {
+        _http.DefaultRequestHeaders.TryAddWithoutValidation(
+            "User-Agent",
+            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/115.0 Safari/537.36");
+        _http.DefaultRequestHeaders.TryAddWithoutValidation(
+            "Accept",
+            "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8");
+        _http.DefaultRequestHeaders.TryAddWithoutValidation(
+            "Accept-Language",
+            "en-US,en;q=0.9");
+    }
+
     /// <summary>
     /// Attempts to download HTML documentation for a given Windows API export.
     /// Uses the learn.microsoft.com search API to locate a documentation page.
