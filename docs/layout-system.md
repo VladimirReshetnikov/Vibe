@@ -9,13 +9,13 @@ The `MainWindow` hosts a single `DockingManager`.  Tool windows are represented 
 Default tool windows:
 
 - **Explorer** – left side tree used for navigation.
-- **Output** – bottom log pane.
+- **Log** – bottom log pane.
 - **Search Results** – bottom placeholder for future search output.
 - **Decompiler View** – main document showing decompiled code.
 
 ## Default layout
 
-Explorer is docked left.  Decompiler View occupies the document area.  Output and Search Results share a tab group docked to the bottom.
+Explorer is docked left.  Decompiler View occupies the document area.  Log and Search Results share a tab group docked to the bottom.
 
 ## Layout serialization
 
@@ -28,7 +28,7 @@ Use **View ▸ Reset Window Layout** to discard the saved layout and return to t
 | Command | Shortcut | Description |
 | --- | --- | --- |
 | View ▸ Explorer | Ctrl+Alt+E | Toggle Explorer tool window |
-| View ▸ Output | Ctrl+Alt+O | Toggle Output window |
+| View ▸ Log | Ctrl+Alt+L | Toggle Log window |
 | View ▸ Search Results | Ctrl+Alt+S | Toggle Search Results window |
 | View ▸ Reset Window Layout | Ctrl+Alt+R | Restore default layout |
 

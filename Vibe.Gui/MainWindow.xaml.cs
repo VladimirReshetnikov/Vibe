@@ -29,7 +29,7 @@ namespace Vibe.Gui;
 public partial class MainWindow : Window
 {
     public static readonly RoutedUICommand ToggleExplorerCommand = new("Explorer", nameof(ToggleExplorerCommand), typeof(MainWindow), new InputGestureCollection { new KeyGesture(Key.E, ModifierKeys.Control | ModifierKeys.Alt) });
-    public static readonly RoutedUICommand ToggleOutputCommand = new("Output", nameof(ToggleOutputCommand), typeof(MainWindow), new InputGestureCollection { new KeyGesture(Key.O, ModifierKeys.Control | ModifierKeys.Alt) });
+    public static readonly RoutedUICommand ToggleLogCommand = new("Log", nameof(ToggleLogCommand), typeof(MainWindow), new InputGestureCollection { new KeyGesture(Key.L, ModifierKeys.Control | ModifierKeys.Alt) });
     public static readonly RoutedUICommand ToggleSearchCommand = new("Search Results", nameof(ToggleSearchCommand), typeof(MainWindow), new InputGestureCollection { new KeyGesture(Key.S, ModifierKeys.Control | ModifierKeys.Alt) });
     public static readonly RoutedUICommand ResetLayoutCommand = new("Reset Window Layout", nameof(ResetLayoutCommand), typeof(MainWindow), new InputGestureCollection { new KeyGesture(Key.R, ModifierKeys.Control | ModifierKeys.Alt) });
 
@@ -37,7 +37,6 @@ public partial class MainWindow : Window
     private readonly Grid _decompilerContent;
     private readonly TextEditor OutputBox;
     private readonly Border RewriteOverlay;
-    private readonly TextBox _outputLog;
     private readonly ListBox _searchResults;
     private readonly ListBox _exceptionsList;
     private readonly ListBox _logList;
@@ -87,7 +86,6 @@ public partial class MainWindow : Window
         _decompilerContent = (Grid)FindResource("DecompilerContent");
         OutputBox = (TextEditor)_decompilerContent.Children[0];
         RewriteOverlay = (Border)_decompilerContent.Children[1];
-        _outputLog = (TextBox)FindResource("OutputControl");
         _searchResults = (ListBox)FindResource("SearchResultsControl");
         _exceptionsList = (ListBox)FindResource("ExceptionsControl");
         _logList = (ListBox)FindResource("LogControl");
@@ -108,7 +106,7 @@ public partial class MainWindow : Window
         RewriteOverlay.RegisterName("StripeTransform", stripeTransform);
 
         CommandBindings.Add(new CommandBinding(ToggleExplorerCommand, (_, _) => ToggleAnchorable("Explorer")));
-        CommandBindings.Add(new CommandBinding(ToggleOutputCommand, (_, _) => ToggleAnchorable("Output")));
+        CommandBindings.Add(new CommandBinding(ToggleLogCommand, (_, _) => ToggleAnchorable("Log")));
         CommandBindings.Add(new CommandBinding(ToggleSearchCommand, (_, _) => ToggleAnchorable("SearchResults")));
         CommandBindings.Add(new CommandBinding(ResetLayoutCommand, (_, _) => ResetLayout()));
 
@@ -169,8 +167,8 @@ public partial class MainWindow : Window
                 serializer.LayoutSerializationCallback += Serializer_LayoutSerializationCallback;
                 using var reader = new StreamReader(_layoutFile);
                 serializer.Deserialize(reader);
-                EnsureExceptionPane();
                 EnsureLogPane();
+                EnsureExceptionPane();
                 return;
             }
             catch
@@ -194,8 +192,8 @@ public partial class MainWindow : Window
         using var stream = Application.GetResourceStream(new Uri("DefaultLayout.config", UriKind.Relative))?.Stream;
         if (stream != null)
             serializer.Deserialize(stream);
-        EnsureExceptionPane();
         EnsureLogPane();
+        EnsureExceptionPane();
     }
 
     private void EnsureExceptionPane()
@@ -204,7 +202,7 @@ public partial class MainWindow : Window
         if (anchor == null)
         {
             var bottomPane = DockManager.Layout?.Descendents().OfType<LayoutAnchorablePane>()
-                .FirstOrDefault(p => p.Children.Any(c => c.ContentId == "Output"));
+                .FirstOrDefault(p => p.Children.Any(c => c.ContentId == "Log" || c.ContentId == "SearchResults"));
             if (bottomPane != null)
             {
                 anchor = new LayoutAnchorable { Title = "Exceptions", ContentId = "Exceptions", CanClose = false, Content = _exceptionsList };
@@ -224,7 +222,7 @@ public partial class MainWindow : Window
         if (anchor == null)
         {
             var bottomPane = DockManager.Layout?.Descendents().OfType<LayoutAnchorablePane>()
-                .FirstOrDefault(p => p.Children.Any(c => c.ContentId == "Output"));
+                .FirstOrDefault(p => p.Children.Any(c => c.ContentId == "SearchResults"));
             if (bottomPane != null)
             {
                 anchor = new LayoutAnchorable { Title = "Log", ContentId = "Log", CanClose = false, Content = _logList };
@@ -249,7 +247,10 @@ public partial class MainWindow : Window
                 e.Content = _decompilerContent;
                 break;
             case "Output":
-                e.Content = _outputLog;
+                e.Content = _logList;
+                e.Model.ContentId = "Log";
+                if (e.Model is LayoutAnchorable la)
+                    la.Title = "Log";
                 break;
             case "SearchResults":
                 e.Content = _searchResults;
@@ -828,12 +829,6 @@ public partial class MainWindow : Window
     private void Exit_Click(object sender, RoutedEventArgs e)
     {
         Close();
-    }
-
-    private void Log_Click(object sender, RoutedEventArgs e)
-    {
-        EnsureLogPane();
-        ToggleAnchorable("Log");
     }
 
     private void About_Click(object sender, RoutedEventArgs e)
