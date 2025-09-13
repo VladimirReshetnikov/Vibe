@@ -612,13 +612,30 @@ public partial class MainWindow : Window
         SaveOpenDlls();
     }
 
+    private int _pendingRequests;
+
+    private void BeginRequest()
+    {
+        _pendingRequests++;
+        BusyBar.Visibility = Visibility.Visible;
+    }
+
+    private void EndRequest()
+    {
+        if (_pendingRequests > 0 && --_pendingRequests == 0)
+            BusyBar.Visibility = Visibility.Collapsed;
+    }
+
     private void CancelCurrentRequest()
     {
-        _currentRequestCts?.Cancel();
-        _currentRequestCts?.Dispose();
+        if (_currentRequestCts == null)
+            return;
+
+        _currentRequestCts.Cancel();
+        _currentRequestCts.Dispose();
         _currentRequestCts = null;
 
-        BusyBar.Visibility = Visibility.Collapsed;
+        EndRequest();
         HideLlmOverlay();
     }
 
@@ -756,24 +773,24 @@ public partial class MainWindow : Window
 
     private async void DllTree_SelectedItemChanged(object sender, RoutedPropertyChangedEventArgs<object> e)
     {
-        CancelCurrentRequest();
-
         if (DllTree.SelectedItem is not TreeViewItem item)
             return;
-
-        var mainDoc = DockManager.Layout?
-            .Descendents()
-            .OfType<LayoutDocument>()
-            .FirstOrDefault(d => d.ContentId == "DecompilerView");
 
         if ((Keyboard.Modifiers & ModifierKeys.Control) == ModifierKeys.Control)
         {
             if (item.Tag is ExportItem or MethodDefinition)
             {
-                await OpenItemInNewTabAsync(item);
+                await OpenItemInNewTabAsync(item, activate: false);
                 return;
             }
         }
+
+        CancelCurrentRequest();
+
+        var mainDoc = DockManager.Layout?
+            .Descendents()
+            .OfType<LayoutDocument>()
+            .FirstOrDefault(d => d.ContentId == "DecompilerView");
 
         switch (item.Tag)
         {
@@ -784,7 +801,7 @@ public partial class MainWindow : Window
                 return;
             case ExportItem exp:
                 OutputBox.Text = string.Empty;
-                BusyBar.Visibility = Visibility.Visible;
+                BeginRequest();
                 var dllItem = exp.Dll;
                 _currentRequestCts = CancellationTokenSource.CreateLinkedTokenSource(dllItem.Cts.Token);
                 var token = _currentRequestCts.Token;
@@ -822,6 +839,8 @@ public partial class MainWindow : Window
                 {
                     if (_currentRequestCts?.Token == token)
                         CancelCurrentRequest();
+                    else
+                        EndRequest();
                 }
                 break;
             case TypeDefinition td:
@@ -831,7 +850,7 @@ public partial class MainWindow : Window
                 return;
             case MethodDefinition md:
                 OutputBox.Text = string.Empty;
-                BusyBar.Visibility = Visibility.Visible;
+                BeginRequest();
                 if (GetRootItem(item).Tag is LoadedDll rootDll)
                 {
                     _currentRequestCts = CancellationTokenSource.CreateLinkedTokenSource(rootDll.Cts.Token);
@@ -870,7 +889,13 @@ public partial class MainWindow : Window
                     {
                         if (_currentRequestCts?.Token == mtoken)
                             CancelCurrentRequest();
+                        else
+                            EndRequest();
                     }
+                }
+                else
+                {
+                    EndRequest();
                 }
                 return;
         }
@@ -885,7 +910,7 @@ public partial class MainWindow : Window
         return clone;
     }
 
-    private async Task OpenItemInNewTabAsync(TreeViewItem item)
+    private async Task OpenItemInNewTabAsync(TreeViewItem item, bool activate = true)
     {
         var pane = DockManager.Layout?.Descendents().OfType<LayoutDocumentPane>().FirstOrDefault();
         if (pane == null)
@@ -895,13 +920,14 @@ public partial class MainWindow : Window
         string title = item.Header is FrameworkElement fe && fe is StackPanel sp && sp.Children.OfType<Border>().FirstOrDefault()?.Child is TextBlock tb ? tb.Text : "View";
         var doc = new LayoutDocument { Title = title, Content = content };
         pane.Children.Add(doc);
-        doc.IsActive = true;
+        if (activate)
+            doc.IsActive = true;
 
         switch (item.Tag)
         {
             case ExportItem exp:
                 editor.Text = string.Empty;
-                BusyBar.Visibility = Visibility.Visible;
+                BeginRequest();
                 var dllItem = exp.Dll;
                 using (var cts = CancellationTokenSource.CreateLinkedTokenSource(dllItem.Cts.Token))
                 {
@@ -929,12 +955,15 @@ public partial class MainWindow : Window
                         editor.Text = $"Error: {ex.Message}";
                         ExceptionManager.Handle(ex);
                     }
+                    finally
+                    {
+                        EndRequest();
+                    }
                 }
-                BusyBar.Visibility = Visibility.Collapsed;
                 break;
             case MethodDefinition md:
                 editor.Text = string.Empty;
-                BusyBar.Visibility = Visibility.Visible;
+                BeginRequest();
                 if (GetRootItem(item).Tag is LoadedDll rootDll)
                 {
                     using var cts = CancellationTokenSource.CreateLinkedTokenSource(rootDll.Cts.Token);
@@ -962,8 +991,15 @@ public partial class MainWindow : Window
                         editor.Text = $"Error: {ex.Message}";
                         ExceptionManager.Handle(ex);
                     }
+                    finally
+                    {
+                        EndRequest();
+                    }
                 }
-                BusyBar.Visibility = Visibility.Collapsed;
+                else
+                {
+                    EndRequest();
+                }
                 break;
         }
     }
