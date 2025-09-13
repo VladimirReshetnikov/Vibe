@@ -20,6 +20,23 @@
                              Storyboard.TargetProperty="X"
                              From="0" To="1" Duration="0:0:1.2" />
         </Storyboard>
+        <Style x:Key="ExplorerToggleStyle" TargetType="ToggleButton">
+            <Setter Property="Focusable" Value="False" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="ToggleButton">
+                        <Grid Width="16" Height="16" Background="Transparent">
+                            <Path x:Name="Arrow" Fill="{StaticResource TextBrush}" Data="M 5,4 L 9,8 L 5,12 Z" />
+                        </Grid>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsChecked" Value="True">
+                                <Setter TargetName="Arrow" Property="Data" Value="M 4,5 L 12,5 L 8,13 Z" />
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
         <TreeView x:Key="ExplorerControl" Margin="4"
                   Background="{StaticResource PanelBrush}" BorderBrush="{StaticResource BorderBrush}" BorderThickness="1"
                   SelectedItemChanged="DllTree_SelectedItemChanged" KeyDown="DllTree_KeyDown"
@@ -39,7 +56,7 @@
                                         <RowDefinition />
                                     </Grid.RowDefinitions>
                                     <ToggleButton x:Name="Expander" Grid.Column="0"
-                                                  Style="{StaticResource {x:Static TreeViewItem.ToggleButtonStyleKey}}"
+                                                  Style="{StaticResource ExplorerToggleStyle}"
                                                   IsChecked="{Binding Path=IsExpanded,
                                                                       RelativeSource={RelativeSource TemplatedParent}}"
                                                   ClickMode="Press" />
