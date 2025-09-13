@@ -1,20 +1,14 @@
 // SPDX-License-Identifier: MIT-0
 
-using System;
-using System.Collections.Generic;
-using System.IO;
-using System.Linq;
 using System.Text;
-using System.Threading;
-using System.Threading.Tasks;
 using System.Diagnostics;
-using System.Reflection.Metadata;
 using System.Reflection.Metadata.Ecma335;
-using Mono.Cecil;
 using ICSharpCode.Decompiler;
 using ICSharpCode.Decompiler.CSharp;
 using Vibe.Decompiler.Models;
 using Vibe.Decompiler.PE;
+using MethodDefinition = Mono.Cecil.MethodDefinition;
+using TypeDefinition = Mono.Cecil.TypeDefinition;
 
 namespace Vibe.Decompiler;
 
