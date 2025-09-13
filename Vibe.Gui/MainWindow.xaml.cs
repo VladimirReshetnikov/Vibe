@@ -761,6 +761,11 @@ public partial class MainWindow : Window
         if (DllTree.SelectedItem is not TreeViewItem item)
             return;
 
+        var mainDoc = DockManager.Layout?
+            .Descendents()
+            .OfType<LayoutDocument>()
+            .FirstOrDefault(d => d.ContentId == "DecompilerView");
+
         if ((Keyboard.Modifiers & ModifierKeys.Control) == ModifierKeys.Control)
         {
             if (item.Tag is ExportItem or MethodDefinition)
@@ -774,6 +779,8 @@ public partial class MainWindow : Window
         {
             case LoadedDll dll:
                 OutputBox.Text = _dllAnalyzer.GetSummary(dll);
+                if (mainDoc != null)
+                    mainDoc.Title = "Decompiler View";
                 return;
             case ExportItem exp:
                 OutputBox.Text = string.Empty;
@@ -781,6 +788,8 @@ public partial class MainWindow : Window
                 var dllItem = exp.Dll;
                 _currentRequestCts = CancellationTokenSource.CreateLinkedTokenSource(dllItem.Cts.Token);
                 var token = _currentRequestCts.Token;
+                if (mainDoc != null)
+                    mainDoc.Title = exp.Name;
                 try
                 {
                     var progress = new Progress<string>(t =>
@@ -817,6 +826,8 @@ public partial class MainWindow : Window
                 break;
             case TypeDefinition td:
                 OutputBox.Text = $"Type: {td.FullName}";
+                if (mainDoc != null)
+                    mainDoc.Title = "Decompiler View";
                 return;
             case MethodDefinition md:
                 OutputBox.Text = string.Empty;
@@ -825,6 +836,8 @@ public partial class MainWindow : Window
                 {
                     _currentRequestCts = CancellationTokenSource.CreateLinkedTokenSource(rootDll.Cts.Token);
                     var mtoken = _currentRequestCts.Token;
+                    if (mainDoc != null)
+                        mainDoc.Title = md.Name;
                     try
                     {
                         var progress = new Progress<string>(t =>
