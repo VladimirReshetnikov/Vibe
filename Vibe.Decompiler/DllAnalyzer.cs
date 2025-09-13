@@ -187,6 +187,58 @@ public sealed class DllAnalyzer : IDisposable
     }
 
     /// <summary>
+    /// Returns the raw disassembly for the specified exported function.
+    /// </summary>
+    public async Task<string> GetExportAssemblyAsync(
+        LoadedDll dll,
+        string name,
+        CancellationToken token)
+    {
+        var export = dll.Pe.FindExport(name);
+        if (export.IsForwarder)
+            return $"{name} -> {export.ForwarderString}";
+
+        return await Task.Run(() =>
+        {
+            token.ThrowIfCancellationRequested();
+            int off = dll.Pe.RvaToOffsetChecked(export.FunctionRva);
+            int maxLen = Math.Min(AppConfig.Current.MaxDataSizeBytes, dll.Pe.Data.Length - off);
+            var engine = new Engine();
+            return engine.ToPseudoCode(dll.Pe.Data.AsMemory(off, maxLen), new Engine.Options
+            {
+                BaseAddress = dll.Pe.ImageBase + export.FunctionRva,
+                FunctionName = name,
+                FilePath = dll.Pe.FilePath,
+                TrivialAsm = true
+            });
+        }, token).ConfigureAwait(false);
+    }
+
+    /// <summary>
+    /// Returns the IL for the specified managed method.
+    /// </summary>
+    public Task<string> GetManagedMethodIlAsync(
+        LoadedDll dll,
+        MethodDefinition method,
+        CancellationToken token)
+    {
+        return Task.Run(() =>
+        {
+            token.ThrowIfCancellationRequested();
+            if (!method.HasBody)
+                return "// Method has no body";
+
+            var sb = new StringBuilder();
+            foreach (var ins in method.Body.Instructions)
+            {
+                token.ThrowIfCancellationRequested();
+                sb.AppendLine(ins.ToString());
+            }
+            return sb.ToString();
+        }, token);
+    }
+
+    /// <summary>
     /// Builds the contextual header supplied to LLM providers so they can
     /// reason about the binary being analysed.  The header includes version
     /// information and compiler heuristics.
