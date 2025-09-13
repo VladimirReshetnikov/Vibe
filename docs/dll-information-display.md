@@ -30,7 +30,7 @@ In addition to the shared fields, managed (.NET) assemblies can surface:
 - Custom attributes and security declarations
 - Embedded resources and manifest metadata
 - Debug information such as PDB path
-- Preview panes for IL and high-level decompiled code
+- Preview pane for decompiled C# code
 
 ## Unmanaged libraries
 

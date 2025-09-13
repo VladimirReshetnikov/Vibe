@@ -8,7 +8,11 @@ using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Diagnostics;
+using System.Reflection.Metadata;
+using System.Reflection.Metadata.Ecma335;
 using Mono.Cecil;
+using ICSharpCode.Decompiler;
+using ICSharpCode.Decompiler.CSharp;
 using Vibe.Decompiler.Models;
 using Vibe.Decompiler.PE;
 
@@ -73,18 +77,27 @@ public sealed class DllAnalyzer : IDisposable
     }
 
     /// <summary>
-    /// Returns the IL instructions that make up the specified managed method.
+    /// Returns decompiled C# code for the specified managed method.
     /// </summary>
     public string GetManagedMethodBody(MethodDefinition method)
     {
         if (!method.HasBody)
             return "// Method has no body";
 
-        var sb = new StringBuilder();
-        sb.AppendLine(method.FullName);
-        foreach (var instr in method.Body.Instructions)
-            sb.AppendLine(instr.ToString());
-        return sb.ToString();
+        try
+        {
+            var modulePath = method.Module.FileName;
+            if (string.IsNullOrEmpty(modulePath))
+                return "// Cannot locate module file";
+
+            var decompiler = new CSharpDecompiler(modulePath, new DecompilerSettings());
+            var handle = MetadataTokens.EntityHandle(method.MetadataToken.ToInt32());
+            return decompiler.DecompileAsString(handle);
+        }
+        catch (Exception ex)
+        {
+            return $"// Error decompiling method: {ex.Message}";
+        }
     }
 
     /// <summary>Creates a textual summary containing PE information and hashes.</summary>
