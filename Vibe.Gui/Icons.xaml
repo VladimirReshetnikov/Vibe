@@ -8,6 +8,7 @@
   <SolidColorBrush x:Key="Icon.AccentHighlight" Color="{StaticResource Color.Accent.Highlight}"/>
   <SolidColorBrush x:Key="Icon.Light" Color="{StaticResource Color.CoolGray.Cloud}"/>
   <SolidColorBrush x:Key="Icon.White" Color="{StaticResource Color.Background}"/>
+  <SolidColorBrush x:Key="Icon.Warning" Color="#E7D27B"/>
 
   <!-- Shared pens (use device‑independent px; line caps for crispness) -->
   <Pen x:Key="IconStrokeThin" Brush="{StaticResource Icon.Foreground}" Thickness="1" StartLineCap="Square" EndLineCap="Square"/>
@@ -115,6 +116,30 @@
               <RectangleGeometry Rect="15,20,1,1"/>
               <RectangleGeometry Rect="17,20,1,1"/>
             </GeometryGroup>
+          </GeometryDrawing.Geometry>
+        </GeometryDrawing>
+      </DrawingGroup>
+    </DrawingImage.Drawing>
+  </DrawingImage>
+
+  <!-- Icon displayed when a DLL could not be parsed -->
+  <DrawingImage x:Key="DllWarningIconImage">
+    <DrawingImage.Drawing>
+      <DrawingGroup>
+        <ImageDrawing ImageSource="{StaticResource DllIconImage}" Rect="0,0,24,24"/>
+        <GeometryDrawing Brush="{StaticResource Icon.Warning}" Pen="{StaticResource IconStrokeThin}">
+          <GeometryDrawing.Geometry>
+            <PathGeometry Figures="M1,7 L7,7 L4,1 Z"/>
+          </GeometryDrawing.Geometry>
+        </GeometryDrawing>
+        <GeometryDrawing Brush="{StaticResource Icon.Foreground}">
+          <GeometryDrawing.Geometry>
+            <RectangleGeometry Rect="3.5,3,1,3"/>
+          </GeometryDrawing.Geometry>
+        </GeometryDrawing>
+        <GeometryDrawing Brush="{StaticResource Icon.Foreground}">
+          <GeometryDrawing.Geometry>
+            <RectangleGeometry Rect="3.5,6,1,1"/>
           </GeometryDrawing.Geometry>
         </GeometryDrawing>
       </DrawingGroup>
