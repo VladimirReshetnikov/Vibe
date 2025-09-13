@@ -45,7 +45,7 @@ public sealed class OpenAiModelProvider : IModelProvider
                     $"Rewrite the following decompiler output into readable {language} code, " +
                     $"as close to the original source as possible. Output code only, not " +
                     $"enclosed in code fences. All your comments should appear only as part " +
-                    $"of the code as syntactically well-formed comments. You may (and should) add " +
+                    $"of the code as syntactically well-formed comments. You may add " +
                     $"auxiliary declarations of structs and other symbols where it makes sense.\n\n{decompiledCode}"
             }
         };
@@ -56,7 +56,7 @@ public sealed class OpenAiModelProvider : IModelProvider
                 input.Add(new { role = "user", content = $"Reference documentation:\n{docSnippet}" });
         }
 
-        var instructions = "You rewrite decompiled machine code into clear and idiomatic C code.";
+        var instructions = $"You rewrite decompiled machine code into clear and idiomatic {language} code.";
 
         var req = new
         {
