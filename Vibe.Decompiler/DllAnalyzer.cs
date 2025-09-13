@@ -94,7 +94,7 @@ public sealed class DllAnalyzer : IDisposable
             if (_provider != null)
             {
                 var context = BuildLlmContext(dll);
-                code = _provider.RefineAsync(context + code, null, CancellationToken.None).GetAwaiter().GetResult();
+                code = _provider.RefineAsync(context + code, "C#", null, CancellationToken.None).GetAwaiter().GetResult();
             }
 
             return code;
@@ -154,7 +154,7 @@ public sealed class DllAnalyzer : IDisposable
         if (_provider != null)
         {
             var context = BuildLlmContext(dll);
-            output = await _provider.RefineAsync(context + code, null, token);
+            output = await _provider.RefineAsync(context + code, "C/C++", null, token);
         }
 
         _cacheSave?.Invoke(hash, name, output);

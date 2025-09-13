@@ -17,6 +17,7 @@ public interface IModelProvider : IDisposable
     /// <returns>The refined source code as a string.</returns>
     Task<string> RefineAsync(
         string decompiledCode,
+        string language, // TODO: document
         IEnumerable<string>? documentation = null,
         CancellationToken cancellationToken = default);
 }
