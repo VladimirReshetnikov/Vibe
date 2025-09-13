@@ -6,6 +6,7 @@ using Mono.Cecil;
 using Terminal.Gui;
 using Terminal.Gui.Trees;
 using Vibe.Decompiler;
+using static Vibe.Utils.CodeUtils;
 
 /// <summary>
 /// Entry point and console user interface for exploring DLL exports and
@@ -244,11 +245,6 @@ public class Program
             _ => type.Name
         };
     }
-
-    static string PrependVersionComment(string code, bool isFinal)
-        => string.IsNullOrEmpty(code)
-            ? code
-            : $"// {(isFinal ? "Final" : "Preliminary")} version{Environment.NewLine}{code}";
 
     sealed class NamespaceNode
     {
