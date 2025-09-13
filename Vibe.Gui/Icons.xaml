@@ -133,15 +133,15 @@
   <!-- ========================================================= -->
   <SolidColorBrush x:Key="Lambda.Native" Color="#E7D27B"/>
   <SolidColorBrush x:Key="Lambda.Managed" Color="#9DB463"/>
-  <Pen x:Key="LambdaNativePen" Brush="{StaticResource Lambda.Native}" Thickness="2" StartLineCap="Round" EndLineCap="Round"/>
-  <Pen x:Key="LambdaManagedPen" Brush="{StaticResource Lambda.Managed}" Thickness="2" StartLineCap="Round" EndLineCap="Round"/>
+  <Pen x:Key="LambdaNativePen" Brush="{StaticResource Lambda.Native}" Thickness="1.6" StartLineCap="Round" EndLineCap="Round"/>
+  <Pen x:Key="LambdaManagedPen" Brush="{StaticResource Lambda.Managed}" Thickness="1.6" StartLineCap="Round" EndLineCap="Round"/>
 
   <DrawingImage x:Key="NativeFunctionIconImage">
     <DrawingImage.Drawing>
       <DrawingGroup>
         <GeometryDrawing Brush="{x:Null}" Pen="{StaticResource LambdaNativePen}">
           <GeometryDrawing.Geometry>
-            <PathGeometry Figures="M12,4 L8,20 M12,4 L16,20 M8,20 L15,20"/>
+            <PathGeometry Figures="M7,3 L4,15 M7,3 C10,9 11,12 13,15 L15,15"/>
           </GeometryDrawing.Geometry>
         </GeometryDrawing>
       </DrawingGroup>
@@ -157,7 +157,7 @@
       <DrawingGroup>
         <GeometryDrawing Brush="{x:Null}" Pen="{StaticResource LambdaManagedPen}">
           <GeometryDrawing.Geometry>
-            <PathGeometry Figures="M12,4 L8,20 M12,4 L16,20 M8,20 L15,20"/>
+            <PathGeometry Figures="M7,3 L4,15 M7,3 C10,9 11,12 13,15 L15,15"/>
           </GeometryDrawing.Geometry>
         </GeometryDrawing>
       </DrawingGroup>
