@@ -12,6 +12,7 @@ using System.Windows.Media.Animation;
 using System.Windows.Media.Effects;
 using System.Windows.Threading;
 using System.Windows.Input;
+using System.Windows.Markup;
 using AvalonDock.Layout;
 using AvalonDock.Layout.Serialization;
 using Microsoft.Win32;
@@ -758,6 +759,15 @@ public partial class MainWindow : Window
         if (DllTree.SelectedItem is not TreeViewItem item)
             return;
 
+        if ((Keyboard.Modifiers & ModifierKeys.Control) == ModifierKeys.Control)
+        {
+            if (item.Tag is ExportItem or MethodDefinition)
+            {
+                await OpenItemInNewTabAsync(item);
+                return;
+            }
+        }
+
         switch (item.Tag)
         {
             case LoadedDll dll:
@@ -848,6 +858,98 @@ public partial class MainWindow : Window
                     }
                 }
                 return;
+        }
+    }
+
+    private Grid CloneDecompilerContent(out TextEditor editor)
+    {
+        var template = (Grid)FindResource("DecompilerContent");
+        var clone = (Grid)XamlReader.Parse(XamlWriter.Save(template));
+        editor = (TextEditor)clone.Children[0];
+        editor.TextArea.TextView.LineTransformers.Add(new PseudoCodeColorizer());
+        return clone;
+    }
+
+    private async Task OpenItemInNewTabAsync(TreeViewItem item)
+    {
+        var pane = DockManager.Layout?.Descendents().OfType<LayoutDocumentPane>().FirstOrDefault();
+        if (pane == null)
+            return;
+
+        var content = CloneDecompilerContent(out var editor);
+        string title = item.Header is FrameworkElement fe && fe is StackPanel sp && sp.Children.OfType<Border>().FirstOrDefault()?.Child is TextBlock tb ? tb.Text : "View";
+        var doc = new LayoutDocument { Title = title, Content = content };
+        pane.Children.Add(doc);
+        doc.IsActive = true;
+
+        switch (item.Tag)
+        {
+            case ExportItem exp:
+                editor.Text = string.Empty;
+                BusyBar.Visibility = Visibility.Visible;
+                var dllItem = exp.Dll;
+                using (var cts = CancellationTokenSource.CreateLinkedTokenSource(dllItem.Cts.Token))
+                {
+                    var token = cts.Token;
+                    try
+                    {
+                        var progress = new Progress<string>(t => editor.Text = t);
+                        var output = await _dllAnalyzer.GetDecompiledExportAsync(dllItem, exp.Name, progress, token);
+                        editor.Text = output;
+                    }
+                    catch (OperationCanceledException ex)
+                    {
+                        if (!token.IsCancellationRequested)
+                        {
+                            editor.Text = $"Operation canceled: {ex.Message}";
+                            ExceptionManager.Handle(ex);
+                        }
+                        else
+                        {
+                            Logger.LogException(ex);
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        editor.Text = $"Error: {ex.Message}";
+                        ExceptionManager.Handle(ex);
+                    }
+                }
+                BusyBar.Visibility = Visibility.Collapsed;
+                break;
+            case MethodDefinition md:
+                editor.Text = string.Empty;
+                BusyBar.Visibility = Visibility.Visible;
+                if (GetRootItem(item).Tag is LoadedDll rootDll)
+                {
+                    using var cts = CancellationTokenSource.CreateLinkedTokenSource(rootDll.Cts.Token);
+                    var token = cts.Token;
+                    try
+                    {
+                        var progress = new Progress<string>(t => editor.Text = t);
+                        var body = await _dllAnalyzer.GetManagedMethodBodyAsync(rootDll, md, progress, token);
+                        editor.Text = body;
+                    }
+                    catch (OperationCanceledException ex)
+                    {
+                        if (!token.IsCancellationRequested)
+                        {
+                            editor.Text = $"Operation canceled: {ex.Message}";
+                            ExceptionManager.Handle(ex);
+                        }
+                        else
+                        {
+                            Logger.LogException(ex);
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        editor.Text = $"Error: {ex.Message}";
+                        ExceptionManager.Handle(ex);
+                    }
+                }
+                BusyBar.Visibility = Visibility.Collapsed;
+                break;
         }
     }
 
