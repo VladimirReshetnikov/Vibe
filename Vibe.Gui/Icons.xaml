@@ -128,71 +128,36 @@
   </DrawingImage>
 
   <!-- ========================================================= -->
-  <!-- 3) EXPORTED FUNCTION ICON (TreeView): “Gear + NE arrow”  -->
-  <!--    A simple cog (no letters) with an up-right export      -->
-  <!--    arrow. Reads at 16x16 and scales cleanly.              -->
+  <!-- 3) NATIVE EXPORTED FUNCTION ICON (TreeView): “λ in yellow” -->
+  <!--    Simple lambda symbol rendered in a warm yellow.        -->
   <!-- ========================================================= -->
-  <DrawingImage x:Key="ExportedFunctionIconImage">
+  <SolidColorBrush x:Key="Lambda.Native" Color="#E7D27B"/>
+  <SolidColorBrush x:Key="Lambda.Managed" Color="#9DB463"/>
+  <Pen x:Key="LambdaNativePen" Brush="{StaticResource Lambda.Native}" Thickness="1.6" StartLineCap="Round" EndLineCap="Round"/>
+  <Pen x:Key="LambdaManagedPen" Brush="{StaticResource Lambda.Managed}" Thickness="1.6" StartLineCap="Round" EndLineCap="Round"/>
+
+  <DrawingImage x:Key="NativeFunctionIconImage">
     <DrawingImage.Drawing>
       <DrawingGroup>
-        <!-- Gear base (circle) -->
-        <GeometryDrawing Brush="{StaticResource Oslo.FjordMist}" Pen="{StaticResource IconStrokeThin}">
+        <GeometryDrawing Brush="{x:Null}" Pen="{StaticResource LambdaNativePen}">
           <GeometryDrawing.Geometry>
-            <EllipseGeometry Center="9,12" RadiusX="4" RadiusY="4"/>
+            <PathGeometry Figures="M7,3 L4,15 M7,3 C10,9 11,12 13,15 L15,15"/>
           </GeometryDrawing.Geometry>
         </GeometryDrawing>
+      </DrawingGroup>
+    </DrawingImage.Drawing>
+  </DrawingImage>
 
-        <!-- Gear teeth (rects around circle, no rotation to keep XAML simple) -->
-        <GeometryDrawing Brush="{StaticResource Oslo.FjordMist}">
+  <!-- ========================================================= -->
+  <!-- 4) MANAGED METHOD ICON (TreeView): “λ in green”           -->
+  <!--    Lambda symbol in a calm green for managed methods.     -->
+  <!-- ========================================================= -->
+  <DrawingImage x:Key="ManagedMethodIconImage">
+    <DrawingImage.Drawing>
+      <DrawingGroup>
+        <GeometryDrawing Brush="{x:Null}" Pen="{StaticResource LambdaManagedPen}">
           <GeometryDrawing.Geometry>
-            <GeometryGroup>
-              <!-- Cardinal teeth -->
-              <RectangleGeometry Rect="8.5,5.5,1,2"/>
-              <RectangleGeometry Rect="8.5,16.5,1,2"/>
-              <RectangleGeometry Rect="3.5,11.5,2,1"/>
-              <RectangleGeometry Rect="12.5,11.5,2,1"/>
-              <!-- Corner nubs -->
-              <RectangleGeometry Rect="4.2,6.8,1,1"/>
-              <RectangleGeometry Rect="12.8,6.8,1,1"/>
-              <RectangleGeometry Rect="4.2,15.2,1,1"/>
-              <RectangleGeometry Rect="12.8,15.2,1,1"/>
-            </GeometryGroup>
-          </GeometryDrawing.Geometry>
-        </GeometryDrawing>
-
-        <!-- Gear hole -->
-        <GeometryDrawing Brush="{StaticResource Oslo.White}">
-          <GeometryDrawing.Geometry>
-            <EllipseGeometry Center="9,12" RadiusX="2" RadiusY="2"/>
-          </GeometryDrawing.Geometry>
-        </GeometryDrawing>
-
-        <!-- Export arrow (NE) -->
-        <!-- Open square corner (container) -->
-        <GeometryDrawing Brush="{x:Null}" Pen="{StaticResource IconStrokeThin}">
-          <GeometryDrawing.Geometry>
-            <!-- three-sided square at top-right -->
-            <GeometryGroup>
-              <LineGeometry StartPoint="15,3" EndPoint="21,3"/>
-              <LineGeometry StartPoint="15,3" EndPoint="15,9"/>
-              <LineGeometry StartPoint="21,3" EndPoint="21,5.5"/>
-            </GeometryGroup>
-          </GeometryDrawing.Geometry>
-        </GeometryDrawing>
-        <!-- Arrow line and head -->
-        <GeometryDrawing Brush="{x:Null}" Pen="{StaticResource IconStrokeMed}">
-          <GeometryDrawing.Geometry>
-            <GeometryGroup>
-              <LineGeometry StartPoint="10.5,10.5" EndPoint="18.5,2.5"/>
-              <!-- arrow head -->
-              <PathGeometry Figures="M18.5,2.5 L18.5,5.5 L21.5,5.5 Z"/>
-            </GeometryGroup>
-          </GeometryDrawing.Geometry>
-        </GeometryDrawing>
-        <!-- Arrow fill (accent) under stroke to strengthen the head at tiny sizes -->
-        <GeometryDrawing Brush="{StaticResource Oslo.Moss}">
-          <GeometryDrawing.Geometry>
-            <PathGeometry Figures="M18.5,2.5 L18.5,5.5 L21.5,5.5 Z"/>
+            <PathGeometry Figures="M7,3 L4,15 M7,3 C10,9 11,12 13,15 L15,15"/>
           </GeometryDrawing.Geometry>
         </GeometryDrawing>
       </DrawingGroup>
