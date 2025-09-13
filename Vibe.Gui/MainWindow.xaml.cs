@@ -21,6 +21,7 @@ using Mono.Cecil;
 using Vibe.Decompiler;
 using Vibe.Decompiler.Models;
 using Vibe.Utils;
+using static Vibe.Utils.CodeUtils;
 
 namespace Vibe.Gui;
 
@@ -1081,8 +1082,4 @@ public partial class MainWindow : Window
         dlg.ShowDialog();
     }
 
-    private static string PrependVersionComment(string code, bool isFinal)
-        => string.IsNullOrEmpty(code)
-            ? code
-            : $"// {(isFinal ? "Final" : "Preliminary")} version{Environment.NewLine}{code}";
 }
