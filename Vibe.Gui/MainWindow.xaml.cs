@@ -268,10 +268,16 @@ public partial class MainWindow : Window
         var anchor = DockManager.Layout?.Descendents().OfType<LayoutAnchorable>().FirstOrDefault(a => a.ContentId == id);
         if (anchor == null)
             return;
-        if (anchor.IsHidden || anchor.IsAutoHidden)
+        if (anchor.IsHidden || anchor.IsAutoHidden || !anchor.IsVisible)
+        {
+            if (!anchor.IsVisible && !anchor.IsHidden)
+                anchor.Hide();
             anchor.Show();
+        }
         else
+        {
             anchor.Hide();
+        }
     }
 
     private void LoadDll(string path, bool showErrors)
