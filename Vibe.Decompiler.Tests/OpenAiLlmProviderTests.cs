@@ -47,7 +47,7 @@ public class OpenAiLlmProviderTests
         {
             LastRequest = request;
             if (request.Content != null)
-                LastRequestBody = await request.Content.ReadAsStringAsync(cancellationToken);
+                LastRequestBody = await request.Content.ReadAsStringAsync(cancellationToken).ConfigureAwait(false);
             var resp = new HttpResponseMessage(HttpStatusCode.OK)
             {
                 Content = new StringContent(_responseJson, Encoding.UTF8, "application/json")
@@ -74,7 +74,7 @@ public class OpenAiLlmProviderTests
         Assert.NotNull(field);
         field!.SetValue(provider, client);
 
-        string refined = await provider.RefineAsync("int main() {}");
+        string refined = await provider.RefineAsync("int main() {}", "C").ConfigureAwait(false);
         Assert.Equal("result code", refined);
 
         Assert.Equal("https://api.openai.com/v1/responses", handler.LastRequest!.RequestUri!.ToString());

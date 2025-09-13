@@ -132,18 +132,18 @@ public sealed class DllAnalyzer : IDisposable
         }
 
         var code = await Task.Run(() =>
-        {
-            token.ThrowIfCancellationRequested();
-            int off = dll.Pe.RvaToOffsetChecked(export.FunctionRva);
-            int maxLen = Math.Min(AppConfig.Current.MaxDataSizeBytes, dll.Pe.Data.Length - off);
-            var engine = new Engine();
-            return engine.ToPseudoCode(dll.Pe.Data.AsMemory(off, maxLen), new Engine.Options
             {
-                BaseAddress = dll.Pe.ImageBase + export.FunctionRva,
-                FunctionName = name,
-                FilePath = dll.Pe.FilePath
-            });
-        }, token);
+                token.ThrowIfCancellationRequested();
+                int off = dll.Pe.RvaToOffsetChecked(export.FunctionRva);
+                int maxLen = Math.Min(AppConfig.Current.MaxDataSizeBytes, dll.Pe.Data.Length - off);
+                var engine = new Engine();
+                return engine.ToPseudoCode(dll.Pe.Data.AsMemory(off, maxLen), new Engine.Options
+                {
+                    BaseAddress = dll.Pe.ImageBase + export.FunctionRva,
+                    FunctionName = name,
+                    FilePath = dll.Pe.FilePath
+                });
+            }, token).ConfigureAwait(false);
 
         if (_provider != null && AppConfig.Current.MaxLlmCodeLength > 0 && code.Length > AppConfig.Current.MaxLlmCodeLength)
             code = code[..AppConfig.Current.MaxLlmCodeLength];
@@ -154,7 +154,7 @@ public sealed class DllAnalyzer : IDisposable
         if (_provider != null)
         {
             var context = BuildLlmContext(dll);
-            output = await _provider.RefineAsync(context + code, "C/C++", null, token);
+            output = await _provider.RefineAsync(context + code, "C/C++", null, token).ConfigureAwait(false);
         }
 
         _cacheSave?.Invoke(hash, name, output);
