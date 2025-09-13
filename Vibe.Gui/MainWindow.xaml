@@ -143,6 +143,12 @@
         </Menu>
         <ProgressBar x:Name="BusyBar" DockPanel.Dock="Bottom" Height="4" IsIndeterminate="True" Visibility="Collapsed"
                      Foreground="{StaticResource AccentBrush}" Background="{StaticResource PanelBrush}"/>
-        <DockingManager x:Name="DockManager"/>
+        <DockingManager x:Name="DockManager">
+            <DockingManager.Resources>
+                <Style TargetType="{x:Type ad:LayoutDocumentTabItem}">
+                    <Setter Property="MinWidth" Value="40" />
+                </Style>
+            </DockingManager.Resources>
+        </DockingManager>
     </DockPanel>
 </Window>
