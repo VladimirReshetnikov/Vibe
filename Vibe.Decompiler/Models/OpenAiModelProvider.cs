@@ -73,15 +73,15 @@ public sealed class OpenAiModelProvider : IModelProvider
         var json = JsonSerializer.Serialize(req, options);
         Logger.Log($"OpenAI request: {json}");
         using var content = new StringContent(json, Encoding.UTF8, "application/json");
-        using var resp = await _http.PostAsync("https://api.openai.com/v1/responses", content, cancellationToken);
+        using var resp = await _http.PostAsync("https://api.openai.com/v1/responses", content, cancellationToken).ConfigureAwait(false);
 
         if (!resp.IsSuccessStatusCode)
         {
-            var errorContent = await resp.Content.ReadAsStringAsync(cancellationToken);
+            var errorContent = await resp.Content.ReadAsStringAsync(cancellationToken).ConfigureAwait(false);
             throw new HttpRequestException($"OpenAI API request failed with status {resp.StatusCode}: {errorContent}");
         }
 
-        using var doc = JsonDocument.Parse(await resp.Content.ReadAsStringAsync(cancellationToken));
+        using var doc = JsonDocument.Parse(await resp.Content.ReadAsStringAsync(cancellationToken).ConfigureAwait(false));
         if (!doc.RootElement.TryGetProperty("output", out var output) || output.GetArrayLength() == 0)
             throw new InvalidOperationException("OpenAI API returned no output");
 

@@ -48,8 +48,8 @@ public static class Win32DocFetcher
         JsonElement results;
         try
         {
-            await using var stream = await _http.GetStreamAsync(url, cancellationToken);
-            using var doc = await JsonDocument.ParseAsync(stream, cancellationToken: cancellationToken);
+            await using var stream = await _http.GetStreamAsync(url, cancellationToken).ConfigureAwait(false);
+            using var doc = await JsonDocument.ParseAsync(stream, cancellationToken: cancellationToken).ConfigureAwait(false);
             if (!doc.RootElement.TryGetProperty("results", out var resultsElement) || resultsElement.ValueKind != JsonValueKind.Array)
                 return null;
 
@@ -94,7 +94,7 @@ public static class Win32DocFetcher
 
             try
             {
-                return await _http.GetStringAsync(resultUrl, cancellationToken);
+                return await _http.GetStringAsync(resultUrl, cancellationToken).ConfigureAwait(false);
             }
             catch (HttpRequestException ex)
             {

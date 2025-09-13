@@ -52,15 +52,15 @@ public sealed class OpenAiDocPageEvaluator : IDocPageEvaluator
         var json = JsonSerializer.Serialize(req, options);
         Logger.Log($"OpenAI doc eval request: {json}");
         using var httpContent = new StringContent(json, Encoding.UTF8, "application/json");
-        using var resp = await _http.PostAsync("https://api.openai.com/v1/chat/completions", httpContent, cancellationToken);
+        using var resp = await _http.PostAsync("https://api.openai.com/v1/chat/completions", httpContent, cancellationToken).ConfigureAwait(false);
 
         if (!resp.IsSuccessStatusCode)
         {
-            var errorContent = await resp.Content.ReadAsStringAsync(cancellationToken);
+            var errorContent = await resp.Content.ReadAsStringAsync(cancellationToken).ConfigureAwait(false);
             throw new HttpRequestException($"OpenAI API request failed with status {resp.StatusCode}: {errorContent}");
         }
 
-        using var doc = JsonDocument.Parse(await resp.Content.ReadAsStringAsync(cancellationToken));
+        using var doc = JsonDocument.Parse(await resp.Content.ReadAsStringAsync(cancellationToken).ConfigureAwait(false));
         var choices = doc.RootElement.GetProperty("choices");
         if (choices.GetArrayLength() == 0)
             return false;
@@ -121,7 +121,7 @@ public static class DuckDuckGoDocFetcher
         string html;
         try
         {
-            html = await _http.GetStringAsync(queryUrl, cancellationToken);
+            html = await _http.GetStringAsync(queryUrl, cancellationToken).ConfigureAwait(false);
         }
         catch (HttpRequestException ex)
         {
@@ -154,7 +154,7 @@ public static class DuckDuckGoDocFetcher
             string page;
             try
             {
-                page = await _http.GetStringAsync(link, cancellationToken);
+                page = await _http.GetStringAsync(link, cancellationToken).ConfigureAwait(false);
             }
             catch (HttpRequestException ex)
             {
@@ -177,7 +177,7 @@ public static class DuckDuckGoDocFetcher
             {
                 try
                 {
-                    if (await evaluator.IsRelevantAsync(functionName, fragment, cancellationToken))
+                    if (await evaluator.IsRelevantAsync(functionName, fragment, cancellationToken).ConfigureAwait(false))
                     {
                         relevant = true;
                         break;
