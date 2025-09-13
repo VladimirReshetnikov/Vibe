@@ -105,13 +105,6 @@
                         </LinearGradientBrush.RelativeTransform>
                     </LinearGradientBrush>
                 </Border.Background>
-                <TextBlock Text="Refining with AI" HorizontalAlignment="Center" VerticalAlignment="Center"
-                           Foreground="#80808080" FontSize="48" FontWeight="Bold" FontFamily="Arial Black"
-                           AutomationProperties.LiveSetting="Polite">
-                    <TextBlock.Effect>
-                        <DropShadowEffect BlurRadius="2" ShadowDepth="0" />
-                    </TextBlock.Effect>
-                </TextBlock>
             </Border>
         </Grid>
         <ListBox x:Key="SearchResultsControl" Margin="4" Background="{StaticResource PanelBrush}"
@@ -162,7 +155,7 @@
                      Foreground="{StaticResource AccentBrush}" Background="{StaticResource PanelBrush}"/>
         <DockingManager x:Name="DockManager">
             <DockingManager.Resources>
-                <Style TargetType="{x:Type ad:LayoutDocumentTabItem}">
+                <Style TargetType="{x:Type LayoutDocumentTabItem}">
                     <Setter Property="MinWidth" Value="40" />
                 </Style>
             </DockingManager.Resources>
