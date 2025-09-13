@@ -41,7 +41,7 @@ public partial class MainWindow : Window
     private readonly Border RewriteOverlay;
     private readonly ListBox _searchResults;
     private readonly ListBox _exceptionsList;
-    private readonly ListBox _logList;
+    private readonly TextBox _logBox;
     private readonly TreeView DllTree;
     private readonly DllAnalyzer _dllAnalyzer;
     // Quick-search state (type-to-select export by prefix)
@@ -90,8 +90,16 @@ public partial class MainWindow : Window
         RewriteOverlay = (Border)_decompilerContent.Children[1];
         _searchResults = (ListBox)FindResource("SearchResultsControl");
         _exceptionsList = (ListBox)FindResource("ExceptionsControl");
-        _logList = (ListBox)FindResource("LogControl");
-        _logList.DataContext = App.WindowLogger.Messages;
+        _logBox = (TextBox)FindResource("LogControl");
+        App.WindowLogger.Messages.CollectionChanged += (_, e) =>
+        {
+            if (e.NewItems == null) return;
+            foreach (var item in e.NewItems)
+            {
+                _logBox.AppendText(item + Environment.NewLine);
+            }
+            _logBox.ScrollToEnd();
+        };
         _exceptionsList.DataContext = ExceptionManager.Exceptions;
         ExceptionManager.ShowExceptions = () =>
         {
@@ -157,6 +165,14 @@ public partial class MainWindow : Window
                 Clipboard.SetText(string.Join(Environment.NewLine, list.SelectedItems.Cast<string>()));
                 e.Handled = true;
             }
+        }
+    }
+
+    private void LogWordWrap_Click(object sender, RoutedEventArgs e)
+    {
+        if (sender is MenuItem item)
+        {
+            _logBox.TextWrapping = item.IsChecked ? TextWrapping.Wrap : TextWrapping.NoWrap;
         }
     }
 
@@ -228,13 +244,13 @@ public partial class MainWindow : Window
                 .FirstOrDefault(p => p.Children.Any(c => c.ContentId == "SearchResults"));
             if (bottomPane != null)
             {
-                anchor = new LayoutAnchorable { Title = "Log", ContentId = "Log", CanClose = false, Content = _logList };
+                anchor = new LayoutAnchorable { Title = "Log", ContentId = "Log", CanClose = false, Content = _logBox };
                 bottomPane.Children.Add(anchor);
             }
         }
         else if (anchor.Content == null)
         {
-            anchor.Content = _logList;
+            anchor.Content = _logBox;
         }
         anchor?.Hide();
     }
@@ -250,7 +266,7 @@ public partial class MainWindow : Window
                 e.Content = _decompilerContent;
                 break;
             case "Output":
-                e.Content = _logList;
+                e.Content = _logBox;
                 e.Model.ContentId = "Log";
                 if (e.Model is LayoutAnchorable la)
                     la.Title = "Log";
@@ -262,7 +278,7 @@ public partial class MainWindow : Window
                 e.Content = _exceptionsList;
                 break;
             case "Log":
-                e.Content = _logList;
+                e.Content = _logBox;
                 break;
         }
     }
