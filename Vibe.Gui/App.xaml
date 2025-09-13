@@ -6,8 +6,8 @@
     <Application.Resources>
         <ResourceDictionary>
             <ResourceDictionary.MergedDictionaries>
-                <ResourceDictionary Source="Icons.xaml" />
                 <ResourceDictionary Source="Colors.xaml" />
+                <ResourceDictionary Source="Icons.xaml" />
             </ResourceDictionary.MergedDictionaries>
             <!-- Brushes -->
             <SolidColorBrush x:Key="WindowBackgroundBrush" Color="{StaticResource Color.Background}" />
