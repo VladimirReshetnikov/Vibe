@@ -12,6 +12,7 @@
         <KeyBinding Command="{x:Static local:MainWindow.ToggleLogCommand}" Gesture="Ctrl+Alt+L" />
         <KeyBinding Command="{x:Static local:MainWindow.ToggleSearchCommand}" Gesture="Ctrl+Alt+S" />
         <KeyBinding Command="{x:Static local:MainWindow.ResetLayoutCommand}" Gesture="Ctrl+Alt+R" />
+        <KeyBinding Command="{x:Static local:MainWindow.OpenDllCommand}" Gesture="Ctrl+O" />
     </Window.InputBindings>
     <Window.Resources>
         <Storyboard x:Key="StripeAnimation" RepeatBehavior="Forever">
@@ -68,7 +69,7 @@
     <DockPanel>
         <Menu DockPanel.Dock="Top">
             <MenuItem Header="_File">
-                <MenuItem Header="_Open..." Click="OpenDll_Click" />
+                <MenuItem Header="_Open..." Click="OpenDll_Click" InputGestureText="Ctrl+O" />
                 <MenuItem Header="Recent _Files" x:Name="RecentFilesMenu" IsEnabled="False" />
                 <Separator />
                 <MenuItem Header="E_xit" Click="Exit_Click" />
