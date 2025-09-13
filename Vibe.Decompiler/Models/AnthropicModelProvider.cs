@@ -13,9 +13,13 @@ namespace Vibe.Decompiler.Models;
 public sealed class AnthropicModelProvider : IModelProvider
 {
     private readonly HttpClient _http = new();
+    /// <summary>API key used to authenticate with Anthropic.</summary>
     public string ApiKey { get; }
+    /// <summary>Identifier of the Claude model to use.</summary>
     public string Model { get; }
+    /// <summary>Maximum number of tokens to request in the response.</summary>
     public int MaxTokens { get; }
+    /// <summary>API version header sent with each request.</summary>
     public string ApiVersion { get; }
 
     /// <summary>
@@ -34,7 +38,7 @@ public sealed class AnthropicModelProvider : IModelProvider
     /// <inheritdoc />
     public async Task<string> RefineAsync(
         string decompiledCode,
-        string language, // TODO
+        string language,
         IEnumerable<string>? documentation = null,
         CancellationToken cancellationToken = default)
     {

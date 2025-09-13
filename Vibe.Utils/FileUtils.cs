@@ -46,6 +46,7 @@ public static class FileUtils
             pattern,
             SearchOption.AllDirectories).FirstOrDefault();
 
+    /// <summary>
     /// Attempts to populate the constant database with Win32 metadata so that APIs and constants
     /// can be rendered with meaningful names during decompilation. The method searches standard
     /// locations such as the Windows SDK and the local NuGet cache.
@@ -117,6 +118,7 @@ public static class FileUtils
     /// Enumerates directories that may contain cached NuGet packages
     /// based on environment variables and platform conventions.
     /// </summary>
+    /// <returns>A sequence of directory paths that are likely to hold NuGet caches.</returns>
     public static IEnumerable<string> GetNuGetCacheDirectories()
     {
         var dirs = new List<string>();

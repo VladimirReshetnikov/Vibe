@@ -9,10 +9,17 @@ public sealed class PassManager
 {
     private readonly List<ITransformationPass> _passes = new();
 
+    /// <summary>
+    /// Initializes an empty pass manager. Passes can be added later via <see cref="Add"/>.
+    /// </summary>
     public PassManager()
     {
     }
 
+    /// <summary>
+    /// Initializes the pass manager with a predefined sequence of passes.
+    /// </summary>
+    /// <param name="passes">Passes to add to the manager.</param>
     public PassManager(IEnumerable<ITransformationPass> passes)
     {
         _passes.AddRange(passes);
