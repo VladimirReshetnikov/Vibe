@@ -20,10 +20,72 @@
                              Storyboard.TargetProperty="X"
                              From="0" To="1" Duration="0:0:1.2" />
         </Storyboard>
+        <Style x:Key="ExplorerToggleStyle" TargetType="ToggleButton">
+            <Setter Property="Focusable" Value="False" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="ToggleButton">
+                        <Grid Width="16" Height="16" Background="Transparent">
+                            <Path x:Name="Arrow" Fill="{StaticResource TextBrush}" Data="M 5,4 L 9,8 L 5,12 Z" />
+                        </Grid>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsChecked" Value="True">
+                                <Setter TargetName="Arrow" Property="Data" Value="M 4,5 L 12,5 L 8,13 Z" />
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
         <TreeView x:Key="ExplorerControl" Margin="4"
                   Background="{StaticResource PanelBrush}" BorderBrush="{StaticResource BorderBrush}" BorderThickness="1"
                   SelectedItemChanged="DllTree_SelectedItemChanged" KeyDown="DllTree_KeyDown"
-                  VirtualizingStackPanel.IsVirtualizing="True" VirtualizingStackPanel.VirtualizationMode="Recycling" />
+                  VirtualizingStackPanel.IsVirtualizing="True" VirtualizingStackPanel.VirtualizationMode="Recycling">
+            <TreeView.ItemContainerStyle>
+                <Style TargetType="TreeViewItem">
+                    <Setter Property="Template">
+                        <Setter.Value>
+                            <ControlTemplate TargetType="TreeViewItem">
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition MinWidth="19" Width="Auto" />
+                                        <ColumnDefinition Width="*" />
+                                    </Grid.ColumnDefinitions>
+                                    <Grid.RowDefinitions>
+                                        <RowDefinition Height="Auto" />
+                                        <RowDefinition />
+                                    </Grid.RowDefinitions>
+                                    <ToggleButton x:Name="Expander" Grid.Column="0"
+                                                  Style="{StaticResource ExplorerToggleStyle}"
+                                                  IsChecked="{Binding Path=IsExpanded,
+                                                                      RelativeSource={RelativeSource TemplatedParent}}"
+                                                  ClickMode="Press" />
+                                    <Grid Grid.Column="1">
+                                        <Rectangle x:Name="SelectionBorder" Stroke="{StaticResource AccentBrush}"
+                                                   StrokeDashArray="2 2" StrokeThickness="1" Fill="Transparent"
+                                                   Visibility="Collapsed" />
+                                        <ContentPresenter x:Name="PART_Header" ContentSource="Header"
+                                                          HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}" />
+                                    </Grid>
+                                    <ItemsPresenter x:Name="ItemsHost" Grid.Column="1" Grid.Row="1" />
+                                </Grid>
+                                <ControlTemplate.Triggers>
+                                    <Trigger Property="IsExpanded" Value="false">
+                                        <Setter TargetName="ItemsHost" Property="Visibility" Value="Collapsed" />
+                                    </Trigger>
+                                    <Trigger Property="HasItems" Value="false">
+                                        <Setter TargetName="Expander" Property="Visibility" Value="Hidden" />
+                                    </Trigger>
+                                    <Trigger Property="IsSelected" Value="true">
+                                        <Setter TargetName="SelectionBorder" Property="Visibility" Value="Visible" />
+                                    </Trigger>
+                                </ControlTemplate.Triggers>
+                            </ControlTemplate>
+                        </Setter.Value>
+                    </Setter>
+                </Style>
+            </TreeView.ItemContainerStyle>
+        </TreeView>
         <Grid x:Key="DecompilerContent" Margin="4">
             <avalonEdit:TextEditor x:Name="OutputBox" FontFamily="Consolas" IsReadOnly="True" ShowLineNumbers="True"
                                    VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Auto"
