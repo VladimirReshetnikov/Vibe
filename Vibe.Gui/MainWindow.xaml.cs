@@ -122,7 +122,7 @@ public partial class MainWindow : Window
         CommandBindings.Add(new CommandBinding(ResetLayoutCommand, (_, _) => ResetLayout()));
         CommandBindings.Add(new CommandBinding(OpenDllCommand, OpenDll_Click));
 
-        OutputBox.TextArea.TextView.LineTransformers.Add(new PseudoCodeColorizer());
+        OutputBox.SetSyntaxHighlighting(SyntaxHighlightingMode.Plain);
 
         var appData = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "Vibe");
         Directory.CreateDirectory(appData);
@@ -778,11 +778,13 @@ public partial class MainWindow : Window
         switch (item.Tag)
         {
             case LoadedDll dll:
+                OutputBox.SetSyntaxHighlighting(SyntaxHighlightingMode.Plain);
                 OutputBox.Text = _dllAnalyzer.GetSummary(dll);
                 if (mainDoc != null)
                     mainDoc.Title = "Decompiler View";
                 return;
             case ExportItem exp:
+                OutputBox.SetSyntaxHighlighting(SyntaxHighlightingMode.Cpp);
                 OutputBox.Text = string.Empty;
                 BusyBar.Visibility = Visibility.Visible;
                 var dllItem = exp.Dll;
@@ -825,11 +827,13 @@ public partial class MainWindow : Window
                 }
                 break;
             case TypeDefinition td:
+                OutputBox.SetSyntaxHighlighting(SyntaxHighlightingMode.Plain);
                 OutputBox.Text = $"Type: {td.FullName}";
                 if (mainDoc != null)
                     mainDoc.Title = "Decompiler View";
                 return;
             case MethodDefinition md:
+                OutputBox.SetSyntaxHighlighting(SyntaxHighlightingMode.CSharp);
                 OutputBox.Text = string.Empty;
                 BusyBar.Visibility = Visibility.Visible;
                 if (GetRootItem(item).Tag is LoadedDll rootDll)
@@ -881,7 +885,7 @@ public partial class MainWindow : Window
         var template = (Grid)FindResource("DecompilerContent");
         var clone = (Grid)XamlReader.Parse(XamlWriter.Save(template));
         editor = (TextEditor)clone.Children[0];
-        editor.TextArea.TextView.LineTransformers.Add(new PseudoCodeColorizer());
+        editor.SetSyntaxHighlighting(SyntaxHighlightingMode.Plain);
         return clone;
     }
 
@@ -900,6 +904,7 @@ public partial class MainWindow : Window
         switch (item.Tag)
         {
             case ExportItem exp:
+                editor.SetSyntaxHighlighting(SyntaxHighlightingMode.Cpp);
                 editor.Text = string.Empty;
                 BusyBar.Visibility = Visibility.Visible;
                 var dllItem = exp.Dll;
@@ -933,6 +938,7 @@ public partial class MainWindow : Window
                 BusyBar.Visibility = Visibility.Collapsed;
                 break;
             case MethodDefinition md:
+                editor.SetSyntaxHighlighting(SyntaxHighlightingMode.CSharp);
                 editor.Text = string.Empty;
                 BusyBar.Visibility = Visibility.Visible;
                 if (GetRootItem(item).Tag is LoadedDll rootDll)
