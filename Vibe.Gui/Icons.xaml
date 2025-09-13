@@ -2,23 +2,17 @@
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
 
-  <!-- ======= Oslo Palette Brushes (tweak as you like) ======= -->
-  <!-- Dominant cool blue -->
-  <SolidColorBrush x:Key="Oslo.Blueprint" Color="#365F91"/>
-  <!-- Light bluish grays -->
-  <SolidColorBrush x:Key="Oslo.FjordMist" Color="#AABBD3"/>
-  <SolidColorBrush x:Key="Oslo.GlacierHaze" Color="#CCD5E1"/>
-  <!-- Neutrals -->
-  <SolidColorBrush x:Key="Oslo.White" Color="#FFFFFF"/>
-  <SolidColorBrush x:Key="Oslo.Graphite" Color="#666666"/>
-  <!-- Olive/lichen accent (for “native”/transform motif) -->
-  <SolidColorBrush x:Key="Oslo.Lichen" Color="#C6DC1D"/>
-  <SolidColorBrush x:Key="Oslo.Moss" Color="#B6CA59"/>
+  <!-- Brushes derived from the app's olive-toned palette -->
+  <SolidColorBrush x:Key="Icon.Foreground" Color="{StaticResource Color.Foreground}"/>
+  <SolidColorBrush x:Key="Icon.Accent" Color="{StaticResource Color.Accent}"/>
+  <SolidColorBrush x:Key="Icon.AccentHighlight" Color="{StaticResource Color.Accent.Highlight}"/>
+  <SolidColorBrush x:Key="Icon.Light" Color="{StaticResource Color.Olive.Khaki}"/>
+  <SolidColorBrush x:Key="Icon.White" Color="{StaticResource Color.Background}"/>
 
   <!-- Shared pens (use device‑independent px; line caps for crispness) -->
-  <Pen x:Key="IconStrokeThin" Brush="{StaticResource Oslo.Graphite}" Thickness="1" StartLineCap="Square" EndLineCap="Square"/>
-  <Pen x:Key="IconStrokeMed"  Brush="{StaticResource Oslo.Graphite}" Thickness="1.25" StartLineCap="Square" EndLineCap="Square"/>
-  <Pen x:Key="IconStrokeBlue" Brush="{StaticResource Oslo.Blueprint}" Thickness="1.25" StartLineCap="Square" EndLineCap="Square"/>
+  <Pen x:Key="IconStrokeThin" Brush="{StaticResource Icon.Foreground}" Thickness="1" StartLineCap="Square" EndLineCap="Square"/>
+  <Pen x:Key="IconStrokeMed"  Brush="{StaticResource Icon.Foreground}" Thickness="1.25" StartLineCap="Square" EndLineCap="Square"/>
+  <Pen x:Key="IconStrokeAccent" Brush="{StaticResource Icon.Accent}" Thickness="1.25" StartLineCap="Square" EndLineCap="Square"/>
 
   <!-- ========================================================= -->
   <!-- 1) APP ICON: “Chip → Structured Blocks” (no letters)     -->
@@ -30,14 +24,14 @@
     <DrawingImage.Drawing>
       <DrawingGroup>
         <!-- Chip body -->
-        <GeometryDrawing Brush="{StaticResource Oslo.Blueprint}">
+        <GeometryDrawing Brush="{StaticResource Icon.Accent}">
           <GeometryDrawing.Geometry>
             <RectangleGeometry Rect="2,6,8,12" RadiusX="1" RadiusY="1"/>
           </GeometryDrawing.Geometry>
         </GeometryDrawing>
 
         <!-- Chip pins (left and right) -->
-        <GeometryDrawing Brush="{StaticResource Oslo.Graphite}">
+        <GeometryDrawing Brush="{StaticResource Icon.Foreground}">
           <GeometryDrawing.Geometry>
             <GeometryGroup>
               <!-- Left pins -->
@@ -54,20 +48,20 @@
 
         <!-- Transform arrow (chip → right) -->
         <!-- shaft -->
-        <GeometryDrawing Brush="{StaticResource Oslo.Lichen}">
+        <GeometryDrawing Brush="{StaticResource Icon.AccentHighlight}">
           <GeometryDrawing.Geometry>
             <RectangleGeometry Rect="12,11,7,2"/>
           </GeometryDrawing.Geometry>
         </GeometryDrawing>
         <!-- head -->
-        <GeometryDrawing Brush="{StaticResource Oslo.Lichen}">
+        <GeometryDrawing Brush="{StaticResource Icon.AccentHighlight}">
           <GeometryDrawing.Geometry>
             <PathGeometry Figures="M19,9 L23,12 L19,15 Z"/>
           </GeometryDrawing.Geometry>
         </GeometryDrawing>
 
         <!-- Structured blocks (3 panels) -->
-        <GeometryDrawing Brush="{StaticResource Oslo.GlacierHaze}" Pen="{StaticResource IconStrokeThin}">
+        <GeometryDrawing Brush="{StaticResource Icon.Light}" Pen="{StaticResource IconStrokeThin}">
           <GeometryDrawing.Geometry>
             <GeometryGroup>
               <RectangleGeometry Rect="16,4,6,3" RadiusX="0.5" RadiusY="0.5"/>
@@ -88,28 +82,28 @@
     <DrawingImage.Drawing>
       <DrawingGroup>
         <!-- Document shape with fold -->
-        <GeometryDrawing Brush="{StaticResource Oslo.White}" Pen="{StaticResource IconStrokeThin}">
+        <GeometryDrawing Brush="{StaticResource Icon.White}" Pen="{StaticResource IconStrokeThin}">
           <GeometryDrawing.Geometry>
             <!-- Document outline (folded top-right corner) -->
             <PathGeometry Figures="M6,4 L16,4 L20,8 L20,20 L6,20 Z"/>
           </GeometryDrawing.Geometry>
         </GeometryDrawing>
         <!-- Fold highlight -->
-        <GeometryDrawing Brush="{StaticResource Oslo.GlacierHaze}">
+        <GeometryDrawing Brush="{StaticResource Icon.Light}">
           <GeometryDrawing.Geometry>
             <PathGeometry Figures="M16,4 L20,8 L16,8 Z"/>
           </GeometryDrawing.Geometry>
         </GeometryDrawing>
 
         <!-- Chip badge (bottom-right) -->
-        <GeometryDrawing Brush="{StaticResource Oslo.Blueprint}" Pen="{StaticResource IconStrokeBlue}">
+        <GeometryDrawing Brush="{StaticResource Icon.Accent}" Pen="{StaticResource IconStrokeAccent}">
           <GeometryDrawing.Geometry>
             <RectangleGeometry Rect="12,14,8,6" RadiusX="1" RadiusY="1"/>
           </GeometryDrawing.Geometry>
         </GeometryDrawing>
 
         <!-- Chip pins (top & bottom) -->
-        <GeometryDrawing Brush="{StaticResource Oslo.Graphite}">
+        <GeometryDrawing Brush="{StaticResource Icon.Foreground}">
           <GeometryDrawing.Geometry>
             <GeometryGroup>
               <!-- Top pins -->
