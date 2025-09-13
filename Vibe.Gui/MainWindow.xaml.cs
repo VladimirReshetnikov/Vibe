@@ -316,6 +316,19 @@ public partial class MainWindow : Window
                 ExceptionManager.Handle(ex);
             else
                 Logger.LogException(ex);
+
+            try
+            {
+                // Create a placeholder node representing the problematic file
+                var badDll = new InvalidDll(path, ex);
+                var warnIcon = (ImageSource)FindResource("DllWarningIconImage");
+                var root = CreateTreeViewItemWithIcon(Path.GetFileName(path), warnIcon, badDll);
+                DllTree.Items.Add(root);
+            }
+            catch (Exception inner)
+            {
+                Logger.LogException(inner);
+            }
         }
     }
 
@@ -800,6 +813,12 @@ public partial class MainWindow : Window
                 if (mainDoc != null)
                     mainDoc.Title = "Decompiler View";
                 return;
+            case InvalidDll bad:
+                OutputBox.SetSyntaxHighlighting(SyntaxHighlightingMode.Plain);
+                OutputBox.Text = bad.GetSummary();
+                if (mainDoc != null)
+                    mainDoc.Title = "Decompiler View";
+                return;
             case ExportItem exp:
                 OutputBox.SetSyntaxHighlighting(SyntaxHighlightingMode.Cpp);
                 OutputBox.Text = string.Empty;
@@ -1028,25 +1047,26 @@ public partial class MainWindow : Window
             if (DllTree.SelectedItem is not TreeViewItem item)
                 return;
 
-            TreeViewItem root;
-            LoadedDll dll;
             switch (item.Tag)
             {
                 case LoadedDll di:
-                    dll = di;
-                    root = item;
+                    di.Cts.Cancel();
+                    di.Dispose();
+                    DllTree.Items.Remove(item);
                     break;
                 case ExportItem exp:
-                    dll = exp.Dll;
-                    root = GetRootItem(item);
+                    var dll = exp.Dll;
+                    dll.Cts.Cancel();
+                    dll.Dispose();
+                    DllTree.Items.Remove(GetRootItem(item));
+                    break;
+                case InvalidDll:
+                    DllTree.Items.Remove(item);
                     break;
                 default:
                     return;
             }
 
-            dll.Cts.Cancel();
-            dll.Dispose();
-            DllTree.Items.Remove(root);
             SaveOpenDlls();
             UpdateRecentFilesMenu();
             CancelCurrentRequest();
