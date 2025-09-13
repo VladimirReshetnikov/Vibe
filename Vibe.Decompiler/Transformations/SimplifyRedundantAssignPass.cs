@@ -5,6 +5,10 @@ namespace Vibe.Decompiler.Transformations;
 /// </summary>
 public sealed class SimplifyRedundantAssignPass : IRRewriter, ITransformationPass
 {
+    /// <summary>
+    /// Scans the function for trivial assignments where a register is assigned
+    /// to itself and replaces those statements with <see cref="IR.NopStmt"/>.
+    /// </summary>
     public void Run(IR.FunctionIR fn)
     {
         foreach (var bb in fn.Blocks)
@@ -16,6 +20,9 @@ public sealed class SimplifyRedundantAssignPass : IRRewriter, ITransformationPas
         }
     }
 
+    /// <summary>
+    /// Performs the actual detection of self-assignments during the rewrite phase.
+    /// </summary>
     protected override IR.Stmt RewriteAssign(IR.AssignStmt assign)
     {
         if (assign.Lhs is IR.RegExpr rl && assign.Rhs is IR.RegExpr rr && rl.Name == rr.Name)

@@ -119,13 +119,17 @@ public class Program
                 var dlg = new Dialog("Select Method", 60, 20, close);
                 dlg.Add(methodList);
 
-                methodList.OpenSelectedItem += args2 =>
+                methodList.OpenSelectedItem += async args2 =>
                 {
                     var methodName = (string)args2.Value;
                     var method = type.Methods.First(m => m.FullName == methodName);
-                    var body = Analyzer.GetManagedMethodBody(Dll!, method);
-                    CodeView.Text = body;
-                    Application.RequestStop();
+                    CodeView.Text = "Loading...";
+                    var body = await Analyzer.GetManagedMethodBodyAsync(Dll!, method);
+                    Application.MainLoop.Invoke(() =>
+                    {
+                        CodeView.Text = body;
+                        Application.RequestStop();
+                    });
                 };
                 close.Clicked += () => Application.RequestStop();
 
