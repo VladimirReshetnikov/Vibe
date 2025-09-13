@@ -7,7 +7,7 @@
     <Color x:Key="Color.Olive.Olive">#7D9657</Color>
     <Color x:Key="Color.Olive.Moss">#9DB463</Color>
     <Color x:Key="Color.Olive.Lichen">#C6DC1D</Color>
-    <Color x:Key="Color.Olive.Khaki">#E9ECCD</Color>
+    <Color x:Key="Color.Olive.Khaki">#D5D9AF</Color>
     <Color x:Key="Color.Olive.Cream">#F4F7E9</Color>
 
     <!-- Neutralized UI base derived from olive tones -->

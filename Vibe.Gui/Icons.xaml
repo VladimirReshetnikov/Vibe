@@ -6,7 +6,7 @@
   <SolidColorBrush x:Key="Icon.Foreground" Color="{StaticResource Color.Foreground}"/>
   <SolidColorBrush x:Key="Icon.Accent" Color="{StaticResource Color.Accent}"/>
   <SolidColorBrush x:Key="Icon.AccentHighlight" Color="{StaticResource Color.Accent.Highlight}"/>
-  <SolidColorBrush x:Key="Icon.Light" Color="{StaticResource Color.CoolGray.Cloud}"/>
+  <SolidColorBrush x:Key="Icon.Light" Color="{StaticResource Color.Olive.Khaki}"/>
   <SolidColorBrush x:Key="Icon.White" Color="{StaticResource Color.Background}"/>
   <SolidColorBrush x:Key="Icon.Warning" Color="#E7D27B"/>
 
