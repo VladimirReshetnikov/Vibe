@@ -11,8 +11,16 @@ using Vibe.Decompiler.Transformations;
 
 namespace Vibe.Decompiler;
 
+/// <summary>
+/// High level driver that turns raw machine code bytes into a C-like
+/// pseudocode listing by decoding instructions, constructing IR and running
+/// a series of transformation passes.
+/// </summary>
 public sealed class Engine
 {
+    /// <summary>
+    /// Configuration options controlling how the decompiler operates.
+    /// </summary>
     public sealed class Options
     {
         /// <summary>Base address to assume for the function (used for RIP-relative and labels)</summary>
@@ -94,7 +102,13 @@ public sealed class Engine
         public Ctx(Options opt) { Opt = opt; }
     }
 
-    /// <summary>Entry point: build IR and pretty-print.</summary>
+    /// <summary>
+    /// Entry point that decompiles the provided machine code into pseudocode
+    /// using the specified <see cref="Options"/>.
+    /// </summary>
+    /// <param name="code">Raw machine code bytes representing the function.</param>
+    /// <param name="options">Optional configuration controlling the process.</param>
+    /// <returns>A formatted C-like representation of the function.</returns>
     public string ToPseudoCode(ReadOnlyMemory<byte> code, Options? options = null)
     {
         var opt = options ?? new Options();

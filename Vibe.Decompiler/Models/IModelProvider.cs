@@ -12,12 +12,13 @@ public interface IModelProvider : IDisposable
     /// optionally taking additional documentation into account.
     /// </summary>
     /// <param name="decompiledCode">Raw output from the decompiler.</param>
+    /// <param name="language">Programming language the refined code should target.</param>
     /// <param name="documentation">Optional snippets of reference documentation.</param>
     /// <param name="cancellationToken">Token used to cancel the request.</param>
     /// <returns>The refined source code as a string.</returns>
     Task<string> RefineAsync(
         string decompiledCode,
-        string language, // TODO: document
+        string language,
         IEnumerable<string>? documentation = null,
         CancellationToken cancellationToken = default);
 }

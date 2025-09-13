@@ -645,7 +645,7 @@ public partial class MainWindow : Window
                 return;
             case MethodDefinition md:
                 if (GetRootItem(item).Tag is LoadedDll rootDll)
-                    OutputBox.Text = _dllAnalyzer.GetManagedMethodBody(rootDll, md);
+                    OutputBox.Text = await _dllAnalyzer.GetManagedMethodBodyAsync(rootDll, md);
                 return;
         }
     }

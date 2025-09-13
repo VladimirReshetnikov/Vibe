@@ -6,6 +6,10 @@ namespace Vibe.Decompiler.Transformations;
 /// </summary>
 public sealed class SimplifyArithmeticPass : IRRewriter, ITransformationPass
 {
+    /// <summary>
+    /// Iterates over all statements in the function and rewrites arithmetic
+    /// expressions in-place using <see cref="RewriteBinOp"/>.
+    /// </summary>
     public void Run(IR.FunctionIR fn)
     {
         foreach (var bb in fn.Blocks)
@@ -17,6 +21,10 @@ public sealed class SimplifyArithmeticPass : IRRewriter, ITransformationPass
         }
     }
 
+    /// <summary>
+    /// Applies a set of algebraic identities to binary arithmetic operations,
+    /// eliminating no-op computations such as adding zero or multiplying by one.
+    /// </summary>
     protected override IR.Expr RewriteBinOp(IR.BinOpExpr b)
     {
         var L = RewriteExpr(b.Left);

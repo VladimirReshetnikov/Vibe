@@ -155,6 +155,10 @@ public sealed class ConstantDatabase : IConstantNameProvider
         }
     }
 
+    /// <summary>
+    /// Registers an enumeration description with the database and updates
+    /// the reverse lookup indexes for fast value to name resolution.
+    /// </summary>
     private void AddEnum(EnumDesc desc)
     {
         _enums[desc.FullName] = desc;
@@ -169,6 +173,11 @@ public sealed class ConstantDatabase : IConstantNameProvider
             _flagEnums.Add(desc);
     }
 
+    /// <summary>
+    /// Loads all enum definitions from a Windows metadata (<c>.winmd</c>) file
+    /// and adds them to the database for constant name lookups.
+    /// </summary>
+    /// <param name="winmdPath">Path to the <c>.winmd</c> file.</param>
     public void LoadWin32MetadataFromWinmd(string winmdPath)
     {
         using var fs = File.OpenRead(winmdPath);
@@ -217,6 +226,11 @@ public sealed class ConstantDatabase : IConstantNameProvider
         }
     }
 
+    /// <summary>
+    /// Loads constant definitions from a managed assembly. Both enums and
+    /// classes containing literal fields are supported.
+    /// </summary>
+    /// <param name="asm">Assembly whose types should be scanned.</param>
     public void LoadFromAssembly(Assembly asm)
     {
         foreach (var t in asm.GetTypes())
@@ -262,6 +276,9 @@ public sealed class ConstantDatabase : IConstantNameProvider
         }
     }
 
+    /// <summary>
+    /// Determines whether the specified type definition represents an enum.
+    /// </summary>
     private static bool IsEnum(MetadataReader md, TypeDefinition td)
     {
         var bt = td.BaseType;
@@ -272,6 +289,9 @@ public sealed class ConstantDatabase : IConstantNameProvider
         return ns == "System" && n == "Enum";
     }
 
+    /// <summary>
+    /// Checks if the given type definition has the <c>[Flags]</c> attribute applied.
+    /// </summary>
     private static bool HasFlagsAttribute(MetadataReader md, TypeDefinition td)
     {
         foreach (var caHandle in td.GetCustomAttributes())
@@ -285,6 +305,10 @@ public sealed class ConstantDatabase : IConstantNameProvider
         return false;
     }
 
+    /// <summary>
+    /// Attempts to resolve the namespace and name of an attribute referenced by
+    /// <paramref name="ctor"/>.
+    /// </summary>
     private static bool TryGetAttributeTypeName(MetadataReader md, EntityHandle ctor, out string ns, out string name)
     {
         ns = ""; name = "";
@@ -322,6 +346,9 @@ public sealed class ConstantDatabase : IConstantNameProvider
         return false;
     }
 
+    /// <summary>
+    /// Retrieves the bit width of the enum's underlying integral type from its metadata signature.
+    /// </summary>
     private static int UnderlyingBitsFromSignature(MetadataReader md, FieldDefinition f)
     {
         var sig = md.GetBlobReader(f.Signature);
@@ -330,6 +357,9 @@ public sealed class ConstantDatabase : IConstantNameProvider
         return bits == 0 ? 32 : bits;
     }
 
+    /// <summary>
+    /// Parses a primitive type code from a metadata signature and returns its size and signedness.
+    /// </summary>
     private static (int bits, bool isSigned) ReadTypeCode(BlobReader br)
     {
         var code = (SignatureTypeCode)br.ReadCompressedInteger();
@@ -347,6 +377,9 @@ public sealed class ConstantDatabase : IConstantNameProvider
         };
     }
 
+    /// <summary>
+    /// Reads a constant value from metadata and converts it to an unsigned 64-bit integer.
+    /// </summary>
     private static ulong ReadConstantValueAsUInt64(MetadataReader md, ConstantHandle ch)
     {
         var c = md.GetConstant(ch);
@@ -365,6 +398,9 @@ public sealed class ConstantDatabase : IConstantNameProvider
         };
     }
 
+    /// <summary>
+    /// Converts a boxed integral value to an unsigned 64-bit representation.
+    /// </summary>
     private static ulong ConvertToUInt64(object v)
         => v switch
         {
@@ -390,6 +426,10 @@ public sealed class ConstantDatabase : IConstantNameProvider
 
         public EnumDesc(string full) { FullName = full; }
 
+        /// <summary>
+        /// Finalizes the descriptor after all members have been loaded,
+        /// computing auxiliary data used for flag enumeration formatting.
+        /// </summary>
         public void FinalizeAfterLoad()
         {
             var singles = ValueToName.Keys.Where(v => v != 0 && (v & (v - 1)) == 0).ToList();
