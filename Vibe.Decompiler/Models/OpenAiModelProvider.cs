@@ -14,8 +14,11 @@ namespace Vibe.Decompiler.Models;
 public sealed class OpenAiModelProvider : IModelProvider
 {
     private readonly HttpClient _http = new() { Timeout = TimeSpan.FromHours(1) }; // TODO: Make configurable
+    /// <summary>API key used to authenticate against the OpenAI service.</summary>
     public string ApiKey { get; }
+    /// <summary>Name of the OpenAI model to invoke.</summary>
     public string Model { get; }
+    /// <summary>Optional reasoning effort hint for models that support it.</summary>
     public string? ReasoningEffort { get; }
 
     /// <summary>

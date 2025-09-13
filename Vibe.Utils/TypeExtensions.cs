@@ -27,8 +27,18 @@ public static class TypeExtensions
         return new StaticTypeProxy(staticType);
     }
 
+    /// <summary>
+    /// Dynamic proxy object that forwards member access to the static members of the
+    /// wrapped <see cref="Type"/>. Instances are produced by <see cref="ToDynamicObject"/>.
+    /// </summary>
+    /// <param name="type">The type whose static members should be exposed.</param>
     private sealed class StaticTypeProxy(Type type) : DynamicObject
     {
+        /// <summary>
+        /// Invokes a static member on the underlying <see cref="Type"/> using the
+        /// dynamic binder infrastructure.
+        /// </summary>
+        /// <inheritdoc />
         public override bool TryInvokeMember(InvokeMemberBinder binder, object?[]? args, out object? result)
         {
             result = null;
@@ -63,6 +73,10 @@ public static class TypeExtensions
             return true;
         }
 
+        /// <summary>
+        /// Resolves a static property, field or nested type on the wrapped <see cref="Type"/>.
+        /// </summary>
+        /// <inheritdoc />
         public override bool TryGetMember(GetMemberBinder binder, out object? result)
         {
             // If the requested member is a public nested static type, return its proxy directly.
@@ -97,6 +111,10 @@ public static class TypeExtensions
             return true;
         }
 
+        /// <summary>
+        /// Assigns to a static property or field on the wrapped <see cref="Type"/>.
+        /// </summary>
+        /// <inheritdoc />
         public override bool TrySetMember(SetMemberBinder binder, object? value)
         {
             var property = type.GetProperty(binder.Name, BindingFlags.Public | BindingFlags.Static);

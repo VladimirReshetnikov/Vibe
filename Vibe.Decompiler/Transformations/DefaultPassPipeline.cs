@@ -8,6 +8,7 @@ public static class DefaultPassPipeline
     /// <summary>
     /// Creates a pass manager configured with the standard set of passes.
     /// </summary>
+    /// <returns>A pass manager ready to run the default pipeline.</returns>
     public static PassManager Create()
     {
         return new PassManager(new ITransformationPass[]

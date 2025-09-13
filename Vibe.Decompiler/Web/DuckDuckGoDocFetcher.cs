@@ -16,8 +16,11 @@ namespace Vibe.Decompiler.Web;
 public sealed class OpenAiDocPageEvaluator : IDocPageEvaluator
 {
     private readonly HttpClient _http = new();
+    /// <summary>API key used to authenticate with OpenAI.</summary>
     public string ApiKey { get; }
+    /// <summary>Name of the model to query for classification.</summary>
     public string Model { get; }
+    /// <summary>Optional reasoning effort hint for supported models.</summary>
     public string? ReasoningEffort { get; }
 
     /// <summary>
@@ -97,6 +100,7 @@ public static class DuckDuckGoDocFetcher
     /// <param name="fragmentSize">Maximum size of page fragments passed to the evaluator.</param>
     /// <param name="timeoutSeconds">HTTP request timeout in seconds.</param>
     /// <param name="cancellationToken">Optional cancellation token.</param>
+    /// <returns>List of HTML pages deemed relevant by the evaluator.</returns>
     public static async Task<List<string>> FindDocumentationPagesAsync(
         string functionName,
         int maxPages,
@@ -202,6 +206,7 @@ public static class DuckDuckGoDocFetcher
     /// Splits the HTML page into smaller fragments so that they can be analysed
     /// individually by the evaluator without exceeding token limits.
     /// </summary>
+    /// <returns>An enumerable sequence of page fragments.</returns>
     private static IEnumerable<string> SplitFragments(string text, int maxLen)
     {
         int index = 0;

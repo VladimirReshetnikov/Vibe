@@ -161,6 +161,13 @@ public sealed class DllAnalyzer : IDisposable
         return output;
     }
 
+    /// <summary>
+    /// Builds the contextual header supplied to LLM providers so they can
+    /// reason about the binary being analysed.  The header includes version
+    /// information and compiler heuristics.
+    /// </summary>
+    /// <param name="dll">The loaded DLL for which context should be produced.</param>
+    /// <returns>A multi-line comment block describing the image.</returns>
     private static string BuildLlmContext(LoadedDll dll)
     {
         var path = dll.Pe.FilePath;
@@ -185,6 +192,10 @@ public sealed class DllAnalyzer : IDisposable
         return sb.ToString();
     }
 
+    /// <summary>
+    /// Gets or sets an optional file name used by consumers to identify the
+    /// currently analysed image.
+    /// </summary>
     public string? FileName { get; set; }
 
     /// <summary>Releases resources including any LLM provider.</summary>
