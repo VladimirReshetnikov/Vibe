@@ -813,12 +813,12 @@ public partial class MainWindow : Window
                 {
                     var progress = new Progress<string>(t =>
                     {
-                        OutputBox.Text = t;
+                        OutputBox.Text = PrependVersionComment(t, false);
                         if (_dllAnalyzer.HasLlmProvider)
                             ShowLlmOverlay();
                     });
                     var output = await _dllAnalyzer.GetDecompiledExportAsync(dllItem, exp.Name, progress, token);
-                    OutputBox.Text = output;
+                    OutputBox.Text = PrependVersionComment(output, true);
                 }
                 catch (OperationCanceledException ex)
                 {
@@ -865,12 +865,12 @@ public partial class MainWindow : Window
                     {
                         var progress = new Progress<string>(t =>
                         {
-                            OutputBox.Text = t;
+                            OutputBox.Text = PrependVersionComment(t, false);
                             if (_dllAnalyzer.HasLlmProvider)
                                 ShowLlmOverlay();
                         });
                         var body = await _dllAnalyzer.GetManagedMethodBodyAsync(rootDll, md, progress, mtoken);
-                        OutputBox.Text = body;
+                        OutputBox.Text = PrependVersionComment(body, true);
                     }
                     catch (OperationCanceledException ex)
                     {
@@ -942,9 +942,9 @@ public partial class MainWindow : Window
                     var token = cts.Token;
                     try
                     {
-                        var progress = new Progress<string>(t => editor.Text = t);
+                        var progress = new Progress<string>(t => editor.Text = PrependVersionComment(t, false));
                         var output = await _dllAnalyzer.GetDecompiledExportAsync(dllItem, exp.Name, progress, token);
-                        editor.Text = output;
+                        editor.Text = PrependVersionComment(output, true);
                     }
                     catch (OperationCanceledException ex)
                     {
@@ -979,9 +979,9 @@ public partial class MainWindow : Window
                     var token = cts.Token;
                     try
                     {
-                        var progress = new Progress<string>(t => editor.Text = t);
+                        var progress = new Progress<string>(t => editor.Text = PrependVersionComment(t, false));
                         var body = await _dllAnalyzer.GetManagedMethodBodyAsync(rootDll, md, progress, token);
-                        editor.Text = body;
+                        editor.Text = PrependVersionComment(body, true);
                     }
                     catch (OperationCanceledException ex)
                     {
@@ -1123,4 +1123,9 @@ public partial class MainWindow : Window
         var dlg = new AboutWindow { Owner = this };
         dlg.ShowDialog();
     }
+
+    private static string PrependVersionComment(string code, bool isFinal)
+        => string.IsNullOrEmpty(code)
+            ? code
+            : $"// {(isFinal ? "Final" : "Preliminary")} version{Environment.NewLine}{code}";
 }

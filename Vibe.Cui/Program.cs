@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
@@ -155,9 +156,9 @@ public class Program
                 var code = await Analyzer.GetDecompiledExportAsync(
                     export.Dll,
                     export.Name,
-                    new Progress<string>(p => Application.MainLoop.Invoke(() => CodeView.Text = p)),
+                    new Progress<string>(p => Application.MainLoop.Invoke(() => CodeView.Text = PrependVersionComment(p, false))),
                     export.Dll.Cts.Token).ConfigureAwait(false);
-                Application.MainLoop.Invoke(() => CodeView.Text = code);
+                Application.MainLoop.Invoke(() => CodeView.Text = PrependVersionComment(code, true));
                 break;
             case MethodDefinition method:
                 if (method.Module?.FileName == null || !ModuleToDll.TryGetValue(method.Module.FileName, out var mdll))
@@ -169,9 +170,9 @@ public class Program
                 var body = await Analyzer.GetManagedMethodBodyAsync(
                     mdll,
                     method,
-                    new Progress<string>(p => Application.MainLoop.Invoke(() => CodeView.Text = p)),
+                    new Progress<string>(p => Application.MainLoop.Invoke(() => CodeView.Text = PrependVersionComment(p, false))),
                     mdll.Cts.Token).ConfigureAwait(false);
-                Application.MainLoop.Invoke(() => CodeView.Text = body);
+                Application.MainLoop.Invoke(() => CodeView.Text = PrependVersionComment(body, true));
                 break;
         }
     }
@@ -243,6 +244,11 @@ public class Program
             _ => type.Name
         };
     }
+
+    static string PrependVersionComment(string code, bool isFinal)
+        => string.IsNullOrEmpty(code)
+            ? code
+            : $"// {(isFinal ? "Final" : "Preliminary")} version{Environment.NewLine}{code}";
 
     sealed class NamespaceNode
     {
