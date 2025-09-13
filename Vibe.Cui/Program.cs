@@ -1,7 +1,9 @@
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using Mono.Cecil;
 using Terminal.Gui;
+using Terminal.Gui.Trees;
 using Vibe.Decompiler;
 
 /// <summary>
@@ -11,11 +13,12 @@ using Vibe.Decompiler;
 public class Program
 {
     static readonly DllAnalyzer Analyzer = new();
-    static LoadedDll? Dll;
-    static List<TypeDefinition> ManagedTypes = new();
-    static ListView ItemList = null!;
+    static readonly List<LoadedDll> LoadedDlls = new();
+    static readonly Dictionary<string, LoadedDll> ModuleToDll = new(StringComparer.OrdinalIgnoreCase);
+    static readonly Dictionary<object, List<object>> ChildCache = new();
+
+    static TreeView<object> DllTree = null!;
     static TextView CodeView = null!;
-    static bool ShowingExports = true;
 
     /// <summary>
     /// Launches the terminal UI and initializes application state.
@@ -30,12 +33,12 @@ public class Program
             new MenuBarItem("_File", new MenuItem[]
             {
                 new MenuItem("_Open", string.Empty, OpenFile),
-                new MenuItem("_Quit", string.Empty, () => { Dll?.Dispose(); Application.RequestStop(); })
-            }),
-            new MenuBarItem("_View", new MenuItem[]
-            {
-                new MenuItem("_Exports", string.Empty, LoadExports, () => Dll != null),
-                new MenuItem("_Managed Types", string.Empty, LoadManagedTypes, () => Dll?.IsManaged ?? false)
+                new MenuItem("_Quit", string.Empty, () =>
+                {
+                    foreach (var dll in LoadedDlls)
+                        dll.Dispose();
+                    Application.RequestStop();
+                })
             })
         });
         top.Add(menu);
@@ -54,107 +57,126 @@ public class Program
             Height = Dim.Fill(1)
         };
 
-        var leftPane = new FrameView("Items")
+        DllTree = new TreeView<object>()
         {
-            X = 0,
-            Y = 0,
             Width = Dim.Percent(30),
-            Height = Dim.Fill()
-        };
-
-        var rightPane = new FrameView("Details")
-        {
-            X = Pos.Right(leftPane),
-            Y = 0,
-            Width = Dim.Fill(),
-            Height = Dim.Fill()
-        };
-
-        ItemList = new ListView(new List<string>())
-        {
-            Width = Dim.Fill(),
             Height = Dim.Fill(),
             CanFocus = true
         };
+
+        DllTree.AspectGetter = o => o switch
+        {
+            LoadedDll dll => Path.GetFileName(dll.Pe.FilePath),
+            NamespaceNode ns => ns.Name,
+            TypeDefinition t => t.Name,
+            MethodDefinition m => FormatMethodSignature(m),
+            ExportItem e => e.Name,
+            _ => o?.ToString() ?? string.Empty
+        };
+
+        DllTree.TreeBuilder = new DelegateTreeBuilder<object>(GetChildren, HasChildren);
+        DllTree.ObjectActivated += OnObjectActivated;
 
         CodeView = new TextView()
         {
             ReadOnly = true,
             WordWrap = false,
+            X = Pos.Right(DllTree),
+            Y = 0,
             Width = Dim.Fill(),
             Height = Dim.Fill()
         };
 
-        ItemList.OpenSelectedItem += async args =>
-        {
-            if (Dll == null) return;
-            var selected = (string)args.Value;
-            if (ShowingExports)
-            {
-                CodeView.Text = "Loading...";
-                var code = await Analyzer.GetDecompiledExportAsync(
-                    Dll,
-                    selected,
-                    new Progress<string>(p => Application.MainLoop.Invoke(() => CodeView.Text = p)),
-                    Dll.Cts.Token).ConfigureAwait(false);
-                Application.MainLoop.Invoke(() => CodeView.Text = code);
-            }
-            else
-            {
-                var type = ManagedTypes.First(t => t.FullName == selected);
-                if (!type.Methods.Any())
-                {
-                    CodeView.Text = "// Type has no methods";
-                    return;
-                }
-
-                var methods = type.Methods.Select(m => m.FullName).ToList();
-                var methodList = new ListView(methods)
-                {
-                    Width = Dim.Fill(),
-                    Height = Dim.Fill()
-                };
-
-                var close = new Button("Close", is_default: true);
-                var dlg = new Dialog("Select Method", 60, 20, close);
-                dlg.Add(methodList);
-
-                methodList.OpenSelectedItem += async args2 =>
-                {
-                    var methodName = (string)args2.Value;
-                    var method = type.Methods.First(m => m.FullName == methodName);
-                    CodeView.Text = "Loading...";
-                    var body = await Analyzer.GetManagedMethodBodyAsync(
-                        Dll!,
-                        method,
-                        new Progress<string>(p => Application.MainLoop.Invoke(() => CodeView.Text = p)),
-                        Dll.Cts.Token).ConfigureAwait(false);
-                    Application.MainLoop.Invoke(() =>
-                    {
-                        CodeView.Text = body;
-                        Application.RequestStop();
-                    });
-                };
-                close.Clicked += () => Application.RequestStop();
-
-                Application.Run(dlg);
-            }
-        };
-
-        leftPane.Add(ItemList);
-        rightPane.Add(CodeView);
-        win.Add(leftPane, rightPane);
+        win.Add(DllTree, CodeView);
         top.Add(win);
 
         Application.Run();
-        Dll?.Dispose();
+        foreach (var dll in LoadedDlls)
+            dll.Dispose();
         Application.Shutdown();
     }
 
-    /// <summary>
-    /// Displays a file picker and loads the selected DLL into the analyzer.
-    /// </summary>
-    static async void OpenFile()
+    static IEnumerable<object> GetChildren(object node)
+    {
+        if (ChildCache.TryGetValue(node, out var cached))
+            return cached;
+
+        List<object> result;
+        switch (node)
+        {
+            case LoadedDll dll:
+                if (dll.IsManaged)
+                {
+                    var types = Analyzer.GetManagedTypesAsync(dll, dll.Cts.Token).GetAwaiter().GetResult();
+                    result = types
+                        .GroupBy(t => string.IsNullOrEmpty(t.Namespace) ? "(global)" : t.Namespace)
+                        .OrderBy(g => g.Key, StringComparer.Ordinal)
+                        .Select(g => (object)new NamespaceNode(g.Key, g.OrderBy(t => t.Name, StringComparer.Ordinal).ToList()))
+                        .ToList();
+                }
+                else
+                {
+                    var names = Analyzer.GetExportNamesAsync(dll, dll.Cts.Token).GetAwaiter().GetResult();
+                    result = names.Select(n => (object)new ExportItem { Dll = dll, Name = n }).ToList();
+                }
+                break;
+            case NamespaceNode ns:
+                result = ns.Types.Cast<object>().ToList();
+                break;
+            case TypeDefinition type:
+                result = type.Methods.Cast<object>().ToList();
+                break;
+            default:
+                result = new List<object>();
+                break;
+        }
+
+        ChildCache[node] = result;
+        return result;
+    }
+
+    static bool HasChildren(object node) => node switch
+    {
+        LoadedDll => true,
+        NamespaceNode ns => ns.Types.Count > 0,
+        TypeDefinition t => t.Methods.Any(),
+        _ => false
+    };
+
+    static async void OnObjectActivated(ObjectActivatedEventArgs<object> args)
+    {
+        switch (args.ActivatedObject)
+        {
+            case LoadedDll dll:
+                CodeView.Text = Analyzer.GetSummary(dll);
+                break;
+            case ExportItem export:
+                CodeView.Text = "Loading...";
+                var code = await Analyzer.GetDecompiledExportAsync(
+                    export.Dll,
+                    export.Name,
+                    new Progress<string>(p => Application.MainLoop.Invoke(() => CodeView.Text = p)),
+                    export.Dll.Cts.Token).ConfigureAwait(false);
+                Application.MainLoop.Invoke(() => CodeView.Text = code);
+                break;
+            case MethodDefinition method:
+                if (method.Module?.FileName == null || !ModuleToDll.TryGetValue(method.Module.FileName, out var mdll))
+                {
+                    CodeView.Text = "// Unable to locate DLL";
+                    return;
+                }
+                CodeView.Text = "Loading...";
+                var body = await Analyzer.GetManagedMethodBodyAsync(
+                    mdll,
+                    method,
+                    new Progress<string>(p => Application.MainLoop.Invoke(() => CodeView.Text = p)),
+                    mdll.Cts.Token).ConfigureAwait(false);
+                Application.MainLoop.Invoke(() => CodeView.Text = body);
+                break;
+        }
+    }
+
+    static void OpenFile()
     {
         var dialog = new OpenDialog("Open DLL", "Select a DLL")
         {
@@ -165,44 +187,81 @@ public class Program
         if (dialog.Canceled || string.IsNullOrEmpty(dialog.FilePath.ToString()))
             return;
 
-        Dll?.Dispose();
-        Dll = Analyzer.Load(dialog.FilePath.ToString()!);
-        CodeView.Text = Analyzer.GetSummary(Dll);
+        var dll = Analyzer.Load(dialog.FilePath.ToString()!);
+        LoadedDlls.Add(dll);
+        ModuleToDll[dll.Pe.FilePath] = dll;
+        if (dll.ManagedModule?.FileName is string mpath)
+            ModuleToDll[mpath] = dll;
 
-        await LoadExportsAsync().ConfigureAwait(false);
+        CodeView.Text = Analyzer.GetSummary(dll);
+        DllTree.AddObject(dll);
     }
 
-    /// <summary>
-    /// Initiates asynchronous loading of export names from the current DLL.
-    /// </summary>
-    static async void LoadExports() => await LoadExportsAsync().ConfigureAwait(false);
-
-    /// <summary>
-    /// Retrieves export names from the loaded DLL and populates the left pane.
-    /// </summary>
-    static async Task LoadExportsAsync()
+    static string FormatMethodSignature(MethodDefinition method)
     {
-        if (Dll == null) return;
-        var exports = await Analyzer.GetExportNamesAsync(Dll, Dll.Cts.Token).ConfigureAwait(false);
-        Application.MainLoop.Invoke(() =>
-        {
-            ItemList.SetSource(exports);
-            ShowingExports = true;
-        });
+        var parameters = string.Join(", ", method.Parameters.Select(p => FormatTypeName(p.ParameterType)));
+        if (method.IsConstructor)
+            return $"{method.DeclaringType.Name}({parameters})";
+        return $"{FormatTypeName(method.ReturnType)} {method.Name}({parameters})";
     }
 
-    /// <summary>
-    /// Loads the list of managed types from the currently opened DLL.
-    /// </summary>
-    static async void LoadManagedTypes()
+    static string FormatTypeName(TypeReference type)
     {
-        if (Dll == null || !Dll.IsManaged) return;
-        ManagedTypes = await Analyzer.GetManagedTypesAsync(Dll, Dll.Cts.Token).ConfigureAwait(false);
-        Application.MainLoop.Invoke(() =>
+        if (type is GenericInstanceType git)
         {
-            ItemList.SetSource(ManagedTypes.Select(t => t.FullName).ToList());
-            ShowingExports = false;
-        });
+            var name = git.ElementType.Name;
+            var tick = name.IndexOf('`');
+            if (tick >= 0)
+                name = name[..tick];
+            var args = string.Join(", ", git.GenericArguments.Select(FormatTypeName));
+            return $"{name}<{args}>";
+        }
+
+        if (type is ArrayType at)
+            return $"{FormatTypeName(at.ElementType)}[{new string(',', at.Rank - 1)}]";
+
+        return type.FullName switch
+        {
+            "System.Void" => "void",
+            "System.Object" => "object",
+            "System.String" => "string",
+            "System.Boolean" => "bool",
+            "System.Byte" => "byte",
+            "System.SByte" => "sbyte",
+            "System.Int16" => "short",
+            "System.UInt16" => "ushort",
+            "System.Int32" => "int",
+            "System.UInt32" => "uint",
+            "System.Int64" => "long",
+            "System.UInt64" => "ulong",
+            "System.Char" => "char",
+            "System.Single" => "float",
+            "System.Double" => "double",
+            "System.Decimal" => "decimal",
+            "System.IntPtr" => "nint",
+            "System.UIntPtr" => "nuint",
+            _ => type.Name
+        };
+    }
+
+    sealed class NamespaceNode
+    {
+        public string Name { get; }
+        public List<TypeDefinition> Types { get; }
+
+        public NamespaceNode(string name, List<TypeDefinition> types)
+        {
+            Name = name;
+            Types = types;
+        }
+
+        public override string ToString() => Name;
+    }
+
+    sealed class ExportItem
+    {
+        public required LoadedDll Dll { get; init; }
+        public required string Name { get; init; }
     }
 }
 
