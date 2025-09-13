@@ -1144,8 +1144,12 @@ public partial class MainWindow : Window
 
         if (root.Tag is LoadedDll or InvalidDll)
         {
-            menu.Items.Add(new MenuItem { Header = "Unload", Click = Unload_Click });
-            menu.Items.Add(new Separator());
+            if (item.Tag is LoadedDll or InvalidDll)
+            {
+                menu.Items.Add(new MenuItem { Header = "Unload", Click = Unload_Click });
+                menu.Items.Add(new Separator());
+            }
+
             menu.Items.Add(new MenuItem { Header = "Open Path", Click = OpenPath_Click, IsEnabled = path != null });
             menu.Items.Add(new MenuItem { Header = "Copy Path", Click = CopyPath_Click, IsEnabled = path != null });
             menu.Items.Add(new MenuItem { Header = "Properties", Click = Properties_Click, IsEnabled = path != null });
