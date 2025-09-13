@@ -14,7 +14,7 @@ public class Program
 {
     static readonly DllAnalyzer Analyzer = new();
     static readonly List<LoadedDll> LoadedDlls = new();
-    static readonly Dictionary<string, LoadedDll> ModuleToDll = new(StringComparer.OrdinalIgnoreCase);
+    static readonly Dictionary<ModuleDefinition, LoadedDll> ModuleToDll = new();
     static readonly Dictionary<object, List<object>> ChildCache = new();
 
     static TreeView<object> DllTree = null!;
@@ -160,7 +160,7 @@ public class Program
                 Application.MainLoop.Invoke(() => CodeView.Text = code);
                 break;
             case MethodDefinition method:
-                if (method.Module?.FileName == null || !ModuleToDll.TryGetValue(method.Module.FileName, out var mdll))
+                if (method.Module == null || !ModuleToDll.TryGetValue(method.Module, out var mdll))
                 {
                     CodeView.Text = "// Unable to locate DLL";
                     return;
@@ -189,9 +189,8 @@ public class Program
 
         var dll = Analyzer.Load(dialog.FilePath.ToString()!);
         LoadedDlls.Add(dll);
-        ModuleToDll[dll.Pe.FilePath] = dll;
-        if (dll.ManagedModule?.FileName is string mpath)
-            ModuleToDll[mpath] = dll;
+        if (dll.ManagedModule is { } module)
+            ModuleToDll[module] = dll;
 
         CodeView.Text = Analyzer.GetSummary(dll);
         DllTree.AddObject(dll);
