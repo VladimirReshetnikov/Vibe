@@ -74,7 +74,7 @@ public class OpenAiLlmProviderTests
         Assert.NotNull(field);
         field!.SetValue(provider, client);
 
-        string refined = await provider.RefineAsync("int main() {}");
+        string refined = await provider.RefineAsync("int main() {}", "C");
         Assert.Equal("result code", refined);
 
         Assert.Equal("https://api.openai.com/v1/responses", handler.LastRequest!.RequestUri!.ToString());

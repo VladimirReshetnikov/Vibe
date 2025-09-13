@@ -73,7 +73,7 @@ public sealed class DllAnalyzer : IDisposable
     /// <summary>
     /// Returns decompiled C# code for the specified managed method.
     /// </summary>
-    public string GetManagedMethodBody(LoadedDll dll, MethodDefinition method)
+    public async Task<string> GetManagedMethodBodyAsync(LoadedDll dll, MethodDefinition method)
     {
         if (!method.HasBody)
             return "// Method has no body";
@@ -94,7 +94,7 @@ public sealed class DllAnalyzer : IDisposable
             if (_provider != null)
             {
                 var context = BuildLlmContext(dll);
-                code = _provider.RefineAsync(context + code, "C#", null, CancellationToken.None).GetAwaiter().GetResult();
+                code = await _provider.RefineAsync(context + code, "C#", null, CancellationToken.None);
             }
 
             return code;
