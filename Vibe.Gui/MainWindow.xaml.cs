@@ -632,7 +632,8 @@ public partial class MainWindow : Window
             return;
 
         root.Items.Clear();
-        var funcIcon = (ImageSource)FindResource("ExportedFunctionIconImage");
+        var nativeFuncIcon = (ImageSource)FindResource("NativeFunctionIconImage");
+        var managedFuncIcon = (ImageSource)FindResource("ManagedMethodIconImage");
         try
         {
             if (dll.IsManaged)
@@ -651,7 +652,7 @@ public partial class MainWindow : Window
                         var typeItem = new TreeViewItem { Header = type.Name, Tag = type };
                         foreach (var method in type.Methods.OrderBy(m => m.Name, StringComparer.Ordinal))
                         {
-                            var methodItem = CreateTreeViewItemWithIcon(FormatMethodSignature(method), funcIcon, method);
+                            var methodItem = CreateTreeViewItemWithIcon(FormatMethodSignature(method), managedFuncIcon, method);
                             typeItem.Items.Add(methodItem);
                         }
                         nsItem.Items.Add(typeItem);
@@ -668,7 +669,7 @@ public partial class MainWindow : Window
                 foreach (var name in names)
                 {
                     token.ThrowIfCancellationRequested();
-                    var funcItem = CreateTreeViewItemWithIcon(name, funcIcon, new ExportItem { Dll = dll, Name = name });
+                    var funcItem = CreateTreeViewItemWithIcon(name, nativeFuncIcon, new ExportItem { Dll = dll, Name = name });
                     root.Items.Add(funcItem);
 
                     if (++i % 20 == 0)
