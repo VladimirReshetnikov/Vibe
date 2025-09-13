@@ -41,7 +41,7 @@
                   Background="{StaticResource PanelBrush}" BorderBrush="{StaticResource BorderBrush}" BorderThickness="1"
                   SelectedItemChanged="DllTree_SelectedItemChanged" KeyDown="DllTree_KeyDown"
                   VirtualizingStackPanel.IsVirtualizing="True" VirtualizingStackPanel.VirtualizationMode="Recycling">
-            <TreeView.ItemContainerStyle>
+            <TreeView.Resources>
                 <Style TargetType="TreeViewItem">
                     <Setter Property="Template">
                         <Setter.Value>
@@ -84,7 +84,7 @@
                         </Setter.Value>
                     </Setter>
                 </Style>
-            </TreeView.ItemContainerStyle>
+            </TreeView.Resources>
         </TreeView>
         <Grid x:Key="DecompilerContent" Margin="4">
             <avalonEdit:TextEditor x:Name="OutputBox" FontFamily="Consolas" IsReadOnly="True" ShowLineNumbers="True"
