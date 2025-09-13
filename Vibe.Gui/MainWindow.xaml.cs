@@ -332,6 +332,53 @@ public partial class MainWindow : Window
         return item;
     }
 
+    private static string FormatMethodSignature(MethodDefinition method)
+    {
+        var parameters = string.Join(", ", method.Parameters.Select(p => FormatTypeName(p.ParameterType)));
+        if (method.IsConstructor)
+            return $"{method.DeclaringType.Name}({parameters})";
+        return $"{FormatTypeName(method.ReturnType)} {method.Name}({parameters})";
+    }
+
+    private static string FormatTypeName(TypeReference type)
+    {
+        if (type is GenericInstanceType git)
+        {
+            var name = git.ElementType.Name;
+            var tick = name.IndexOf('`');
+            if (tick >= 0)
+                name = name[..tick];
+            var args = string.Join(", ", git.GenericArguments.Select(FormatTypeName));
+            return $"{name}<{args}>";
+        }
+
+        if (type is ArrayType at)
+            return $"{FormatTypeName(at.ElementType)}[{new string(',', at.Rank - 1)}]";
+
+        return type.FullName switch
+        {
+            "System.Void" => "void",
+            "System.Object" => "object",
+            "System.String" => "string",
+            "System.Boolean" => "bool",
+            "System.Byte" => "byte",
+            "System.SByte" => "sbyte",
+            "System.Int16" => "short",
+            "System.UInt16" => "ushort",
+            "System.Int32" => "int",
+            "System.UInt32" => "uint",
+            "System.Int64" => "long",
+            "System.UInt64" => "ulong",
+            "System.Char" => "char",
+            "System.Single" => "float",
+            "System.Double" => "double",
+            "System.Decimal" => "decimal",
+            "System.IntPtr" => "nint",
+            "System.UIntPtr" => "nuint",
+            _ => type.Name
+        };
+    }
+
     private void LoadCommonDlls()
     {
         var systemDir = Environment.SystemDirectory;
@@ -525,7 +572,7 @@ public partial class MainWindow : Window
                         var typeItem = new TreeViewItem { Header = type.Name, Tag = type };
                         foreach (var method in type.Methods)
                         {
-                            var methodItem = CreateTreeViewItemWithIcon(method.Name, funcIcon, method);
+                            var methodItem = CreateTreeViewItemWithIcon(FormatMethodSignature(method), funcIcon, method);
                             typeItem.Items.Add(methodItem);
                         }
                         nsItem.Items.Add(typeItem);
