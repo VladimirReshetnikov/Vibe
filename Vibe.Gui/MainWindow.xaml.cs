@@ -644,7 +644,8 @@ public partial class MainWindow : Window
                 OutputBox.Text = $"Type: {td.FullName}";
                 return;
             case MethodDefinition md:
-                OutputBox.Text = _dllAnalyzer.GetManagedMethodBody(md);
+                if (GetRootItem(item).Tag is LoadedDll rootDll)
+                    OutputBox.Text = _dllAnalyzer.GetManagedMethodBody(rootDll, md);
                 return;
         }
     }
