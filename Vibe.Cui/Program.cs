@@ -123,7 +123,7 @@ public class Program
                 {
                     var methodName = (string)args2.Value;
                     var method = type.Methods.First(m => m.FullName == methodName);
-                    var body = Analyzer.GetManagedMethodBody(method);
+                    var body = Analyzer.GetManagedMethodBody(Dll!, method);
                     CodeView.Text = body;
                     Application.RequestStop();
                 };
