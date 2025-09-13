@@ -635,7 +635,6 @@ public partial class MainWindow : Window
         _currentRequestCts.Dispose();
         _currentRequestCts = null;
 
-        EndRequest();
         HideLlmOverlay();
     }
 
@@ -838,9 +837,12 @@ public partial class MainWindow : Window
                 finally
                 {
                     if (_currentRequestCts?.Token == token)
-                        CancelCurrentRequest();
-                    else
-                        EndRequest();
+                    {
+                        _currentRequestCts.Dispose();
+                        _currentRequestCts = null;
+                        HideLlmOverlay();
+                    }
+                    EndRequest();
                 }
                 break;
             case TypeDefinition td:
@@ -888,9 +890,12 @@ public partial class MainWindow : Window
                     finally
                     {
                         if (_currentRequestCts?.Token == mtoken)
-                            CancelCurrentRequest();
-                        else
-                            EndRequest();
+                        {
+                            _currentRequestCts.Dispose();
+                            _currentRequestCts = null;
+                            HideLlmOverlay();
+                        }
+                        EndRequest();
                     }
                 }
                 else
