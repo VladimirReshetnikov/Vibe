@@ -881,8 +881,10 @@ public partial class MainWindow : Window
         var content = CloneDecompilerContent(out var editor);
         string title = item.Header is FrameworkElement fe && fe is StackPanel sp && sp.Children.OfType<Border>().FirstOrDefault()?.Child is TextBlock tb ? tb.Text : "View";
         var doc = new LayoutDocument { Title = title, Content = content };
+        var previous = pane.SelectedContent as LayoutContent;
         pane.Children.Add(doc);
-        doc.IsActive = true;
+        if (previous is not null)
+            previous.IsActive = true;
 
         switch (item.Tag)
         {
