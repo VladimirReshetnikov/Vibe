@@ -616,13 +616,13 @@ public partial class MainWindow : Window
 
     private void BeginRequest()
     {
-        _pendingRequests++;
+        Interlocked.Increment(ref _pendingRequests);
         BusyBar.Visibility = Visibility.Visible;
     }
 
     private void EndRequest()
     {
-        if (_pendingRequests > 0 && --_pendingRequests == 0)
+        if (Interlocked.Decrement(ref _pendingRequests) == 0)
             BusyBar.Visibility = Visibility.Collapsed;
     }
 
