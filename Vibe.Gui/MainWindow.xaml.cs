@@ -32,6 +32,7 @@ public partial class MainWindow : Window
     public static readonly RoutedUICommand ToggleLogCommand = new("Log", nameof(ToggleLogCommand), typeof(MainWindow), new InputGestureCollection { new KeyGesture(Key.L, ModifierKeys.Control | ModifierKeys.Alt) });
     public static readonly RoutedUICommand ToggleSearchCommand = new("Search Results", nameof(ToggleSearchCommand), typeof(MainWindow), new InputGestureCollection { new KeyGesture(Key.S, ModifierKeys.Control | ModifierKeys.Alt) });
     public static readonly RoutedUICommand ResetLayoutCommand = new("Reset Window Layout", nameof(ResetLayoutCommand), typeof(MainWindow), new InputGestureCollection { new KeyGesture(Key.R, ModifierKeys.Control | ModifierKeys.Alt) });
+    public static readonly RoutedUICommand OpenDllCommand = new("Open DLL", nameof(OpenDllCommand), typeof(MainWindow), new InputGestureCollection { new KeyGesture(Key.O, ModifierKeys.Control) });
 
     private readonly string _layoutFile;
     private readonly Grid _decompilerContent;
@@ -109,6 +110,7 @@ public partial class MainWindow : Window
         CommandBindings.Add(new CommandBinding(ToggleLogCommand, (_, _) => ToggleAnchorable("Log")));
         CommandBindings.Add(new CommandBinding(ToggleSearchCommand, (_, _) => ToggleAnchorable("SearchResults")));
         CommandBindings.Add(new CommandBinding(ResetLayoutCommand, (_, _) => ResetLayout()));
+        CommandBindings.Add(new CommandBinding(OpenDllCommand, OpenDll_Click));
 
         OutputBox.TextArea.TextView.LineTransformers.Add(new PseudoCodeColorizer());
 

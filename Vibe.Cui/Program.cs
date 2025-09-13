@@ -29,7 +29,7 @@ public class Program
         {
             new MenuBarItem("_File", new MenuItem[]
             {
-                new MenuItem("_Open", string.Empty, OpenFile),
+                new MenuItem("_Open", "Ctrl+O", OpenFile, null, null, Key.CtrlMask | Key.O),
                 new MenuItem("_Quit", string.Empty, () => { Dll?.Dispose(); Application.RequestStop(); })
             }),
             new MenuBarItem("_View", new MenuItem[]
