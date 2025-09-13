@@ -200,9 +200,9 @@ public static class TypeExtensionsTests
     }
 
     /// <summary>
-    /// Passing an open generic type is currently unsupported and should throw a meaningful exception.
+    /// Passing an open generic type throws an <see cref="ArgumentException"/>.
     /// </summary>
-    [Fact(Skip = "ToDynamicObject should reject open generic types with a clear exception.")]
+    [Fact]
     public static void OpenGenericTypeRejected()
     {
         Type openType = typeof(GenericContainer<>);

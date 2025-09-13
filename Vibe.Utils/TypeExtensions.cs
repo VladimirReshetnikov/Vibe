@@ -24,6 +24,8 @@ public static class TypeExtensions
     public static dynamic ToDynamicObject(this Type staticType)
     {
         ArgumentNullException.ThrowIfNull(staticType);
+        if (staticType.ContainsGenericParameters)
+            throw new ArgumentException("Open generic types are not supported.", nameof(staticType));
         return new StaticTypeProxy(staticType);
     }
 
